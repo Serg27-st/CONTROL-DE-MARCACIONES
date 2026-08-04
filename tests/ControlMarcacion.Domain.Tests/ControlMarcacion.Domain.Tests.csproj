@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests unitarios del dominio, con foco en el motor de cálculo del tareo.
+
+    Estos tests NO tocan base de datos: Domain no referencia EF Core precisamente
+    para que el cálculo sea probable en memoria. Si un test de este proyecto
+    necesita un DbContext, el diseño está mal.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ControlMarcacion.Domain.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ControlMarcacion.Domain\ControlMarcacion.Domain.csproj" />
+    <ProjectReference Include="..\..\src\ControlMarcacion.Application\ControlMarcacion.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="Shouldly" Version="4.3.0" />
+    <PackageReference Include="NSubstitute" Version="6.0.0" />
+    <PackageReference Include="coverlet.collector" Version="10.0.1" />
+  </ItemGroup>
+
+</Project>

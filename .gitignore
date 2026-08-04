@@ -1,0 +1,56 @@
+## Compilación .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userprefs
+project.lock.json
+artifacts/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.sln.docstates
+*.csproj.user
+
+## Secretos y configuración local
+## NUNCA versionar cadenas de conexión ni credenciales.
+appsettings.Development.json
+appsettings.Local.json
+appsettings.Production.json
+secrets.json
+*.pfx
+*.snk
+.env
+
+## Archivos de datos del marcador
+## Contienen datos personales de trabajadores (Ley 29733): no se versionan.
+## Los archivos de muestra para tests van en tests/**/Recursos/ y sí se versionan,
+## pero deben estar anonimizados.
+/datos-marcador/
+*.dat
+*_attlog.txt
+!tests/**/Recursos/*.dat
+!tests/**/Recursos/*_attlog.txt
+
+## Exportaciones generadas
+/exportaciones/
+*.xlsx
+!docs/**/*.xlsx
+
+## Logs
+logs/
+*.log
+
+## Base de datos local
+*.mdf
+*.ldf
+
+## Sistema operativo
+Thumbs.db
+desktop.ini
+.DS_Store

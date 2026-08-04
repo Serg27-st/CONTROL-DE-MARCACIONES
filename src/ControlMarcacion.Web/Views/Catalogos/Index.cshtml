@@ -1,0 +1,83 @@
+@model IReadOnlyList<DefinicionCatalogo>
+@{
+    ViewData["Title"] = "Catálogos";
+}
+
+<div class="titulo-pagina">
+    <h1>Catálogos</h1>
+</div>
+
+<div class="tarjeta">
+    <h2>Mantenimiento</h2>
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Catálogo</th>
+                    <th>Depende de</th>
+                    <th>Descripción</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var definicion in Model)
+                {
+                    <tr>
+                        <td><strong>@definicion.Titulo</strong></td>
+                        <td>@(definicion.EtiquetaPadre ?? "—")</td>
+                        <td>@definicion.Descripcion</td>
+                        <td>
+                            <a asp-action="Lista" asp-route-clave="@definicion.Clave">Administrar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="tarjeta">
+    <h2>Con pantalla propia</h2>
+    <p style="color: var(--color-texto-suave);">
+        Estos catálogos no son código más nombre: tienen reglas que una pantalla genérica
+        dejaría mal cargadas, así que se administran aparte.
+    </p>
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Catálogo</th>
+                    <th>Estado</th>
+                    <th>Por qué va aparte</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Turnos</strong></td>
+                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
+                    <td>
+                        Horarios, refrigerio, tolerancia, <strong>ventanas de anticipación</strong>,
+                        días aplicables y plantas habilitadas
+                    </td>
+                    <td><a asp-controller="Turnos" asp-action="Index">Administrar</a></td>
+                </tr>
+                <tr>
+                    <td><strong>Periodos</strong></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Rango de fechas y ciclo de apertura y cierre, que congela el tareo</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td><strong>Tipos de ausencia</strong></td>
+                    <td><span class="etiqueta etiqueta-tardanza">Datos cargados</span></td>
+                    <td>
+                        El comportamiento decide cómo los trata el cálculo; crear uno sin
+                        elegirlo produciría tareos incorrectos en silencio
+                    </td>
+                    <td>—</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,48 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.{cs,csx}]
+indent_size = 4
+max_line_length = 120
+
+# Organización de using
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+
+# Estilo del proyecto
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+csharp_style_var_for_built_in_types = false:suggestion
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_readonly_field = true:warning
+
+[*.{xml,csproj,props,targets,config}]
+indent_size = 2
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.cshtml]
+indent_size = 4
+
+[*.{js,css}]
+indent_size = 4
+
+# ---------------------------------------------------------------------------
+# Migraciones de EF Core.
+#
+# Son código GENERADO: se regeneran con cada `dotnet ef migrations add` y no se
+# editan a mano. Aplicarles reglas de estilo o de análisis solo produce errores
+# que hay que volver a arreglar en cada migración nueva — y como el proyecto
+# trata las advertencias como errores, bloquearían la compilación.
+# ---------------------------------------------------------------------------
+[**/Migraciones/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

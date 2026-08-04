@@ -1,0 +1,189 @@
+@model EditarTurnoVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo turno" : "Editar turno";
+
+    var dias = new (DiasSemana Valor, string Etiqueta)[]
+    {
+        (DiasSemana.Lunes, "Lunes"),
+        (DiasSemana.Martes, "Martes"),
+        (DiasSemana.Miercoles, "Miércoles"),
+        (DiasSemana.Jueves, "Jueves"),
+        (DiasSemana.Viernes, "Viernes"),
+        (DiasSemana.Sabado, "Sábado"),
+        (DiasSemana.Domingo, "Domingo")
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Identificación y horario</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="10" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="80" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.HoraInicio">Hora de inicio</label>
+                <input asp-for="Datos.HoraInicio" type="time" />
+                <span class="error-campo" asp-validation-for="Datos.HoraInicio"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.HoraFin">Hora de fin</label>
+                <input asp-for="Datos.HoraFin" type="time" />
+                <span class="error-campo" asp-validation-for="Datos.HoraFin"></span>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Si la hora de fin es menor o igual que la de inicio, el turno
+            <strong>cruza medianoche</strong> y la jornada se imputa al día en que empieza.
+        </p>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Ventanas de reconocimiento</h2>
+
+        <div class="aviso" style="background:#eef4ff; border-color:#b9cdf5; color:#1e3a8a;">
+            El marcador reporta todas las marcaciones con el mismo código: <strong>no distingue
+            entrada de salida</strong>. Estas dos ventanas son las que permiten al motor
+            decidir a qué extremo del turno pertenece cada marca.
+        </div>
+
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.MinutosAnticipacionEntrada">Anticipación de entrada (minutos)</label>
+                <input asp-for="Datos.MinutosAnticipacionEntrada" type="number" min="0" max="240" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosAnticipacionEntrada"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Cuántos minutos antes del inicio una marca ya cuenta como entrada.
+                    Súbelo si la gente suele llegar bastante antes.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.MinutosAnticipacionSalida">Anticipación de salida (minutos)</label>
+                <input asp-for="Datos.MinutosAnticipacionSalida" type="number" min="0" max="240" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosAnticipacionSalida"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Debe ser estrecha: irse antes es una salida anticipada y tiene que
+                    quedar registrada, no absorberse dentro de la ventana.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.MinutosTolerancia">Tolerancia de tardanza (minutos)</label>
+                <input asp-for="Datos.MinutosTolerancia" type="number" min="0" max="120" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosTolerancia"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Minutos <strong>después</strong> del inicio que aún se consideran puntuales.
+                    Es distinto de la anticipación: esto no decide si la marca es la entrada,
+                    sino si llegó tarde.
+                </small>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Llegar antes del inicio <strong>no genera hora extra automáticamente</strong>.
+            La jornada se computa desde la hora del turno: el sobretiempo es voluntario y
+            requiere autorización (D.S. 007-2002-TR, art. 9).
+        </p>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Jornada</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.MinutosJornadaOrdinaria">Jornada ordinaria (minutos)</label>
+                <input asp-for="Datos.MinutosJornadaOrdinaria" type="number" min="1" max="1440" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosJornadaOrdinaria"></span>
+                <small style="color: var(--color-texto-suave);">
+                    480 = 8 horas, el máximo legal diario. El excedente es hora extra.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.MinutosRefrigerio">Refrigerio (minutos)</label>
+                <input asp-for="Datos.MinutosRefrigerio" type="number" min="0" max="240" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosRefrigerio"></span>
+                <small style="color: var(--color-texto-suave);">
+                    No se marca: se descuenta como valor fijo. Mínimo legal 45 min.
+                </small>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Días en que aplica</h2>
+        <div class="rejilla">
+            @foreach (var dia in dias)
+            {
+                <div class="campo campo-casilla">
+                    <input type="checkbox" name="Datos.DiasAplicables" value="@((int)dia.Valor)"
+                           id="dia-@dia.Valor"
+                           checked="@(Model.Datos.DiasAplicables.HasFlag(dia.Valor))" />
+                    <label for="dia-@dia.Valor">@dia.Etiqueta</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Plantas habilitadas</h2>
+        <p style="color: var(--color-texto-suave); margin-top: 0;">
+            Si no marcas ninguna, el turno aplica a <strong>todas</strong> las plantas.
+            Marcar plantas concretas es lo que hace que el turno especial de sábado exista
+            solo donde corresponde.
+        </p>
+        <div class="rejilla">
+            @foreach (var planta in Model.Plantas)
+            {
+                <div class="campo campo-casilla">
+                    <input type="checkbox" name="Datos.PlantasHabilitadas" value="@planta.Id"
+                           id="planta-@planta.Id"
+                           checked="@(Model.Datos.PlantasHabilitadas.Contains(planta.Id))" />
+                    <label for="planta-@planta.Id">@planta.Nombre</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

@@ -1,0 +1,72 @@
+@{
+    ViewData["Title"] = "Inicio";
+}
+
+<div class="titulo-pagina">
+    <h1>Panel de control</h1>
+</div>
+
+<div class="tarjeta">
+    <h2>Estado del proyecto</h2>
+    <p>
+        Sistema de control de asistencia y cálculo de tareo para <strong>GCA</strong>,
+        cliente <strong>Intradevco</strong>.
+    </p>
+    <p style="color: var(--color-texto-suave);">
+        <strong>Marcador en duro + justificaciones = resultado final.</strong>
+        Las marcaciones que llegan del ZKTeco no se modifican nunca; toda corrección se
+        registra como justificación mientras el periodo esté abierto.
+    </p>
+</div>
+
+<div class="tarjeta">
+    <h2>Módulos</h2>
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Módulo</th>
+                    <th>Estado</th>
+                    <th>Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><a asp-controller="Trabajadores" asp-action="Index">Personal</a></td>
+                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
+                    <td>Ficha del trabajador, datos personales y laborales, ID de marcador y turno</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="Trabajadores" asp-action="Index">Catálogos</a></td>
+                    <td><span class="etiqueta etiqueta-tardanza">Datos cargados</span></td>
+                    <td>Empresas, plantas, turnos, tipos de documento y de ausencia ya sembrados</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="" asp-action="Index">Marcaciones</a></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Carga del TXT del ZKTeco G3 — requiere un archivo real de muestra</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="" asp-action="Index">Solicitudes</a></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Vacaciones, descansos médicos, licencias, permisos y subsidios</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="" asp-action="Index">Justificaciones</a></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Corrección auditable de ausencias y tardanzas, con periodo abierto</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="" asp-action="Index">Tareo</a></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Motor de cálculo y horas extras según normativa peruana</td>
+                </tr>
+                <tr>
+                    <td><a asp-controller="" asp-action="Index">Reportes</a></td>
+                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td>Tareo final y exportaciones — requiere el archivo modelo</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

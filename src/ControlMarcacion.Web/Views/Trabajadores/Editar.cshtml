@@ -1,0 +1,203 @@
+@model EditarTrabajadorVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo trabajador" : "Editar trabajador";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Datos personales</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TipoDocumentoId">Tipo de documento</label>
+                <select asp-for="Datos.TipoDocumentoId"
+                        asp-items="@(new SelectList(Model.TiposDocumento, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TipoDocumentoId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.NumeroDocumento">Número de documento</label>
+                <input asp-for="Datos.NumeroDocumento" type="text" maxlength="20" />
+                <span class="error-campo" asp-validation-for="Datos.NumeroDocumento"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.ApellidoPaterno">Apellido paterno</label>
+                <input asp-for="Datos.ApellidoPaterno" type="text" maxlength="80" />
+                <span class="error-campo" asp-validation-for="Datos.ApellidoPaterno"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.ApellidoMaterno">Apellido materno</label>
+                <input asp-for="Datos.ApellidoMaterno" type="text" maxlength="80" />
+                <span class="error-campo" asp-validation-for="Datos.ApellidoMaterno"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombres">Nombres</label>
+                <input asp-for="Datos.Nombres" type="text" maxlength="120" />
+                <span class="error-campo" asp-validation-for="Datos.Nombres"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Sexo">Sexo</label>
+                <select asp-for="Datos.Sexo">
+                    <option value="@((int)Sexo.Masculino)">Masculino</option>
+                    <option value="@((int)Sexo.Femenino)">Femenino</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Telefono">Teléfono</label>
+                <input asp-for="Datos.Telefono" type="text" maxlength="30" />
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.CorreoElectronico">Correo electrónico</label>
+                <input asp-for="Datos.CorreoElectronico" type="email" maxlength="150" />
+                <span class="error-campo" asp-validation-for="Datos.CorreoElectronico"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Direccion">Dirección</label>
+                <input asp-for="Datos.Direccion" type="text" maxlength="250" />
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.TieneHijos" type="checkbox" />
+                <label asp-for="Datos.TieneHijos">Tiene hijos</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Datos laborales</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.EmpresaId">Empresa</label>
+                <select asp-for="Datos.EmpresaId" id="EmpresaId"
+                        asp-items="@(new SelectList(Model.Empresas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.EmpresaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Unidad">Unidad</label>
+                <input asp-for="Datos.Unidad" type="text" maxlength="120" />
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.TipoPlanilla">Tipo de planilla</label>
+                <select asp-for="Datos.TipoPlanilla">
+                    <option value="@((int)TipoPlanilla.Obrero)">Obrero (OBM)</option>
+                    <option value="@((int)TipoPlanilla.Empleado)">Empleado (EMP)</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Planta</label>
+                <select asp-for="Datos.PlantaId" id="PlantaId"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.AreaId">Área</label>
+                <select asp-for="Datos.AreaId" id="AreaId"
+                        asp-items="@(new SelectList(Model.Areas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.AreaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.SeccionId">Sección</label>
+                <select asp-for="Datos.SeccionId" id="SeccionId"
+                        asp-items="@(new SelectList(Model.Secciones, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.SeccionId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PuestoId">Puesto</label>
+                <select asp-for="Datos.PuestoId"
+                        asp-items="@(new SelectList(Model.Puestos, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PuestoId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaIngreso">Fecha de ingreso</label>
+                <input asp-for="Datos.FechaIngreso" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaIngreso"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaCese">Fecha de cese</label>
+                <input asp-for="Datos.FechaCese" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaCese"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Marcador y turno</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.IdMarcador">ID de marcador</label>
+                <input asp-for="Datos.IdMarcador" type="text" maxlength="30" />
+                <span class="error-campo" asp-validation-for="Datos.IdMarcador"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.TurnoId">Turno</label>
+                <select asp-for="Datos.TurnoId" id="TurnoId"
+                        asp-items="@(new SelectList(Model.Turnos, "Id", "Nombre"))">
+                    <option value="">Sin turno asignado</option>
+                </select>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            El identificador del marcador y el turno se guardan con vigencia por fecha.
+            Al cambiarlos se cierra la asignación anterior y se abre una nueva, para que
+            las marcaciones ya registradas sigan atribuidas correctamente.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/trabajador-form.js" asp-append-version="true"></script>
+}

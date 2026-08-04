@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Capa de presentación: ASP.NET Core MVC con vistas Razor, autenticación con
+    Identity y composición de la inyección de dependencias.
+
+    Los controladores validan, delegan en Application y arman el modelo de la vista.
+    Cero lógica de negocio y cero acceso directo al DbContext.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ControlMarcacion.Web</RootNamespace>
+    <UserSecretsId>controlmarcacion-gca-2026</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ControlMarcacion.Application\ControlMarcacion.Application.csproj" />
+    <ProjectReference Include="..\ControlMarcacion.Infrastructure\ControlMarcacion.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Las herramientas de EF Core exigen este paquete en el proyecto de ARRANQUE, no
+      solo donde vive el DbContext. En Infrastructure está marcado como PrivateAssets,
+      así que no se propaga hasta aquí y hay que declararlo otra vez.
+      Solo se usa en tiempo de diseño: no se despliega.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

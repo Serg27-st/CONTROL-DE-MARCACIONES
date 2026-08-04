@@ -1,0 +1,287 @@
+/*
+  Estilos del panel administrativo.
+
+  Se sirven localmente a propósito: la red de planta puede no tener salida a internet,
+  y un panel que depende de un CDN deja de funcionar justo donde tiene que operar.
+*/
+
+:root {
+  /* Marca y Fondo */
+  --color-fondo: #f4f6f9;            /* Fondo neutral para dar respiro visual */
+  --color-superficie: #ffffff;       /* Tarjetas, tablas y contenedores */
+  --color-borde: #e2e8f0;            /* Bordes sutiles y limpios */
+  
+  /* Tipografía */
+  --color-texto: #1e293b;            /* Legibilidad alta sin usar negro puro */
+  --color-texto-suave: #64748b;      /* Para subtítulos y descripciones */
+
+  /* Paleta Principal */
+  --color-primario: #212E58;         /* Azul Oscuro (Navbar, encabezados, botones secundarios) */
+  --color-primario-oscuro: #161e3b;  
+  --color-acento: #CF732D;           /* Naranja (Botones de acción, indicadores activos, focos) */
+  --color-acento-hover: #b56122;
+
+  /* Estados del Tareo y Catálogos */
+  --estado-puntual: #109045;         /* Verde */
+  --estado-tardanza: #CF732D;        /* Naranja */
+  --estado-falta: #dc2626;           /* Rojo controlado */
+  --estado-justificada: #212E58;     /* Azul */
+  --estado-incompleto: #64748b;      /* Gris intermedio */
+  --estado-sin-horario: #94a3b8;     /* Gris claro neutral */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  color: var(--color-texto);
+  background: var(--color-fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Encabezado y Navegación ---------- */
+
+.encabezado {
+  background: var(--color-primario);
+  color: #fff;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.encabezado .marca {
+  font-weight: 700;
+  font-size: 17px;
+  padding: 14px 0;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.encabezado nav { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.encabezado nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 16px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.encabezado nav a:hover { 
+  color: #fff; 
+  background: rgba(255, 255, 255, 0.05); 
+}
+
+/* Indicador activo con toque Naranja de acento */
+.encabezado nav a.activo { 
+  color: #fff; 
+  border-bottom-color: var(--color-acento); 
+  font-weight: 600;
+}
+
+/* ---------- Estructura ---------- */
+
+.contenido { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+
+.titulo-pagina {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.titulo-pagina h1 { 
+  font-size: 22px; 
+  font-weight: 700;
+  color: var(--color-primario); 
+  margin: 0; 
+}
+
+/* Tarjeta minimalista con sombra suave */
+.tarjeta {
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.tarjeta > h2 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-texto-suave);
+  margin: 0 0 18px;
+}
+
+/* ---------- Formularios ---------- */
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.campo { display: flex; flex-direction: column; gap: 6px; }
+
+.campo label { font-size: 13px; font-weight: 600; color: var(--color-texto); }
+
+.campo input[type="text"],
+.campo input[type="email"],
+.campo input[type="date"],
+.campo input[type="search"],
+.campo select {
+  padding: 9px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-texto);
+  background: #fff;
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.campo input:focus, .campo select:focus {
+  outline: none;
+  border-color: var(--color-acento);
+  box-shadow: 0 0 0 3px rgba(207, 115, 45, 0.15);
+}
+
+.campo-casilla { flex-direction: row; align-items: center; gap: 8px; padding-top: 22px; }
+.campo-casilla label { font-weight: 400; color: var(--color-texto); }
+
+.error-campo { color: var(--estado-falta); font-size: 12.5px; margin-top: 2px; }
+
+/* ---------- Botones ---------- */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 18px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+/* El botón principal destaca en Naranja */
+.boton-primario { background: var(--color-acento); color: #fff; }
+.boton-primario:hover { background: var(--color-acento-hover); }
+
+/* El secundario adopta una estructura de contorno limpia */
+.boton-secundario {
+  background: #fff;
+  color: var(--color-primario);
+  border-color: var(--color-borde);
+}
+
+.boton-secundario:hover { 
+  background: #f8fafc; 
+  border-color: #cbd5e1;
+}
+
+.acciones { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+/* ---------- Tablas ---------- */
+
+.tabla-contenedor { overflow-x: auto; }
+
+table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+table.tabla th {
+  text-align: left;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--color-borde);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-texto-suave);
+  white-space: nowrap;
+}
+
+table.tabla td { padding: 11px 14px; border-bottom: 1px solid var(--color-borde); }
+table.tabla tbody tr:hover { background: #f1f5f9; }
+
+/* Estilos limpios para los enlaces en la tabla */
+table.tabla a {
+  color: var(--color-primario);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+table.tabla a:hover {
+  color: var(--color-acento);
+  text-decoration: underline;
+}
+
+.sin-resultados {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-texto-suave);
+}
+
+/* ---------- Etiquetas de Estado (Soft Badges Minimalistas) ---------- */
+
+.etiqueta {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Variantes con fondo suave y texto oscuro para mejorar lectura */
+.etiqueta-puntual { background: #e6f4ea; color: var(--estado-puntual); }
+.etiqueta-tardanza { background: #fef3e7; color: var(--estado-tardanza); }
+.etiqueta-falta { background: #fde8e8; color: var(--estado-falta); }
+.etiqueta-justificada { background: #e8eefc; color: var(--estado-justificada); }
+.etiqueta-incompleto { background: #f1f5f9; color: var(--estado-incompleto); }
+.etiqueta-sin-horario { background: #f1f5f9; color: var(--estado-sin-horario); }
+.etiqueta-cesado { background: #f1f5f9; color: var(--estado-incompleto); }
+
+/* ---------- Avisos ---------- */
+
+.aviso { 
+  padding: 12px 16px; 
+  border-radius: 6px; 
+  margin-bottom: 20px; 
+  border: 1px solid; 
+  font-size: 14px;
+}
+
+.aviso-exito { background: #e8f5ee; border-color: #a8d5bd; color: #0d6e35; }
+.aviso-error { background: #fdeaec; border-color: #f2b8be; color: #8c1c28; }
+
+.aviso-error ul { margin: 6px 0 0; padding-left: 20px; }
+
+/* ---------- Paginación ---------- */
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.paginacion .conteo { color: var(--color-texto-suave); font-size: 13.5px; }

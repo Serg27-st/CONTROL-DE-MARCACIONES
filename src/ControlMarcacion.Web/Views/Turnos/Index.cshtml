@@ -1,0 +1,136 @@
+@model ListaTurnosVm
+@{
+    ViewData["Title"] = "Turnos";
+
+    static string Horas(int minutos) => $"{minutos / 60}h {minutos % 60:00}m";
+}
+
+<div class="titulo-pagina">
+    <h1>Turnos</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nuevo turno</a>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">
+        El marcador <strong>no distingue entrada de salida</strong>: reporta todas las marcas
+        con el mismo código. Las <em>ventanas de anticipación</em> son las que permiten al
+        motor decidir a qué extremo del turno pertenece cada marcación.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="incluirInactivos" name="incluirInactivos"
+                   value="true" checked="@Model.IncluirInactivos" />
+            <label for="incluirInactivos">Mostrar también los inactivos</label>
+        </div>
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-controller="Catalogos" asp-action="Index">Volver a catálogos</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Turnos.Count == 0)
+    {
+        <div class="sin-resultados">No hay turnos registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Horario</th>
+                        <th>Jornada</th>
+                        <th>Refrigerio</th>
+                        <th>Tolerancia</th>
+                        <th>Ventana entrada</th>
+                        <th>Ventana salida</th>
+                        <th>Plantas</th>
+                        <th>Asignados</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Turnos)
+                    {
+                        <tr>
+                            <td><code>@t.Codigo</code></td>
+                            <td>
+                                @t.Nombre
+                                @if (t.CruzaMedianoche)
+                                {
+                                    <br /><span class="etiqueta etiqueta-justificada">Cruza medianoche</span>
+                                }
+                            </td>
+                            <td>@t.HoraInicio.ToString("HH:mm") – @t.HoraFin.ToString("HH:mm")</td>
+                            <td>@Horas(t.MinutosJornadaOrdinaria)</td>
+                            <td>@t.MinutosRefrigerio min</td>
+                            <td>
+                                @t.MinutosTolerancia min
+                                <br /><small style="color: var(--color-texto-suave);">hasta @t.LimiteTolerancia.ToString("HH:mm")</small>
+                            </td>
+                            <td>
+                                @t.MinutosAnticipacionEntrada min antes
+                                <br /><small style="color: var(--color-texto-suave);">desde @t.InicioVentanaEntrada.ToString("HH:mm")</small>
+                            </td>
+                            <td>
+                                @t.MinutosAnticipacionSalida min antes
+                                <br /><small style="color: var(--color-texto-suave);">desde @t.InicioVentanaSalida.ToString("HH:mm")</small>
+                            </td>
+                            <td>
+                                @if (t.AplicaATodasLasPlantas)
+                                {
+                                    <span style="color: var(--color-texto-suave);">Todas</span>
+                                }
+                                else
+                                {
+                                    @string.Join(", ", t.PlantasHabilitadas)
+                                }
+                            </td>
+                            <td>@(t.TrabajadoresAsignados == 0 ? "—" : t.TrabajadoresAsignados.ToString())</td>
+                            <td>
+                                @if (t.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar" asp-route-id="@t.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" style="display:inline; margin-left:10px;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <input type="hidden" name="activo" value="@((!t.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario"
+                                            style="padding: 3px 10px; font-size: 13px;"
+                                            data-confirmar="@(t.Activo
+                                                ? $"¿Desactivar el turno '{t.Nombre}'? Dejará de ofrecerse en la ficha de personal."
+                                                : $"¿Reactivar el turno '{t.Nombre}'?")">
+                                        @(t.Activo ? "Desactivar" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Turnos.Count turno(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

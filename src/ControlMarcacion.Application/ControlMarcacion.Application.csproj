@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capa de aplicación: servicios de caso de uso, DTOs y orquestación transaccional.
+    Es la ÚNICA puerta de entrada a cada módulo desde fuera.
+
+    Solo referencia a Domain. Nada de EF Core aquí: la persistencia se usa a través
+    de las interfaces de repositorio declaradas en Domain.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ControlMarcacion.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ControlMarcacion.Domain\ControlMarcacion.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

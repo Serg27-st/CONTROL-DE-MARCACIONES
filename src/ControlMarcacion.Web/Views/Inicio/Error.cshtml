@@ -1,0 +1,23 @@
+@model ErrorVm
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="titulo-pagina">
+    <h1>Ocurrió un error</h1>
+</div>
+
+<div class="tarjeta">
+    <p>No se pudo completar la operación. Si el problema persiste, informe al área de sistemas.</p>
+
+    @if (Model.MostrarIdSolicitud)
+    {
+        <p style="color: var(--color-texto-suave);">
+            Código de seguimiento: <code>@Model.IdSolicitud</code>
+        </p>
+    }
+
+    <div class="acciones">
+        <a class="boton boton-secundario" asp-controller="Inicio" asp-action="Index">Volver al inicio</a>
+    </div>
+</div>

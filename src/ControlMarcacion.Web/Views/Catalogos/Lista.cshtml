@@ -1,0 +1,126 @@
+@model ListaCatalogoVm
+@{
+    ViewData["Title"] = Model.Definicion.Titulo;
+}
+
+<div class="titulo-pagina">
+    <h1>@Model.Definicion.Titulo</h1>
+    <a class="boton boton-primario"
+       asp-action="Editar"
+       asp-route-clave="@Model.Definicion.Clave">@Model.Definicion.RotuloNuevo</a>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">@Model.Definicion.Descripcion</p>
+
+    <form method="get" asp-action="Lista">
+        <input type="hidden" name="clave" value="@Model.Definicion.Clave" />
+        <div class="rejilla">
+            @if (Model.Definicion.EsJerarquico)
+            {
+                <div class="campo">
+                    <label for="padreId">@Model.Definicion.EtiquetaPadre</label>
+                    <select id="padreId" name="padreId">
+                        <option value="">Todas</option>
+                        @foreach (var opcion in Model.OpcionesPadre)
+                        {
+                            <option value="@opcion.Id" selected="@(Model.PadreId == opcion.Id)">@opcion.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="campo campo-casilla">
+                <input type="checkbox" id="incluirInactivos" name="incluirInactivos"
+                       value="true" checked="@Model.IncluirInactivos" />
+                <label for="incluirInactivos">Mostrar también los inactivos</label>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-action="Index">Volver a catálogos</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Elementos.Count == 0)
+    {
+        <div class="sin-resultados">
+            No hay registros en este catálogo todavía.
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        @if (Model.Definicion.EsJerarquico)
+                        {
+                            <th>@Model.Definicion.EtiquetaPadre</th>
+                        }
+                        <th>En uso</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Elementos)
+                    {
+                        <tr>
+                            <td><code>@item.Codigo</code></td>
+                            <td>@item.Nombre</td>
+                            @if (Model.Definicion.EsJerarquico)
+                            {
+                                <td>@(item.PadreNombre ?? "—")</td>
+                            }
+                            <td>@(item.Dependencias == 0 ? "—" : $"{item.Dependencias} registro(s)")</td>
+                            <td>
+                                @if (item.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar"
+                                   asp-route-clave="@Model.Definicion.Clave"
+                                   asp-route-id="@item.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" style="display:inline; margin-left:10px;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="clave" value="@Model.Definicion.Clave" />
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <input type="hidden" name="activo" value="@((!item.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit"
+                                            class="boton boton-secundario"
+                                            style="padding: 3px 10px; font-size: 13px;"
+                                            data-confirmar="@(item.Activo
+                                                ? $"¿Desactivar {Model.Definicion.ConArticulo} '{item.Nombre}'? Dejará de aparecer en los formularios."
+                                                : $"¿Reactivar {Model.Definicion.ConArticulo} '{item.Nombre}'?")">
+                                        @(item.Activo ? "Desactivar" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Elementos.Count registro(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

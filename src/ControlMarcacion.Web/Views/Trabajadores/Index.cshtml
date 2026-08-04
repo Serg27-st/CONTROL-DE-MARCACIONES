@@ -1,0 +1,164 @@
+@model ListadoTrabajadoresVm
+@{
+    ViewData["Title"] = "Personal";
+    var r = Model.Resultado;
+    var desde = r.TotalElementos == 0 ? 0 : ((r.Pagina - 1) * r.TamanioPagina) + 1;
+    var hasta = Math.Min(r.Pagina * r.TamanioPagina, r.TotalElementos);
+}
+
+<div class="titulo-pagina">
+    <h1>Mantenimiento de personal</h1>
+    <a class="boton boton-primario" asp-action="Crear">Nuevo trabajador</a>
+</div>
+
+<div class="tarjeta">
+    <h2>Filtros</h2>
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="Busqueda">Buscar</label>
+                <input type="search" id="Busqueda" name="Busqueda" value="@Model.Filtro.Busqueda"
+                       placeholder="Documento, apellidos o nombres" />
+            </div>
+
+            <div class="campo">
+                <label for="EmpresaId">Empresa</label>
+                <select id="EmpresaId" name="EmpresaId">
+                    <option value="">Todas</option>
+                    @foreach (var empresa in Model.Empresas)
+                    {
+                        <option value="@empresa.Id" selected="@(Model.Filtro.EmpresaId == empresa.Id)">@empresa.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId">
+                    <option value="">Todas</option>
+                    @foreach (var planta in Model.Plantas)
+                    {
+                        <option value="@planta.Id" selected="@(Model.Filtro.PlantaId == planta.Id)">@planta.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="TipoPlanilla">Tipo de planilla</label>
+                <select id="TipoPlanilla" name="TipoPlanilla">
+                    <option value="">Todos</option>
+                    <option value="@((int)TipoPlanilla.Obrero)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Obrero)">Obrero (OBM)</option>
+                    <option value="@((int)TipoPlanilla.Empleado)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Empleado)">Empleado (EMP)</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="SoloActivos">Situación</label>
+                <select id="SoloActivos" name="SoloActivos">
+                    <option value="true" selected="@(Model.Filtro.SoloActivos == true)">Solo vigentes</option>
+                    <option value="false" selected="@(Model.Filtro.SoloActivos == false)">Solo cesados</option>
+                    <option value="" selected="@(Model.Filtro.SoloActivos == null)">Todos</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Buscar</button>
+            <a class="boton boton-secundario" asp-action="Index">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (r.TotalElementos == 0)
+    {
+        <div class="sin-resultados">
+            No se encontraron trabajadores con los filtros seleccionados.
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Apellidos y nombres</th>
+                        <th>Empresa</th>
+                        <th>Planta</th>
+                        <th>Área</th>
+                        <th>Sección</th>
+                        <th>Puesto</th>
+                        <th>Turno</th>
+                        <th>ID marcador</th>
+                        <th>Ingreso</th>
+                        <th>Situación</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in r.Elementos)
+                    {
+                        <tr>
+                            <td>@t.TipoDocumento @t.NumeroDocumento</td>
+                            <td>@t.ApellidosYNombres</td>
+                            <td>@t.Empresa</td>
+                            <td>@t.Planta</td>
+                            <td>@t.Area</td>
+                            <td>@t.Seccion</td>
+                            <td>@t.Puesto</td>
+                            <td>@(t.TurnoVigente ?? "—")</td>
+                            <td>@(t.IdMarcador ?? "—")</td>
+                            <td>@t.FechaIngreso.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (t.EstaActivo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-cesado">Cesado @t.FechaCese!.Value.ToString("dd/MM/yyyy")</span>
+                                }
+                            </td>
+                            <td><a asp-action="Editar" asp-route-id="@t.Id">Editar</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">Mostrando @desde–@hasta de @r.TotalElementos trabajadores</span>
+
+            @if (r.HayPaginaAnterior)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="Index"
+                   asp-all-route-data="@(new Dictionary<string, string?>
+                   {
+                       ["Busqueda"] = Model.Filtro.Busqueda,
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
+                       ["Pagina"] = (r.Pagina - 1).ToString()
+                   })">Anterior</a>
+            }
+
+            <span class="conteo">Página @r.Pagina de @r.TotalPaginas</span>
+
+            @if (r.HayPaginaSiguiente)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="Index"
+                   asp-all-route-data="@(new Dictionary<string, string?>
+                   {
+                       ["Busqueda"] = Model.Filtro.Busqueda,
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
+                       ["Pagina"] = (r.Pagina + 1).ToString()
+                   })">Siguiente</a>
+            }
+        </div>
+    }
+</div>
