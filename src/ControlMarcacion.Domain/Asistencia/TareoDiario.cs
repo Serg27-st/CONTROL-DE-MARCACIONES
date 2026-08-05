@@ -56,12 +56,48 @@ public class TareoDiario : EntidadBase
     /// </summary>
     public int MinutosNocturnos { get; set; }
 
+    /// <summary>
+    /// Sobretiempo al 25 % que cayó dentro de la franja nocturna. Subconjunto de
+    /// <see cref="MinutosExtra25"/>.
+    /// </summary>
+    /// <remarks>
+    /// Se persiste en vez de derivarse al leer porque el tareo de un periodo cerrado debe
+    /// quedar congelado tal como se calculó: recomputar la franja al momento de exportar
+    /// haría que un cambio futuro en el criterio de nocturnidad reescribiera el pasado.
+    /// </remarks>
+    public int MinutosExtra25Nocturnos { get; set; }
+
+    /// <summary>
+    /// Sobretiempo al 35 % que cayó dentro de la franja nocturna. Subconjunto de
+    /// <see cref="MinutosExtra35"/>.
+    /// </summary>
+    public int MinutosExtra35Nocturnos { get; set; }
+
+    /// <summary>
+    /// Minutos nocturnos de jornada ordinaria: la base de la bonificación nocturna.
+    /// Derivado, no se persiste.
+    /// </summary>
+    public int MinutosOrdinariosNocturnos =>
+        Math.Max(0, MinutosNocturnos - MinutosExtra25Nocturnos - MinutosExtra35Nocturnos);
+
     public int MinutosTardanza { get; set; }
 
     public int MinutosSalidaAnticipada { get; set; }
 
-    /// <summary>Trabajo en día de descanso semanal o feriado, con su propia sobretasa.</summary>
-    public bool EsDiaNoLaborable { get; set; }
+    /// <summary>
+    /// Tipo de día no laborable en que se trabajó, si corresponde.
+    /// </summary>
+    /// <remarks>
+    /// No es un booleano porque el descanso semanal y el feriado son conceptos legales
+    /// distintos: D. Leg. 713 art. 3 y art. 9 respectivamente. Hoy ambos pagan 100 %, pero
+    /// son tasas independientes con vigencia propia y pueden divergir. Guardar solo
+    /// "es no laborable" obligaría a volver a consultar el calendario de feriados para
+    /// saber qué tasa aplicar, y un feriado cargado después cambiaría el pasado.
+    /// </remarks>
+    public TipoDiaNoLaborable TipoDiaNoLaborable { get; set; }
+
+    /// <summary>Se trabajó en un día que no correspondía. Derivado, no se persiste.</summary>
+    public bool EsDiaNoLaborable => TipoDiaNoLaborable != TipoDiaNoLaborable.Ninguno;
 
     // ---------- Estado y trazabilidad ----------
 
@@ -78,6 +114,21 @@ public class TareoDiario : EntidadBase
     public string? Observacion { get; set; }
 
     public DateTime CalculadoEn { get; set; }
+}
+
+/// <summary>
+/// Naturaleza del día no laborable trabajado, que determina qué sobretasa aplica.
+/// </summary>
+public enum TipoDiaNoLaborable
+{
+    /// <summary>Día laborable normal.</summary>
+    Ninguno = 0,
+
+    /// <summary>Descanso semanal trabajado. D. Leg. 713, art. 3.</summary>
+    DescansoSemanal = 1,
+
+    /// <summary>Feriado trabajado. D. Leg. 713, art. 9.</summary>
+    Feriado = 2
 }
 
 public enum EstadoTareo

@@ -46,3 +46,14 @@ indent_size = 4
 [**/Migraciones/*.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# ---------------------------------------------------------------------------
+# Proyectos de pruebas.
+#
+# Los nombres de test llevan guiones bajos a propósito: son la documentación
+# ejecutable de las reglas de negocio. En el reporte de una prueba fallida,
+# "Pasado_el_limite_la_tardanza_se_cuenta_desde_la_hora_del_turno" se lee de un
+# vistazo; el mismo nombre en PascalCase, no.
+# ---------------------------------------------------------------------------
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

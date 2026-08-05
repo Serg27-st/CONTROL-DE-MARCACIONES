@@ -148,10 +148,50 @@ local de SQL Server con las 22 tablas, los índices críticos y los catálogos s
   y turno con vigencia por fecha.
 - **Catálogos**: puestos, plantas, áreas, secciones y tipos de documento, con código único por
   padre, contador de uso y baja lógica bloqueada cuando el catálogo está en uso.
+- **Turnos**: pantalla propia con horarios, refrigerio, tolerancia, **ventanas de anticipación
+  de entrada y salida** (configurables por turno) y plantas habilitadas.
+- **Ingesta del TXT**: carga del archivo del ZKTeco con deduplicación, detección de archivo
+  repetido por hash y reporte de IDs sin trabajador asignado. Cubierta por 14 tests.
 
-**No existe todavía:** autenticación (la auditoría registra `"sistema"`), pantallas propias
-para turnos/periodos/tipos de ausencia, ingesta del TXT, motor de cálculo, solicitudes,
-justificaciones y reportes. Ver `docs/03-roadmap.md`.
+- **Tipos de ausencia**: pantalla propia con comportamiento obligatorio, bloqueado si el
+  tipo ya está en uso por solicitudes o justificaciones.
+
+- **Periodos**: rango de fechas, ciclo de apertura y cierre con motivo de reapertura
+  obligatorio, y detección de días con marcaciones fuera de todo periodo.
+- **Motor de cálculo**: `CalculadoraTareo` puro en `Domain`, con 43 tests. Horas ordinarias
+  y extras 25/35, nocturnidad, tardanza, salida anticipada, cruce de medianoche, domingo
+  o feriado trabajado, y aplicación de justificaciones sobre el cálculo crudo. Recálculo
+  idempotente y bloqueado en periodo cerrado.
+- **Sobretasas**: liquidación por concepto con la tasa vigente a la fecha del periodo y su
+  base legal. El sistema no calcula dinero — entrega minutos y porcentajes para planilla.
+- **Solicitudes de ausencia**: alta, aprobación, rechazo y anulación. Aprobar genera una
+  justificación por día cubierto; anular las retira, salvo que ya estén en un periodo
+  cerrado.
+- **Justificaciones**: consulta con trazabilidad completa (origen, estado anterior, quién y
+  cuándo) y alta manual para lo puntual. Una sola justificación por trabajador y día.
+- **Reportes**: resumen mensual por trabajador y excepciones, exportables a Excel con
+  ClosedXML.
+- **Tareo final**: el libro que se entrega a planilla, con las tres hojas del archivo modelo
+  de GCA — `Tareo`, `Descanso Medico` y `Vacaciones-Licencias`. Estructura verificada contra
+  `TAREO NOVIEMBRE 2024_PLANTA 1.xls` y documentada en `docs/04-formato-tareo-final.md`.
+  Las columnas de dinero (movilidad, asignación familiar, viáticos, reintegros) y las de
+  CECO se emiten **presentes pero vacías**: en el archivo original también las carga
+  planilla a mano, y el sistema no calcula remuneración.
+- **Autenticación**: ASP.NET Core Identity con los cuatro roles (`ADMINISTRADOR`, `RRHH`,
+  `SUPERVISOR`, `CONSULTA`). Toda pantalla exige sesión iniciada. Sin autorregistro: las
+  cuentas las crea un administrador. El primer administrador se crea al arrancar leyendo
+  credenciales de configuración externa, nunca de una migración versionada. Cerrar/reabrir
+  periodo y gestionar usuarios están restringidos a ADMINISTRADOR, verificado en el
+  servidor y no solo ocultando el botón.
+
+**Reglas confirmadas por GCA:** turno diurno 07:00–19:00; la jornada se computa **desde la
+hora del turno**, así que marcar antes no genera sobretiempo; el domingo trabajado va con
+**sobretasa del 100 %**.
+
+**No existe todavía:** matriz fina de permisos por rol (hoy solo ADMINISTRADOR está
+diferenciado; RRHH/SUPERVISOR/CONSULTA comparten el mismo acceso salvo lo restringido) y
+pantalla de mantenimiento de feriados (la entidad y el cálculo ya la usan, pero nadie
+puede cargarlos desde la interfaz). Ver `docs/03-roadmap.md`.
 
 **Formato del TXT del ZKTeco: confirmado.** Muestra real en
 `tests/ControlMarcacion.Infrastructure.Tests/Recursos/`. Delimitado por tabuladores, fecha
@@ -162,6 +202,19 @@ siempre en `0`: **el equipo no distingue entrada de salida** y el motor debe inf
 estructura real de cada planta; ya se pueden cargar desde el módulo de catálogos. Los RUC de
 las dos empresas también son marcadores de posición.
 
-Insumos pendientes, detallados en `docs/01-requerimientos-negocio.md`: archivo modelo del
-tareo, definición de "unidad" y "tipo de planilla", corte del periodo, y el tratamiento del
-trabajo dominical y del turno especial de sábado.
+**Formato del tareo final: confirmado.** Estructura extraída del archivo modelo y
+documentada en `docs/04-formato-tareo-final.md`. Quedan tres brechas de datos, no de
+formato:
+
+1. **Nocturnidad por tramo:** ya la calcula el motor y la persiste `TareoDiario`, pero el
+   reparto asume que los tramos nocturnos son un **subconjunto** de los diurnos. En el
+   archivo modelo hay filas donde el 25 % nocturno supera al diurno, lo que sugiere que GCA
+   los trata como excluyentes. ⚠️ Confirmar antes de dar el reporte por bueno.
+2. **Detalle clínico del descanso médico:** contingencia, diagnóstico y centro de atención
+   no existen en `SolicitudAusencia`; esas tres columnas salen vacías.
+3. **CECO:** el centro de costo viene del SAP de Intradevco (168 centros en la hoja `Ceco`
+   del archivo modelo). Hoy solo hay Área / Sección / Puesto.
+
+Insumos pendientes, detallados en `docs/01-requerimientos-negocio.md`: definición de
+"unidad" y "tipo de planilla", corte del periodo, y el tratamiento del trabajo dominical y
+del turno especial de sábado.

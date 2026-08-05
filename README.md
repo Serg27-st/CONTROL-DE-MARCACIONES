@@ -36,6 +36,14 @@ Configura la cadena de conexión sin versionarla:
 dotnet user-secrets set "ConnectionStrings:BaseDatos" "Server=localhost;Database=ControlMarcacion;Trusted_Connection=True;TrustServerCertificate=True" --project src/ControlMarcacion.Web
 ```
 
+Define las credenciales del **primer administrador** — sin esto no hay forma de entrar,
+porque no hay autorregistro. Solo se usan una vez, mientras la tabla de usuarios esté vacía:
+
+```bash
+dotnet user-secrets set "Seguridad:AdminCorreo" "admin@tu-dominio.local" --project src/ControlMarcacion.Web
+dotnet user-secrets set "Seguridad:AdminClave" "UnaClaveSegura123" --project src/ControlMarcacion.Web
+```
+
 Crea la base y levanta la aplicación:
 
 ```bash

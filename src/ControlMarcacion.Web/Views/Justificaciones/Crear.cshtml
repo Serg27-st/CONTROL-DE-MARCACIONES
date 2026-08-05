@@ -1,0 +1,116 @@
+@model CrearJustificacionVm
+@{
+    ViewData["Title"] = "Justificación manual";
+}
+
+<div class="titulo-pagina">
+    <h1>Justificación manual</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0; margin-bottom: 0;">
+        Úsela para lo puntual: perdonar una tardanza, completar una marca impar de un solo
+        día. Si es una ausencia planificada de varios días, registre una
+        <a asp-controller="Solicitudes" asp-action="Crear">solicitud de ausencia</a> en su lugar —
+        al aprobarla genera estas mismas justificaciones automáticamente.
+    </p>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Día a justificar</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TrabajadorId">Trabajador</label>
+                <select asp-for="Datos.TrabajadorId"
+                        asp-items="@(new SelectList(Model.Trabajadores, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TrabajadorId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Fecha">Fecha</label>
+                <input asp-for="Datos.Fecha" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.Fecha"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Tipo">Qué se justifica</label>
+                <select asp-for="Datos.Tipo">
+                    <option value="">Seleccione…</option>
+                    <option value="@((int)TipoJustificacion.Ausencia)">Ausencia (convierte la falta)</option>
+                    <option value="@((int)TipoJustificacion.MarcacionIncompleta)">Marcación incompleta (completa el día)</option>
+                    <option value="@((int)TipoJustificacion.Tardanza)">Tardanza (perdona minutos)</option>
+                    <option value="@((int)TipoJustificacion.SalidaAnticipada)">Salida anticipada (perdona minutos)</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.Tipo"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Detalle</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TipoAusenciaId">Tipo de ausencia</label>
+                <select asp-for="Datos.TipoAusenciaId"
+                        asp-items="@(new SelectList(Model.TiposAusencia, "Id", "Nombre"))">
+                    <option value="">No aplica</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TipoAusenciaId"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Obligatorio solo si arriba eligió «Ausencia»: decide si el día se paga.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.MinutosJustificados">Minutos perdonados</label>
+                <input asp-for="Datos.MinutosJustificados" type="number" min="1" max="1440" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosJustificados"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Solo para tardanza o salida anticipada. Vacío perdona todos los minutos.
+                </small>
+            </div>
+        </div>
+
+        <div class="rejilla" style="margin-top: 18px;">
+            <div class="campo">
+                <label asp-for="Datos.Motivo">Motivo</label>
+                <input asp-for="Datos.Motivo" type="text" maxlength="500" />
+                <span class="error-campo" asp-validation-for="Datos.Motivo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.RutaDocumentoSustento">Ruta del documento (opcional)</label>
+                <input asp-for="Datos.RutaDocumentoSustento" type="text" maxlength="400" />
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Solo puede existir <strong>una</strong> justificación por trabajador y día, y solo
+            se escribe si el periodo de esa fecha está abierto.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Registrar justificación</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

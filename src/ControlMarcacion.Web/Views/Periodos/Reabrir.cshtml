@@ -1,0 +1,48 @@
+@model ReabrirPeriodoVm
+@{
+    ViewData["Title"] = "Reabrir periodo";
+}
+
+<div class="titulo-pagina">
+    <h1>Reabrir periodo</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Reabrir">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo reabrir. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>@Model.Codigo · @Model.Nombre</h2>
+        <p style="color: var(--color-texto-suave);">
+            Reabrir un periodo <strong>descongela información ya cerrada</strong> (y posiblemente
+            pagada). El motivo es obligatorio y queda registrado para auditoría, junto con quién
+            lo hizo y cuándo.
+        </p>
+
+        <div class="campo">
+            <label asp-for="Motivo">Motivo de la reapertura</label>
+            <textarea asp-for="Motivo" rows="4" maxlength="500"
+                      placeholder="Explique por qué se reabre: qué corrección se debe aplicar…"></textarea>
+            <span class="error-campo" asp-validation-for="Motivo"></span>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Reabrir periodo</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

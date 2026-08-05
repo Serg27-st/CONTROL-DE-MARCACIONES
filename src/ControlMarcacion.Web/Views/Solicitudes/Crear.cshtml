@@ -1,0 +1,109 @@
+@model EditarSolicitudVm
+@{
+    ViewData["Title"] = "Nueva solicitud";
+}
+
+<div class="titulo-pagina">
+    <h1>Nueva solicitud de ausencia</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Datos de la solicitud</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TrabajadorId">Trabajador</label>
+                <select asp-for="Datos.TrabajadorId"
+                        asp-items="@(new SelectList(Model.Trabajadores, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TrabajadorId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.TipoAusenciaId">Tipo de ausencia</label>
+                <select asp-for="Datos.TipoAusenciaId"
+                        asp-items="@(new SelectList(Model.TiposAusencia, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TipoAusenciaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaInicio">Fecha de inicio</label>
+                <input asp-for="Datos.FechaInicio" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaInicio"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaFin">Fecha de fin</label>
+                <input asp-for="Datos.FechaFin" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaFin"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.HoraInicio">Hora de inicio (solo permisos por horas)</label>
+                <input asp-for="Datos.HoraInicio" type="time" />
+                <span class="error-campo" asp-validation-for="Datos.HoraInicio"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.HoraFin">Hora de fin (solo permisos por horas)</label>
+                <input asp-for="Datos.HoraFin" type="time" />
+                <span class="error-campo" asp-validation-for="Datos.HoraFin"></span>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Si el tipo elegido se registra por horas, la fecha de inicio y la de fin deben
+            coincidir: un permiso por horas es de un solo día.
+        </p>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Sustento</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Sustento">Descripción del sustento</label>
+                <input asp-for="Datos.Sustento" type="text" maxlength="500" />
+                <span class="error-campo" asp-validation-for="Datos.Sustento"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.RutaDocumentoSustento">Ruta del documento</label>
+                <input asp-for="Datos.RutaDocumentoSustento" type="text" maxlength="400" />
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Observacion">Observación</label>
+                <input asp-for="Datos.Observacion" type="text" maxlength="500" />
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Algunos tipos exigen sustento documentado para poder aprobarse; puede completarlo
+            después, antes de aprobar.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Registrar solicitud</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

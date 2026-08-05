@@ -15,6 +15,18 @@ public class TareoDiarioConfiguracion : IEntityTypeConfiguration<TareoDiario>
         builder.Property(t => t.Estado).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(t => t.Observacion).HasMaxLength(500);
 
+        // Distingue descanso semanal de feriado: son artículos legales distintos y cada uno
+        // tiene su propia tasa con vigencia. Como texto, para que se lea en la base.
+        builder.Property(t => t.TipoDiaNoLaborable)
+            .HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        // Derivado de lo anterior: no se persiste.
+        builder.Ignore(t => t.EsDiaNoLaborable);
+
+        // La nocturnidad ordinaria es una resta de las otras tres columnas: persistirla
+        // sería guardar el mismo dato dos veces y arriesgar que discrepen.
+        builder.Ignore(t => t.MinutosOrdinariosNocturnos);
+
         // ---------------------------------------------------------------------------
         // ÍNDICE ÚNICO CRÍTICO.
         // Un tareo por trabajador y día. Es lo que hace que el recálculo sea idempotente:

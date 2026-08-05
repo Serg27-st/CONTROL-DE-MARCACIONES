@@ -1,0 +1,78 @@
+@model EditarPeriodoVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo periodo" : "Editar periodo";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Identificación</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="20" placeholder="2026-07" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+                <small style="color: var(--color-texto-suave);">Identificador legible, por ejemplo "2026-07".</small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="80" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Rango de fechas</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.FechaInicio">Fecha de inicio</label>
+                <input asp-for="Datos.FechaInicio" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaInicio"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaFin">Fecha de fin</label>
+                <input asp-for="Datos.FechaFin" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaFin"></span>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            El rango se guarda como dos fechas explícitas, no derivado de un mes: así se soporta
+            cualquier corte (mes calendario, del 26 al 25, etc.). Cada fecha debe pertenecer a un
+            solo periodo: los rangos no pueden solaparse.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

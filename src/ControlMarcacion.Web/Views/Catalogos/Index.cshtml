@@ -62,20 +62,20 @@
                     </td>
                     <td><a asp-controller="Turnos" asp-action="Index">Administrar</a></td>
                 </tr>
-                <tr>
+<tr>
                     <td><strong>Periodos</strong></td>
-                    <td><span class="etiqueta etiqueta-incompleto">Pendiente</span></td>
+                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
                     <td>Rango de fechas y ciclo de apertura y cierre, que congela el tareo</td>
-                    <td>—</td>
+                    <td><a asp-controller="Periodos" asp-action="Index">Administrar</a></td>
                 </tr>
                 <tr>
                     <td><strong>Tipos de ausencia</strong></td>
-                    <td><span class="etiqueta etiqueta-tardanza">Datos cargados</span></td>
+                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
                     <td>
                         El comportamiento decide cómo los trata el cálculo; crear uno sin
                         elegirlo produciría tareos incorrectos en silencio
                     </td>
-                    <td>—</td>
+                    <td><a asp-controller="TiposAusencia" asp-action="Index">Administrar</a></td>
                 </tr>
             </tbody>
         </table>

@@ -22,7 +22,23 @@
             <a class="@Activo("Asistencia")" asp-controller="Asistencia" asp-action="Index">Tareo</a>
             <a class="@Activo("Reportes")" asp-controller="Reportes" asp-action="Index">Reportes</a>
             <a class="@Activo("Catalogos")" asp-controller="Catalogos" asp-action="Index">Catálogos</a>
+            @if (User.IsInRole(RolesSistema.Administrador))
+            {
+                <a class="@Activo("Usuarios")" asp-controller="Usuarios" asp-action="Index">Usuarios</a>
+            }
         </nav>
+
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <form method="post" asp-controller="Cuenta" asp-action="Salir"
+                  style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                @Html.AntiForgeryToken()
+                <span style="color: #cbd5e1; font-size: 13.5px;">@User.Identity.Name</span>
+                <button type="submit" class="boton boton-secundario" style="padding: 6px 14px; font-size: 13px;">
+                    Cerrar sesión
+                </button>
+            </form>
+        }
     </header>
 
     <main class="contenido">

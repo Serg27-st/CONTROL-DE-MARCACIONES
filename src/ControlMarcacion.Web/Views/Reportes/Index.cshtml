@@ -1,0 +1,66 @@
+@{
+    ViewData["Title"] = "Reportes";
+}
+
+<div class="titulo-pagina">
+    <h1>Reportes</h1>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">
+        Consultan el tareo ya calculado; no recalculan nada. Si un dato se ve
+        desactualizado, la corrección es recalcular el periodo desde
+        <a asp-controller="Asistencia" asp-action="Index">Tareo</a>, no algo que se arregle aquí.
+    </p>
+
+    <div class="aviso" style="background:#fef3e7; border-color:#f3d19e; color:#92400e;">
+        ⚠️ El <strong>tareo final</strong> ya sigue la estructura del archivo modelo de GCA.
+        Las columnas de CECO, movilidad, asignación familiar y reintegros se emiten vacías:
+        son conceptos de dinero que carga planilla, igual que en el archivo original. El
+        detalle clínico del descanso médico (contingencia, diagnóstico y centro de atención)
+        también sale vacío hasta que esos campos existan en el sistema.
+    </div>
+
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Reporte</th>
+                    <th>Contenido</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Tareo final</strong></td>
+                    <td>
+                        El libro que se entrega a planilla, con las tres hojas del formato de
+                        GCA: <strong>Tareo</strong> (un trabajador por fila, con días de
+                        ausencia por tipo y el resumen de horas diurnas y nocturnas por
+                        tramo), <strong>Descanso Medico</strong> y
+                        <strong>Vacaciones-Licencias</strong>.
+                    </td>
+                    <td><a asp-action="Resumen">Ver</a></td>
+                </tr>
+                <tr>
+                    <td><strong>Resumen mensual</strong></td>
+                    <td>
+                        Un trabajador por fila: días puntuales, tardanzas, faltas, ausencias
+                        justificadas, y horas ordinarias, extras al 25 %/35 %, nocturnas y de
+                        tardanza acumuladas. Es el insumo para planilla.
+                    </td>
+                    <td><a asp-action="Resumen">Ver</a></td>
+                </tr>
+                <tr>
+                    <td><strong>Excepciones</strong></td>
+                    <td>
+                        Un día por fila, solo los que necesitan revisión: faltas, tardanzas,
+                        ausencias justificadas y marcaciones incompletas. Los días de descanso,
+                        feriado o fuera de vínculo no aparecen: son lo esperado, no una excepción.
+                    </td>
+                    <td><a asp-action="Excepciones">Ver</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

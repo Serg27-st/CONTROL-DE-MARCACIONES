@@ -1,0 +1,172 @@
+@model ExcepcionesVm
+@{
+    ViewData["Title"] = "Excepciones";
+
+    static string ClaseEstado(EstadoTareo estado) => estado switch
+    {
+        EstadoTareo.Falta => "etiqueta-falta",
+        EstadoTareo.Tardanza => "etiqueta-tardanza",
+        EstadoTareo.AusenciaJustificada => "etiqueta-justificada",
+        EstadoTareo.Incompleto => "etiqueta-incompleto",
+        _ => "etiqueta-incompleto"
+    };
+
+    static string NombreEstado(EstadoTareo estado) => estado switch
+    {
+        EstadoTareo.Falta => "Falta",
+        EstadoTareo.Tardanza => "Tardanza",
+        EstadoTareo.AusenciaJustificada => "Ausencia justificada",
+        EstadoTareo.Incompleto => "Marcación incompleta",
+        _ => estado.ToString()
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>Excepciones del periodo</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a reportes</a>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">
+        Solo los días que necesitan revisión: falta, tardanza, ausencia justificada o
+        marcación incompleta. Descanso, feriado y días fuera de vínculo no aparecen aquí:
+        son lo esperado.
+    </p>
+
+    <form method="get" asp-action="Excepciones">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="PeriodoId">Periodo</label>
+                <select id="PeriodoId" name="PeriodoId" required>
+                    <option value="">Seleccione…</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PeriodoId == p.Id)">
+                            @p.Codigo — @p.Nombre
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="EmpresaId">Empresa</label>
+                <select id="EmpresaId" name="EmpresaId">
+                    <option value="">Todas</option>
+                    @foreach (var e in Model.Empresas)
+                    {
+                        <option value="@e.Id" selected="@(Model.Filtro.EmpresaId == e.Id)">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId">
+                    <option value="">Todas</option>
+                    @foreach (var p in Model.Plantas)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PlantaId == p.Id)">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="AreaId">Área</label>
+                <select id="AreaId" name="AreaId">
+                    <option value="">Todas</option>
+                    @foreach (var a in Model.Areas)
+                    {
+                        <option value="@a.Id" selected="@(Model.Filtro.AreaId == a.Id)">@a.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="SeccionId">Sección</label>
+                <select id="SeccionId" name="SeccionId">
+                    <option value="">Todas</option>
+                    @foreach (var s in Model.Secciones)
+                    {
+                        <option value="@s.Id" selected="@(Model.Filtro.SeccionId == s.Id)">@s.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Ver</button>
+            @if (Model.HayPeriodoSeleccionado)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="ExportarExcepciones"
+                   asp-all-route-data="@(new Dictionary<string, string?> {
+                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
+                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                   })">Exportar a Excel</a>
+            }
+        </div>
+    </form>
+</div>
+
+@if (!Model.HayPeriodoSeleccionado)
+{
+    <div class="tarjeta">
+        <div class="sin-resultados">Seleccione un periodo para ver las excepciones.</div>
+    </div>
+}
+else
+{
+    <div class="tarjeta">
+        @if (Model.Filas.Count == 0)
+        {
+            <div class="sin-resultados">No hay excepciones para este periodo y estos filtros.</div>
+        }
+        else
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Trabajador</th>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Turno</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Estado</th>
+                            <th>Tardanza</th>
+                            <th>Salida anticipada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in Model.Filas)
+                        {
+                            <tr title="@e.Observacion">
+                                <td>@e.Trabajador</td>
+                                <td><code>@(e.IdMarcador ?? "—")</code></td>
+                                <td>@e.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>@(e.Turno ?? "—")</td>
+                                <td>@(e.EntradaReal?.ToString("HH:mm") ?? "—")</td>
+                                <td>@(e.SalidaReal?.ToString("HH:mm") ?? "—")</td>
+                                <td><span class="etiqueta @ClaseEstado(e.Estado)">@NombreEstado(e.Estado)</span></td>
+                                <td>@(e.MinutosTardanza == 0 ? "—" : $"{e.MinutosTardanza} min")</td>
+                                <td>@(e.MinutosSalidaAnticipada == 0 ? "—" : $"{e.MinutosSalidaAnticipada} min")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="paginacion">
+                <span class="conteo">@Model.Filas.Count excepción(es)</span>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/reporte-filtro.js" asp-append-version="true"></script>
+}

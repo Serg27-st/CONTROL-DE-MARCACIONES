@@ -1,7 +1,14 @@
+using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Marcaciones;
+using ControlMarcacion.Application.Justificaciones;
 using ControlMarcacion.Application.Personal;
+using ControlMarcacion.Application.Reportes;
+using ControlMarcacion.Application.Seguridad;
+using ControlMarcacion.Application.Solicitudes;
 using ControlMarcacion.Infrastructure.Marcaciones;
+using ControlMarcacion.Infrastructure.Reportes;
+using ControlMarcacion.Infrastructure.Seguridad;
 using ControlMarcacion.Domain.Personal;
 using ControlMarcacion.Infrastructure.Persistencia;
 using ControlMarcacion.Infrastructure.Persistencia.Consultas;
@@ -42,10 +49,18 @@ public static class InyeccionDependencias
         }
 
         servicios.AddScoped<ITrabajadorRepository, TrabajadorRepository>();
-        servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
+servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         servicios.AddScoped<IConsultaCatalogos, ConsultaCatalogos>();
         servicios.AddScoped<IServicioCatalogos, ServicioCatalogos>();
         servicios.AddScoped<IServicioTurnos, ServicioTurnos>();
+        servicios.AddScoped<IServicioTiposAusencia, ServicioTiposAusencia>();
+        servicios.AddScoped<IServicioCalculoTareo, ServicioCalculoTareo>();
+        servicios.AddScoped<IServicioPeriodos, ServicioPeriodos>();
+        servicios.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
+        servicios.AddScoped<IServicioJustificaciones, ServicioJustificaciones>();
+        servicios.AddScoped<IServicioReportes, ServicioReportes>();
+        servicios.AddScoped<IExportadorReportesExcel, ExportadorReportesExcel>();
+        servicios.AddScoped<IServicioUsuarios, ServicioUsuarios>();
 
         // Ingesta: el lector del TXT es un adaptador detrás de IFuenteDeMarcaciones, para
         // que una futura conexión directa al equipo no obligue a tocar el servicio.

@@ -1,0 +1,71 @@
+@model CrearUsuarioVm
+@{
+    ViewData["Title"] = "Nuevo usuario";
+}
+
+<div class="titulo-pagina">
+    <h1>Nuevo usuario</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Datos de la cuenta</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Correo">Correo</label>
+                <input asp-for="Datos.Correo" type="email" autocomplete="off" />
+                <span class="error-campo" asp-validation-for="Datos.Correo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.NombreCompleto">Nombre completo</label>
+                <input asp-for="Datos.NombreCompleto" type="text" maxlength="150" />
+                <span class="error-campo" asp-validation-for="Datos.NombreCompleto"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Rol">Rol</label>
+                <select asp-for="Datos.Rol">
+                    <option value="">Seleccione…</option>
+                    @foreach (var rol in Model.Roles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.Rol"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Clave">Contraseña inicial</label>
+                <input asp-for="Datos.Clave" type="password" autocomplete="new-password" />
+                <span class="error-campo" asp-validation-for="Datos.Clave"></span>
+            </div>
+        </div>
+
+        <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+            Mínimo 8 caracteres, con mayúscula, minúscula y número. Comuníquesela a la
+            persona por un canal aparte; el sistema no envía correos de bienvenida.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Crear usuario</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

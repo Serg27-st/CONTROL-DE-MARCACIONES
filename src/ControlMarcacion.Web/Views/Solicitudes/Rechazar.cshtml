@@ -1,0 +1,46 @@
+@model DecisionSolicitudVm
+@{
+    ViewData["Title"] = "Rechazar solicitud";
+}
+
+<div class="titulo-pagina">
+    <h1>Rechazar solicitud</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<div class="tarjeta">
+    <p><strong>Trabajador:</strong> @Model.Trabajador</p>
+    <p><strong>Tipo de ausencia:</strong> @Model.TipoAusencia</p>
+</div>
+
+<form method="post" asp-action="Rechazar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo rechazar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Motivo del rechazo</h2>
+        <div class="campo">
+            <label asp-for="Motivo">Motivo</label>
+            <input asp-for="Motivo" type="text" maxlength="500" autofocus />
+            <span class="error-campo" asp-validation-for="Motivo"></span>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Rechazar solicitud</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

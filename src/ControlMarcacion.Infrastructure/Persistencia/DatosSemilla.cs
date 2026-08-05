@@ -1,6 +1,8 @@
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Normativa;
 using ControlMarcacion.Domain.Organizacion;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia;
@@ -19,7 +21,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia;
 /// </remarks>
 internal static class DatosSemilla
 {
-    private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
     public static void Aplicar(ModelBuilder modelBuilder)
     {
@@ -27,6 +29,47 @@ internal static class DatosSemilla
         SembrarTurnos(modelBuilder);
         SembrarCatalogos(modelBuilder);
         SembrarTasasLegales(modelBuilder);
+        SembrarPeriodos(modelBuilder);
+        SembrarRoles(modelBuilder);
+    }
+
+    /// <summary>
+    /// Los cuatro roles del sistema. Los usuarios NO se siembran aquí: una cuenta con
+    /// contraseña es un credencial, y este archivo queda versionado en el repositorio.
+    /// El primer administrador se crea en el arranque de la aplicación a partir de
+    /// configuración externa (ver <c>InicializadorSeguridad</c>).
+    /// </summary>
+    private static void SembrarRoles(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<IdentityRole>().HasData(
+            new IdentityRole
+            {
+                Id = "00000000-0000-0000-0000-000000000001",
+                Name = RolesSistema.Administrador,
+                NormalizedName = RolesSistema.Administrador,
+                ConcurrencyStamp = "00000000-0000-0000-0000-000000000001"
+            },
+            new IdentityRole
+            {
+                Id = "00000000-0000-0000-0000-000000000002",
+                Name = RolesSistema.Rrhh,
+                NormalizedName = RolesSistema.Rrhh,
+                ConcurrencyStamp = "00000000-0000-0000-0000-000000000002"
+            },
+            new IdentityRole
+            {
+                Id = "00000000-0000-0000-0000-000000000003",
+                Name = RolesSistema.Supervisor,
+                NormalizedName = RolesSistema.Supervisor,
+                ConcurrencyStamp = "00000000-0000-0000-0000-000000000003"
+            },
+            new IdentityRole
+            {
+                Id = "00000000-0000-0000-0000-000000000004",
+                Name = RolesSistema.Consulta,
+                NormalizedName = RolesSistema.Consulta,
+                ConcurrencyStamp = "00000000-0000-0000-0000-000000000004"
+            });
     }
 
     private static void SembrarOrganizacion(ModelBuilder modelBuilder)
@@ -183,5 +226,24 @@ internal static class DatosSemilla
             new TasaSobretasa { Id = 3, Concepto = ConceptoSobretasa.TrabajoNocturno, Porcentaje = 35m, VigenteDesde = desde, BaseLegal = "D.S. 007-2002-TR, art. 8 (sobre la RMV)", Activo = true, CreadoEn = Origen },
             new TasaSobretasa { Id = 4, Concepto = ConceptoSobretasa.DescansoSemanalTrabajado, Porcentaje = 100m, VigenteDesde = desde, BaseLegal = "D. Leg. 713, art. 3", Activo = true, CreadoEn = Origen },
             new TasaSobretasa { Id = 5, Concepto = ConceptoSobretasa.FeriadoTrabajado, Porcentaje = 100m, VigenteDesde = desde, BaseLegal = "D. Leg. 713, art. 9", Activo = true, CreadoEn = Origen });
+    }
+
+    private static void SembrarPeriodos(ModelBuilder modelBuilder)
+    {
+        // El periodo de julio 2026 es el del juego de datos de prueba del ZKTeco
+        // (`docs/04-juego-de-datos-julio-2026.md`). Nace abierto: el ciclo de cierre
+        // lo gobierna el mantenimiento de periodos.
+        modelBuilder.Entity<Periodo>().HasData(
+            new Periodo
+            {
+                Id = 1,
+                Codigo = "2026-07",
+                Nombre = "Julio 2026",
+                FechaInicio = new DateOnly(2026, 7, 1),
+                FechaFin = new DateOnly(2026, 7, 31),
+                Estado = EstadoPeriodo.Abierto,
+                Activo = true,
+                CreadoEn = Origen
+            });
     }
 }

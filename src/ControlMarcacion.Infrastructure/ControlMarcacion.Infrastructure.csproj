@@ -13,6 +13,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      Los exportadores y repositorios son internal a propósito: se consumen por su interfaz
+      de Application, nunca por su tipo concreto. Los tests sí necesitan instanciarlos para
+      verificar el layout del Excel celda por celda.
+    -->
+    <InternalsVisibleTo Include="ControlMarcacion.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ControlMarcacion.Application\ControlMarcacion.Application.csproj" />
     <ProjectReference Include="..\ControlMarcacion.Domain\ControlMarcacion.Domain.csproj" />
   </ItemGroup>

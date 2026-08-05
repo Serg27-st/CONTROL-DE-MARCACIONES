@@ -8,6 +8,8 @@ using ControlMarcacion.Domain.Normativa;
 using ControlMarcacion.Domain.Organizacion;
 using ControlMarcacion.Domain.Personal;
 using ControlMarcacion.Domain.Solicitudes;
+using ControlMarcacion.Infrastructure.Seguridad;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia;
@@ -15,7 +17,14 @@ namespace ControlMarcacion.Infrastructure.Persistencia;
 /// <summary>
 /// Contexto de acceso a datos del sistema.
 /// </summary>
-public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options) : DbContext(options)
+/// <remarks>
+/// Extiende <see cref="IdentityDbContext{TUser}"/> en vez de <see cref="DbContext"/> plano:
+/// las tablas de usuarios, roles y sus relaciones entran al mismo modelo, y la conversión
+/// a snake_case de <see cref="AplicarNomenclaturaSnakeCase"/> las alcanza igual que a
+/// cualquier otra entidad, sin configuración aparte.
+/// </remarks>
+public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
+    : IdentityDbContext<ApplicationUser>(options)
 {
     // Organización
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -65,16 +74,19 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options) : 
         configurationBuilder.Properties<decimal>().HavePrecision(12, 4);
     }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(modelBuilder);
+        // Registra primero las tablas propias de Identity (usuarios, roles y sus
+        // relaciones): sin esta llamada no existirían en el modelo.
+        base.OnModelCreating(builder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(MarcacionDbContext).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(MarcacionDbContext).Assembly);
 
-        DatosSemilla.Aplicar(modelBuilder);
+        DatosSemilla.Aplicar(builder);
 
-        // Se aplica al final para que alcance también a lo que definieron las configuraciones.
-        AplicarNomenclaturaSnakeCase(modelBuilder);
+        // Se aplica al final para que alcance también a lo que definieron las
+        // configuraciones y a las tablas de Identity recién registradas.
+        AplicarNomenclaturaSnakeCase(builder);
     }
 
     /// <summary>

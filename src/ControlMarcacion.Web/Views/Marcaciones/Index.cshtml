@@ -1,0 +1,111 @@
+@model CargaMarcacionesVm
+@{
+    ViewData["Title"] = "Marcaciones";
+}
+
+<div class="titulo-pagina">
+    <h1>Carga de marcaciones</h1>
+</div>
+
+@if (Model.Previa is { } previa)
+{
+    <div class="aviso aviso-error" role="alert">
+        <strong>Este archivo ya se cargó antes.</strong>
+        <p style="margin: 8px 0 0;">
+            «@previa.NombreArchivo» se procesó el
+            <strong>@previa.FechaCarga.ToString("dd/MM/yyyy HH:mm")</strong>
+            por @previa.CargadoPorUsuario, e insertó @previa.FilasInsertadas marcación(es).
+        </p>
+        <p style="margin: 8px 0 0;">
+            Volver a cargarlo no duplica nada —la base lo impide—, pero probablemente
+            querías subir otro archivo. Si aun así deseas reprocesarlo, vuelve a
+            seleccionarlo y marca la casilla de confirmación.
+        </p>
+    </div>
+}
+
+<div class="tarjeta">
+    <h2>Cargar archivo del marcador</h2>
+
+    <form method="post" asp-action="Cargar" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+
+        <div class="rejilla">
+            <div class="campo">
+                <label for="archivo">Archivo TXT extraído del ZKTeco G3</label>
+                <input type="file" id="archivo" name="archivo" accept=".txt,.dat,text/plain" required />
+                <small style="color: var(--color-texto-suave);">
+                    Delimitado por tabuladores, sin encabezado. Máximo 20 MB.
+                </small>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input type="checkbox" id="confirmarRecarga" name="confirmarRecarga" value="true"
+                       checked="@(Model.Previa is not null)" />
+                <label for="confirmarRecarga">Procesar aunque ya se haya cargado antes</label>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Cargar y procesar</button>
+        </div>
+    </form>
+
+    <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
+        Las marcaciones cargadas son <strong>inmutables</strong>: no se editan ni se borran.
+        Cualquier corrección se registra como justificación mientras el periodo esté abierto.
+        Recargar el mismo archivo es seguro: la base impide duplicados.
+    </p>
+</div>
+
+<div class="tarjeta">
+    <h2>Historial de cargas</h2>
+
+    @if (Model.Historial.Count == 0)
+    {
+        <div class="sin-resultados">Todavía no se ha cargado ningún archivo.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Fecha de carga</th>
+                        <th>Usuario</th>
+                        <th>Leídas</th>
+                        <th>Insertadas</th>
+                        <th>Duplicadas</th>
+                        <th>Rechazadas</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in Model.Historial)
+                    {
+                        <tr>
+                            <td>@i.NombreArchivo</td>
+                            <td>@i.FechaCarga.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@i.CargadoPorUsuario</td>
+                            <td>@i.FilasLeidas</td>
+                            <td><strong>@i.FilasInsertadas</strong></td>
+                            <td>@(i.FilasDuplicadas == 0 ? "—" : i.FilasDuplicadas.ToString())</td>
+                            <td>
+                                @if (i.FilasRechazadas == 0)
+                                {
+                                    <span>—</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-tardanza">@i.FilasRechazadas</span>
+                                }
+                            </td>
+                            <td><a asp-action="Resultado" asp-route-id="@i.Id">Ver detalle</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

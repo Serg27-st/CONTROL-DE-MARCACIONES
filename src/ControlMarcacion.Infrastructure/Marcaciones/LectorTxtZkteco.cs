@@ -11,7 +11,7 @@ namespace ControlMarcacion.Infrastructure.Marcaciones;
 /// </summary>
 /// <remarks>
 /// Formato confirmado contra un archivo real de producción
-/// (<c>AEH2200760069_attlog.txt</c>, 2508 marcaciones de julio 2026):
+/// (<c>AEH2200760069_attlog.txt</c>, 2509 marcaciones de julio 2026):
 /// <list type="bullet">
 ///   <item>Delimitado por tabuladores, sin encabezado, fin de línea CRLF.</item>
 ///   <item>Columnas: id · fecha_hora · modo_verificación · tipo_marcación · workcode · reservado.</item>
@@ -132,7 +132,7 @@ public sealed class LectorTxtZkteco(IOptions<OpcionesMarcador> opciones) : IFuen
         {
             return Encoding.GetEncoding(_opciones.CodigoPagina);
         }
-        catch (ArgumentException)
+        catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException)
         {
             // Ocurre si nadie registró CodePagesEncodingProvider. El archivo real es ASCII,
             // así que UTF-8 lo lee sin pérdida y es preferible a abortar la carga entera.

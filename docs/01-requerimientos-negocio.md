@@ -309,14 +309,21 @@ justificadas) se definen a partir de ese modelo.
 |---|---|---|
 | 5 | Definición de "unidad" y "tipo de planilla" | Ficha de personal |
 | 6 | Duración del periodo y su corte (¿mes calendario? ¿del 26 al 25?) | Cierre y justificaciones |
-| 7 | El domingo **sí** se trabaja (visto en el TXT real). ¿Hay descanso sustitutorio en la semana, o corresponde la sobretasa del 100 %? | Sobretasas del 100 % |
 | 8 | Un turno nocturno de sábado termina el domingo: ¿esas horas son del sábado o cuentan como dominicales? | Motor de cálculo |
 | 9 | El sábado se trabajó 12 h, no en el turno `SAB` de 8 h. ¿Cuándo aplica entonces el turno especial de sábado? | Asignación de turnos |
 
+**Resueltas por GCA:**
+
+| # | Decisión | Resolución |
+|---|---|---|
+| 3 | Horario real de los turnos | **07:00 a 19:00** (diurno) y 19:00 a 07:00 (nocturno). Los turnos sembrados ya eran correctos. |
+| 4 | Marcar antes del inicio del turno | **La jornada se computa desde la hora del turno**, no desde la marca, tanto en diurno como en nocturno. Llegar temprano no genera sobretiempo. Concuerda con el D.S. 007-2002-TR art. 9: el sobretiempo es voluntario y debe ser autorizado. |
+| 7 | Trabajo en domingo | **Sobretasa del 100 %**, sin descanso sustitutorio. Implementado con el concepto `DescansoSemanalTrabajado` (D. Leg. 713, art. 3). |
+
 > La 5 y la 6 no bloquean el arranque: el modelo ya las soporta como configuración
 > (`Unidad` es texto libre, y el periodo guarda fecha de inicio y fin explícitas en vez de
-> derivarlas de un mes). De la 7 a la 9 deben resolverse antes de dar por cerrado el motor:
-> las tres cambian cuánto se paga.
+> derivarlas de un mes). La 8 y la 9 deben resolverse antes de dar por cerrado el motor:
+> ambas cambian cuánto se paga.
 
 ## 12. Insumos pendientes de entrega
 

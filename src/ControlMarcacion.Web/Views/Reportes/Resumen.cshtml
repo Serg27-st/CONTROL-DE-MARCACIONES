@@ -1,0 +1,197 @@
+@model ResumenTareoVm
+@{
+    ViewData["Title"] = "Resumen de tareo";
+
+    static string Horas(decimal h) => h == 0 ? "—" : h.ToString("N2");
+    static string Dias(int d) => d == 0 ? "—" : d.ToString();
+}
+
+<div class="titulo-pagina">
+    <h1>Resumen mensual de tareo</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a reportes</a>
+</div>
+
+<div class="tarjeta">
+    <form method="get" asp-action="Resumen">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="PeriodoId">Periodo</label>
+                <select id="PeriodoId" name="PeriodoId" required>
+                    <option value="">Seleccione…</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PeriodoId == p.Id)">
+                            @p.Codigo — @p.Nombre
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="EmpresaId">Empresa</label>
+                <select id="EmpresaId" name="EmpresaId">
+                    <option value="">Todas</option>
+                    @foreach (var e in Model.Empresas)
+                    {
+                        <option value="@e.Id" selected="@(Model.Filtro.EmpresaId == e.Id)">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId">
+                    <option value="">Todas</option>
+                    @foreach (var p in Model.Plantas)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PlantaId == p.Id)">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="AreaId">Área</label>
+                <select id="AreaId" name="AreaId">
+                    <option value="">Todas</option>
+                    @foreach (var a in Model.Areas)
+                    {
+                        <option value="@a.Id" selected="@(Model.Filtro.AreaId == a.Id)">@a.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="SeccionId">Sección</label>
+                <select id="SeccionId" name="SeccionId">
+                    <option value="">Todas</option>
+                    @foreach (var s in Model.Secciones)
+                    {
+                        <option value="@s.Id" selected="@(Model.Filtro.SeccionId == s.Id)">@s.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Ver</button>
+            @if (Model.HayPeriodoSeleccionado)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="ExportarResumen"
+                   asp-all-route-data="@(new Dictionary<string, string?> {
+                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
+                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                   })">Exportar a Excel</a>
+                <a class="boton boton-primario"
+                   asp-action="ExportarTareoFinal"
+                   asp-all-route-data="@(new Dictionary<string, string?> {
+                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
+                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                   })">Descargar tareo final</a>
+            }
+        </div>
+    </form>
+</div>
+
+@if (!Model.HayPeriodoSeleccionado)
+{
+    <div class="tarjeta">
+        <div class="sin-resultados">Seleccione un periodo para ver el resumen.</div>
+    </div>
+}
+else
+{
+    <div class="tarjeta">
+        @if (Model.Filas.Count == 0)
+        {
+            <div class="sin-resultados">
+                No hay tareo calculado para este periodo y estos filtros. Recalcule el periodo
+                desde <a asp-controller="Asistencia" asp-action="Index">Tareo</a>.
+            </div>
+        }
+        else
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Trabajador</th>
+                            <th>ID</th>
+                            <th>Planta</th>
+                            <th>Área</th>
+                            <th>Sección</th>
+                            <th>Puntual</th>
+                            <th>Tardanza</th>
+                            <th>Falta</th>
+                            <th>Justificada</th>
+                            <th>Incompleto</th>
+                            <th>No laborable</th>
+                            <th>H. ordinarias</th>
+                            <th>H. extra 25%</th>
+                            <th>H. extra 35%</th>
+                            <th>H. nocturnas</th>
+                            <th>H. tardanza</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Filas)
+                        {
+                            <tr>
+                                <td>@r.Trabajador</td>
+                                <td><code>@(r.IdMarcador ?? "—")</code></td>
+                                <td>@r.Planta</td>
+                                <td>@r.Area</td>
+                                <td>@r.Seccion</td>
+                                <td>@Dias(r.DiasPuntual)</td>
+                                <td>@Dias(r.DiasTardanza)</td>
+                                <td>@Dias(r.DiasFalta)</td>
+                                <td>@Dias(r.DiasAusenciaJustificada)</td>
+                                <td>@Dias(r.DiasIncompleto)</td>
+                                <td>@Dias(r.DiasNoLaborableTrabajado)</td>
+                                <td>@Horas(r.HorasOrdinarias)</td>
+                                <td>@Horas(r.HorasExtra25)</td>
+                                <td>@Horas(r.HorasExtra35)</td>
+                                <td>@Horas(r.HorasNocturnas)</td>
+                                <td>@Horas(r.HorasTardanza)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>TOTAL</th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th>@Model.Filas.Sum(r => r.DiasPuntual)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasTardanza)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasFalta)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasAusenciaJustificada)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasIncompleto)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasNoLaborableTrabajado)</th>
+                            <th>@Model.Filas.Sum(r => r.HorasOrdinarias).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasExtra25).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasExtra35).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasNocturnas).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasTardanza).ToString("N2")</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="paginacion">
+                <span class="conteo">@Model.Filas.Count trabajador(es)</span>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/reporte-filtro.js" asp-append-version="true"></script>
+}

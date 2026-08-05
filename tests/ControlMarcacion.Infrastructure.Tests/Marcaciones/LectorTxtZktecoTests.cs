@@ -10,7 +10,7 @@ namespace ControlMarcacion.Infrastructure.Tests.Marcaciones;
 /// Pruebas del lector del TXT del ZKTeco G3.
 /// </summary>
 /// <remarks>
-/// Se apoyan en el archivo real de producción guardado en <c>Recursos/</c>: 2508
+/// Se apoyan en el archivo real de producción guardado en <c>Recursos/</c>: 2509
 /// marcaciones de 50 trabajadores durante julio de 2026. Probar contra un archivo
 /// inventado no habría revelado los ids con ceros significativos ni las dobles fichadas.
 /// </remarks>
@@ -22,7 +22,7 @@ public class LectorTxtZktecoTests
     private static LectorTxtZkteco CrearLector(OpcionesMarcador? opciones = null) =>
         new(Options.Create(opciones ?? new OpcionesMarcador()));
 
-    private static Stream Contenido(string texto) =>
+    private static MemoryStream Contenido(string texto) =>
         new MemoryStream(Encoding.UTF8.GetBytes(texto));
 
     // ------------------------------------------------------------------
@@ -179,7 +179,7 @@ public class LectorTxtZktecoTests
         var resultado = lector.Leer(archivo);
 
         resultado.Rechazadas.ShouldBeEmpty();
-        resultado.Marcaciones.Count.ShouldBe(2508);
+        resultado.Marcaciones.Count.ShouldBe(2509);
     }
 
     [Fact]

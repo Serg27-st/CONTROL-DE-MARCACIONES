@@ -1,0 +1,44 @@
+@model IngresarVm
+@{
+    ViewData["Title"] = "Ingresar";
+}
+
+<div class="tarjeta" style="margin-bottom: 0;">
+    <h2 style="text-transform: none; font-size: 18px; color: var(--color-texto); letter-spacing: normal;">
+        Iniciar sesión
+    </h2>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div>@error.ErrorMessage</div>
+            }
+        </div>
+    }
+
+    <form method="post" asp-action="Ingresar">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div class="campo" style="margin-bottom: 16px;">
+            <label asp-for="Correo">Correo</label>
+            <input asp-for="Correo" type="email" autocomplete="username" autofocus />
+            <span class="error-campo" asp-validation-for="Correo"></span>
+        </div>
+
+        <div class="campo" style="margin-bottom: 16px;">
+            <label asp-for="Clave">Contraseña</label>
+            <input asp-for="Clave" type="password" autocomplete="current-password" />
+            <span class="error-campo" asp-validation-for="Clave"></span>
+        </div>
+
+        <div class="campo campo-casilla" style="padding-top: 0; margin-bottom: 20px;">
+            <input asp-for="Recordarme" type="checkbox" />
+            <label asp-for="Recordarme">Mantener la sesión iniciada</label>
+        </div>
+
+        <button type="submit" class="boton boton-primario" style="width: 100%;">Ingresar</button>
+    </form>
+</div>

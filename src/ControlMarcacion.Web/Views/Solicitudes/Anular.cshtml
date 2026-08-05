@@ -1,0 +1,52 @@
+@model DecisionSolicitudVm
+@{
+    ViewData["Title"] = "Anular solicitud";
+}
+
+<div class="titulo-pagina">
+    <h1>Anular solicitud</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<div class="tarjeta">
+    <p><strong>Trabajador:</strong> @Model.Trabajador</p>
+    <p><strong>Tipo de ausencia:</strong> @Model.TipoAusencia</p>
+
+    <div class="aviso aviso-error" role="alert" style="margin-bottom: 0;">
+        Esta solicitud está aprobada. Anularla <strong>retira las justificaciones</strong>
+        que generó, salvo que alguna ya caiga en un periodo cerrado — en ese caso la
+        anulación se rechaza y hay que reabrir el periodo primero.
+    </div>
+</div>
+
+<form method="post" asp-action="Anular">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo anular. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Motivo de la anulación</h2>
+        <div class="campo">
+            <label asp-for="Motivo">Motivo</label>
+            <input asp-for="Motivo" type="text" maxlength="500" autofocus />
+            <span class="error-campo" asp-validation-for="Motivo"></span>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Anular solicitud</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>
