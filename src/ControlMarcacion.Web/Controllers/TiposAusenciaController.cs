@@ -1,8 +1,10 @@
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Catalogos.Dto;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -15,6 +17,7 @@ namespace ControlMarcacion.Web.Controllers;
 /// tipo de ausencia no es código más nombre: el comportamiento decide cómo lo trata el
 /// motor de cálculo, y crearlo sin elegirlo produciría tareos incorrectos en silencio.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class TiposAusenciaController(IServicioTiposAusencia servicio) : Controller
 {
     [HttpGet]

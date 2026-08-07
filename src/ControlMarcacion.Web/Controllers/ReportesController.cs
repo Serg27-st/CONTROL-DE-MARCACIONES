@@ -1,8 +1,10 @@
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Reportes;
 using ControlMarcacion.Application.Reportes.Dto;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -17,7 +19,11 @@ namespace ControlMarcacion.Web.Controllers;
 /// ⚠️ El formato de columnas es el que el sistema puede sustentar hoy con el tareo
 /// calculado. GCA no ha entregado el archivo modelo del tareo final; cuando llegue, estas
 /// pantallas y sus exportaciones se ajustan a esa plantilla.
+///
+/// Restringido a COORDINADOR y GERENCIA. La exportación saca datos personales de todo el
+/// padrón en un archivo que ya sale del sistema: no es una pantalla de consulta más.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Gerencia}")]
 public sealed class ReportesController(
     IServicioReportes servicio,
     IExportadorReportesExcel exportador,
@@ -30,17 +36,37 @@ public sealed class ReportesController(
     [HttpGet]
     public async Task<IActionResult> Resumen(FiltroReporteVm filtro, CancellationToken cancelacion)
     {
+        IReadOnlyList<ResumenTareoDto> filas = [];
+
+        if (filtro.PeriodoId is { } periodoId)
+        {
+            try
+            {
+                filas = await servicio.ResumenTareoAsync(AFiltro(filtro, periodoId), cancelacion)
+                    .ConfigureAwait(false);
+            }
+            catch (ReglaNegocioException excepcion)
+            {
+                // Falta un parámetro legal (RMV, sobretasa nocturna o sueldo básico) para
+                // resolver el bono nocturno: se avisa en vez de mostrar un 500 o, peor, un
+                // bono en cero sin explicación.
+                TempData["Error"] = excepcion.Message;
+            }
+        }
+
+        var empresaDeLaPlanta = filtro.PlantaId is { } plantaIdResumen
+            ? await catalogos.EmpresaDePlantaAsync(plantaIdResumen, cancelacion).ConfigureAwait(false)
+            : null;
+
         var modelo = new ResumenTareoVm
         {
             Filtro = filtro,
             Periodos = await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
             Empresas = await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
             Plantas = await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
-            Areas = await catalogos.AreasAsync(filtro.PlantaId, cancelacion).ConfigureAwait(false),
-            Secciones = await catalogos.SeccionesAsync(filtro.AreaId, cancelacion).ConfigureAwait(false),
-            Filas = filtro.PeriodoId is { } periodoId
-                ? await servicio.ResumenTareoAsync(AFiltro(filtro, periodoId), cancelacion).ConfigureAwait(false)
-                : []
+            Centros = await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
+            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
+            Filas = filas
         };
 
         return View(modelo);
@@ -69,19 +95,29 @@ public sealed class ReportesController(
         {
             return NotFound();
         }
+        catch (ReglaNegocioException excepcion)
+        {
+            TempData["Error"] = excepcion.Message;
+
+            return RedirectToAction(nameof(Resumen), RutaFiltro(filtro));
+        }
     }
 
     [HttpGet]
     public async Task<IActionResult> Excepciones(FiltroReporteVm filtro, CancellationToken cancelacion)
     {
+        var empresaDeLaPlanta = filtro.PlantaId is { } plantaIdExcepciones
+            ? await catalogos.EmpresaDePlantaAsync(plantaIdExcepciones, cancelacion).ConfigureAwait(false)
+            : null;
+
         var modelo = new ExcepcionesVm
         {
             Filtro = filtro,
             Periodos = await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
             Empresas = await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
             Plantas = await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
-            Areas = await catalogos.AreasAsync(filtro.PlantaId, cancelacion).ConfigureAwait(false),
-            Secciones = await catalogos.SeccionesAsync(filtro.AreaId, cancelacion).ConfigureAwait(false),
+            Centros = await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
+            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
             Filas = filtro.PeriodoId is { } periodoId
                 ? await servicio.ExcepcionesAsync(AFiltro(filtro, periodoId), cancelacion).ConfigureAwait(false)
                 : []
@@ -142,6 +178,15 @@ public sealed class ReportesController(
         {
             return NotFound();
         }
+        catch (ReglaNegocioException excepcion)
+        {
+            // Falta un parámetro legal (RMV, % asignación familiar, movilidad diaria o
+            // sueldo básico de algún trabajador): no se genera un tareo con montos en cero
+            // sin que nadie se entere, se avisa qué cargar antes de reintentar.
+            TempData["Error"] = excepcion.Message;
+
+            return RedirectToAction(nameof(Resumen), RutaFiltro(filtro));
+        }
     }
 
     // ------------------------------------------------------------------
@@ -151,8 +196,17 @@ public sealed class ReportesController(
         PeriodoId = periodoId,
         EmpresaId = filtro.EmpresaId,
         PlantaId = filtro.PlantaId,
-        AreaId = filtro.AreaId,
-        SeccionId = filtro.SeccionId
+        CentroId = filtro.CentroId,
+        CentroCostoId = filtro.CentroCostoId
+    };
+
+    private static object RutaFiltro(FiltroReporteVm filtro) => new
+    {
+        filtro.PeriodoId,
+        filtro.EmpresaId,
+        filtro.PlantaId,
+        filtro.CentroId,
+        filtro.CentroCostoId
     };
 
     private FileContentResult Excel(byte[] contenido, string nombreBase)

@@ -50,12 +50,46 @@ public sealed record FilaTareoFinalDto
 
     public required string Planta { get; init; }
 
-    /// <summary>Centro de costo. Vacío hasta que exista el catálogo CECO de Intradevco.</summary>
-    public string? Ceco { get; init; }
+    /// <summary>
+    /// Columna <c>CENTRO</c>: código del centro SAP (<c>Centro.Codigo</c>, el
+    /// <c>CO_AREA</c> del archivo de GCA) al que pertenece el centro de costo asignado al
+    /// trabajador en Personal. Ejemplo: <c>066G</c>.
+    /// </summary>
+    /// <remarks>
+    /// Las tres columnas de CECO —<see cref="Centro"/>, <see cref="CentroCosto"/> y
+    /// <see cref="DescripcionCeco"/>— salen siempre de la misma fila del catálogo real
+    /// (<c>CENTROS DE COSTO POR EMPRESA.xlsx</c>), nunca de fuentes distintas. Si el
+    /// trabajador todavía no tiene centro de costo asignado, las tres salen vacías: ya no
+    /// se aproximan con Área/Sección, porque <see cref="Area"/> es ahora una columna
+    /// propia y mezclarlas daría un CECO falso. Ver <c>docs/04-formato-tareo-final.md</c>.
+    /// </remarks>
+    public string? Centro { get; init; }
 
+    /// <summary>
+    /// Columna <c>CENTRO DE COSTO</c>: código del centro de costo SAP
+    /// (<c>CentroCosto.Codigo</c>, el <c>CO_SECC</c> del archivo de GCA).
+    /// Ejemplo: <c>PE21400303</c>.
+    /// </summary>
+    public string? CentroCosto { get; init; }
+
+    /// <summary>
+    /// Columna <c>DESCRIP. CECO</c>: descripción del centro de costo
+    /// (<c>CentroCosto.Descripcion</c>, el <c>DE_SECC</c> del archivo de GCA).
+    /// Ejemplo: <c>Manufactura Detergentes Lurín</c>.
+    /// </summary>
     public string? DescripcionCeco { get; init; }
 
-    public string? CentroCosto { get; init; }
+    /// <summary>
+    /// Columna <c>AREA</c>: área interna de trabajo del operario (<c>Area.Nombre</c>):
+    /// <c>ENVASADO</c>, <c>LAVAVAJILLAS</c>, <c>PROCESOS</c>…
+    /// </summary>
+    /// <remarks>
+    /// Es un dato por trabajador y **no se deriva del centro de costo**: en el archivo de
+    /// GCA el CECO <c>PE21420300</c> aparece con tres áreas distintas. Por eso Área sigue
+    /// siendo un campo propio de Personal y convive con el CECO, en vez de haber quedado
+    /// reemplazada por él.
+    /// </remarks>
+    public string? Area { get; init; }
 
     public required DateOnly FechaIngreso { get; init; }
 
@@ -129,6 +163,64 @@ public sealed record FilaTareoFinalDto
     public decimal HorasExtra35Nocturnas => AHoras(MinutosExtra35Nocturnos);
 
     public decimal HorasNoLaborableNocturnas => AHoras(MinutosNoLaborableNocturnos);
+
+    // ---------- Montos calculados por el sistema (AI y AN) ----------
+
+    /// <summary>
+    /// Días asistidos (marcación real de entrada y salida, en estado Puntual o Tardanza)
+    /// × el valor de movilidad diaria vigente en el periodo.
+    /// </summary>
+    public decimal MontoMovilidad { get; init; }
+
+    /// <summary>
+    /// 10 % de la RMV vigente, monto fijo mensual si <c>Trabajador.TieneHijos</c>. No se
+    /// prorratea por días trabajados: así se modela legalmente en Perú (Ley 25129).
+    /// </summary>
+    public decimal MontoAsignacionFamiliar { get; init; }
+
+    // ---------- Reintegros y descuentos manuales (bloque AO-BF) ----------
+
+    /// <remarks>
+    /// Los 18 campos siguientes vienen de <c>ReintegroTareo</c>, cargado a mano por
+    /// planilla desde su propia pantalla (correcciones de periodos anteriores y conceptos
+    /// de dinero que el sistema no calcula). En cero cuando no se cargó ninguno para el
+    /// trabajador y el periodo — igual que en el archivo modelo de GCA.
+    /// </remarks>
+    public decimal ReintegroHorasNormales { get; init; }
+
+    public decimal ReintegroHorasExtra25 { get; init; }
+
+    public decimal ReintegroHorasExtra35 { get; init; }
+
+    public decimal ReintegroHorasNoLaborable { get; init; }
+
+    public decimal ReintegroMontoMovilidad { get; init; }
+
+    public decimal ReintegroHorasNocturnas { get; init; }
+
+    public decimal ReintegroHorasExtra25Nocturnas { get; init; }
+
+    public decimal ReintegroHorasExtra35Nocturnas { get; init; }
+
+    public decimal ReintegroHorasNoLaborableNocturnas { get; init; }
+
+    public decimal ReintegroViatico { get; init; }
+
+    public int ReintegroDiasDescansoMedico { get; init; }
+
+    public int ReintegroDiasSubsidioMaternidad { get; init; }
+
+    public int ReintegroDiasSubsidioAccidente { get; init; }
+
+    public int ReintegroDiasLicenciaPaternidad { get; init; }
+
+    public decimal ReintegroLicenciaConGoce { get; init; }
+
+    public decimal ReintegroAsignacionFamiliar { get; init; }
+
+    public decimal ReintegroAfecto { get; init; }
+
+    public decimal ReintegroDescuentoPagoIndebido { get; init; }
 
     private static decimal AHoras(int minutos) => Math.Round(minutos / 60m, 2);
 }

@@ -9,6 +9,7 @@ internal sealed class TrabajadorRepository(MarcacionDbContext contexto) : ITraba
         contexto.Trabajadores
             .Include(t => t.AsignacionesMarcador)
             .Include(t => t.AsignacionesTurno)
+            .Include(t => t.AsignacionesSueldo)
             .FirstOrDefaultAsync(t => t.Id == id, cancelacion);
 
     public Task<bool> ExisteDocumentoAsync(

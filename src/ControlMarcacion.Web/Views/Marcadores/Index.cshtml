@@ -1,0 +1,132 @@
+@model ListaMarcadoresVm
+@{
+    ViewData["Title"] = "Marcadores";
+}
+
+<div class="titulo-pagina">
+    <h1>Catálogo de marcadores</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nuevo marcador</a>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">
+        Cada marcador es un identificador que emite el equipo ZKTeco, asociado a la
+        <strong>planta</strong> donde está instalado. El formulario de personal solo ofrece
+        los marcadores de la planta del trabajador.
+        <br />
+        El código es <strong>único en todo el sistema</strong>, no por planta: el archivo del
+        marcador no indica de qué planta salió cada marcación, así que dos plantas con el
+        mismo código harían esas marcaciones imposibles de atribuir.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="Busqueda">Buscar</label>
+                <input type="text" id="Busqueda" name="Busqueda" value="@Model.Filtro.Busqueda"
+                       placeholder="Código o descripción" />
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId" class="select-buscable"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre", Model.Filtro.PlantaId))">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input type="checkbox" id="IncluirInactivos" name="IncluirInactivos"
+                       value="true" checked="@Model.Filtro.IncluirInactivos" />
+                <label for="IncluirInactivos">Mostrar también los dados de baja</label>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-action="Index">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Marcadores.Count == 0)
+    {
+        <div class="sin-resultados">No hay marcadores que coincidan con el filtro.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Planta</th>
+                        <th>Empresa</th>
+                        <th>Descripción</th>
+                        <th>Asignado a</th>
+                        <th>Histórico</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model.Marcadores)
+                    {
+                        <tr>
+                            <td><code>@m.Codigo</code></td>
+                            <td>@m.Planta</td>
+                            <td>@m.Empresa</td>
+                            <td>@(m.Descripcion ?? "—")</td>
+                            <td>
+                                @if (m.AsignacionesVigentes == 0)
+                                {
+                                    <span style="color: var(--color-texto-suave);">Libre</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-puntual">@m.AsignacionesVigentes trabajador(es)</span>
+                                }
+                            </td>
+                            <td>@(m.AsignacionesTotales == 0 ? "—" : m.AsignacionesTotales.ToString())</td>
+                            <td>
+                                @if (m.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">De baja</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar" asp-route-id="@m.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" style="display:inline; margin-left:10px;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@m.Id" />
+                                    <input type="hidden" name="activo" value="@((!m.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario"
+                                            style="padding: 3px 10px; font-size: 13px;"
+                                            data-confirmar="@(m.Activo
+                                                ? $"¿Dar de baja el marcador '{m.Codigo}'? Dejará de ofrecerse en la ficha de personal."
+                                                : $"¿Reactivar el marcador '{m.Codigo}'?")">
+                                        @(m.Activo ? "Dar de baja" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Marcadores.Count marcador(es)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

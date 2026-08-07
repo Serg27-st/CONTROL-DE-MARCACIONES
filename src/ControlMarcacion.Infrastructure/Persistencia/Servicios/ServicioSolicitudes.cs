@@ -100,6 +100,8 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
                 $"{solapada.FechaFin:dd/MM/yyyy} que se cruza con estas fechas.");
         }
 
+        await ValidarLimitesAsync(solicitud, tipo, cancelacion).ConfigureAwait(false);
+
         SolicitudAusencia entidad;
 
         if (solicitud.Id is { } id)
@@ -129,7 +131,14 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         entidad.FechaFin = solicitud.FechaFin;
         entidad.HoraInicio = tipo.EsPorHoras ? solicitud.HoraInicio : null;
         entidad.HoraFin = tipo.EsPorHoras ? solicitud.HoraFin : null;
-        entidad.Sustento = solicitud.Sustento?.Trim();
+
+        // El subtipo y el periodo solo tienen sentido en vacaciones. Guardarlos en otro tipo
+        // dejaría un dato que nadie lee y que confundiría a quien audite la solicitud.
+        var esVacaciones = EsVacaciones(tipo);
+        entidad.SubtipoVacaciones = esVacaciones ? Normalizar(solicitud.SubtipoVacaciones) : null;
+        entidad.PeriodoVacacional = esVacaciones ? solicitud.PeriodoVacacional?.Trim() : null;
+
+        entidad.Sustento = solicitud.Sustento.Trim();
         entidad.RutaDocumentoSustento = solicitud.RutaDocumentoSustento?.Trim();
         entidad.Observacion = solicitud.Observacion?.Trim();
 
@@ -339,16 +348,121 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-    public async Task<IReadOnlyList<OpcionDto>> TiposAusenciaAsync(CancellationToken cancelacion = default) =>
+    public async Task<IReadOnlyList<TipoAusenciaOpcionDto>> TiposAusenciaAsync(
+        CancellationToken cancelacion = default) =>
         await contexto.TiposAusencia
             .AsNoTracking()
             .Where(t => t.Activo)
             .OrderBy(t => t.Nombre)
-            .Select(t => new OpcionDto(t.Id, t.Codigo + " - " + t.Nombre))
+            .Select(t => new TipoAusenciaOpcionDto(
+                t.Id,
+                t.Codigo,
+                t.Nombre,
+                t.MaximoDiasPorEvento,
+                t.MaximoDiasPorAnioCalendario))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Comprueba los topes de días del tipo de ausencia.
+    /// </summary>
+    /// <remarks>
+    /// La regla vive en <see cref="ValidadorLimitesSolicitud"/>, que es una función pura del
+    /// dominio. Lo único que aporta este método es el dato que esa función no puede
+    /// averiguar sola: cuántos días ya lleva el trabajador en el cupo que corresponde.
+    ///
+    /// Se cuentan las solicitudes <b>pendientes y aprobadas</b>: una pendiente todavía puede
+    /// aprobarse, así que reservar su cupo evita que dos registros que por separado caben
+    /// juntos se pasen del límite. Las rechazadas y anuladas no ocupan nada.
+    /// </remarks>
+    private async Task ValidarLimitesAsync(
+        GuardarSolicitudRequest solicitud,
+        TipoAusencia tipo,
+        CancellationToken cancelacion)
+    {
+        var esVacaciones = EsVacaciones(tipo);
+
+        // Si el tipo no tiene ningún tope y no es vacaciones, no hay nada que consultar:
+        // ni siquiera se toca la base de datos.
+        if (tipo.MaximoDiasPorEvento is null
+            && tipo.MaximoDiasPorAnioCalendario is null
+            && !esVacaciones)
+        {
+            return;
+        }
+
+        var acumulados = 0;
+
+        if (tipo.MaximoDiasPorAnioCalendario is not null || esVacaciones)
+        {
+            var consulta = contexto.SolicitudesAusencia
+                .AsNoTracking()
+                .Where(s => s.TrabajadorId == solicitud.TrabajadorId
+                            && s.TipoAusenciaId == solicitud.TipoAusenciaId
+                            && s.Id != solicitud.Id
+                            && (s.Estado == EstadoSolicitud.Pendiente
+                                || s.Estado == EstadoSolicitud.Aprobada));
+
+            if (esVacaciones)
+            {
+                // El cupo de vacaciones es por periodo y por subtipo: los 15 días de venta
+                // y los 30 de goce del periodo 2025-2026 son cupos distintos, y ninguno
+                // se mezcla con los del periodo siguiente.
+                var subtipo = Normalizar(solicitud.SubtipoVacaciones);
+                var periodo = solicitud.PeriodoVacacional?.Trim();
+
+                consulta = consulta.Where(s => s.SubtipoVacaciones == subtipo
+                                               && s.PeriodoVacacional == periodo);
+            }
+            else
+            {
+                // El tope anual se imputa al año en que arranca la ausencia, igual que el
+                // mensaje de error.
+                var anio = solicitud.FechaInicio.Year;
+
+                consulta = consulta.Where(s => s.FechaInicio.Year == anio);
+            }
+
+            // La suma se hace en memoria sobre una proyección mínima: son unas pocas filas
+            // por trabajador y evita depender de que el proveedor sepa traducir la
+            // aritmética de DateOnly a SQL.
+            var rangos = await consulta
+                .Select(s => new { s.FechaInicio, s.FechaFin })
+                .ToListAsync(cancelacion)
+                .ConfigureAwait(false);
+
+            acumulados = rangos.Sum(r => r.FechaFin.DayNumber - r.FechaInicio.DayNumber + 1);
+        }
+
+        var error = ValidadorLimitesSolicitud.Validar(
+            tipo,
+            solicitud.FechaInicio,
+            solicitud.FechaFin,
+            acumulados,
+            solicitud.SubtipoVacaciones,
+            solicitud.PeriodoVacacional);
+
+        if (error is not null)
+        {
+            throw new ReglaNegocioException(error);
+        }
+    }
+
+    private static bool EsVacaciones(TipoAusencia tipo) =>
+        string.Equals(
+            tipo.Codigo?.Trim(),
+            ValidadorLimitesSolicitud.CodigoVacaciones,
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Deja el subtipo en mayúsculas para que el cupo no dependa de cómo se tecleó.</summary>
+    private static string? Normalizar(string? subtipo)
+    {
+        var texto = subtipo?.Trim();
+
+        return string.IsNullOrEmpty(texto) ? null : texto.ToUpperInvariant();
+    }
 
     private static void ValidarHoras(GuardarSolicitudRequest solicitud, TipoAusencia tipo)
     {
@@ -407,5 +521,7 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
             s.Sustento,
             s.Observacion,
             s.MotivoAnulacion,
+            s.SubtipoVacaciones,
+            s.PeriodoVacacional,
             contexto.Justificaciones.Count(j => j.SolicitudAusenciaId == s.Id)));
 }

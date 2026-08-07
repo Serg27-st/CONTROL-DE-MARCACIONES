@@ -1,9 +1,14 @@
 // Encadena los desplegables del formulario de personal:
-//   empresa → planta → área → sección
-//   planta  → turnos habilitados
+//   empresa → planta → turnos habilitados
+//   empresa → puesto
+//   planta  → centro SAP → centro de costo
 //
 // El turno depende de la planta porque el turno especial de sábado solo existe en
-// Planta 01, y esa restricción vive en el catálogo, no en el código.
+// Planta 01, y esa restricción vive en el catálogo, no en el código. Centro depende
+// de la planta, no directo de la empresa: en el formulario la secuencia obligatoria
+// es Planta → Centro → Centro de costo, y el servidor resuelve la empresa dueña de
+// esa planta (Planta.EmpresaId) para reusar la misma consulta de centros por
+// empresa, sin pedirle al cliente que la recuerde.
 //
 // Los manejadores se enganchan desde aquí y no con atributos onclick en el HTML:
 // un nombre con apóstrofo dentro de un atributo rompe el marcado y abre XSS.
@@ -13,15 +18,20 @@
 
     var empresa = document.getElementById("EmpresaId");
     var planta = document.getElementById("PlantaId");
-    var area = document.getElementById("AreaId");
-    var seccion = document.getElementById("SeccionId");
     var turno = document.getElementById("TurnoId");
+    var centro = document.getElementById("CentroId");
+    var centroCosto = document.getElementById("CentroCostoId");
+    var puesto = document.getElementById("PuestoId");
+    var marcador = document.getElementById("IdMarcador");
 
-    if (!empresa || !planta || !area || !seccion || !turno) {
+    if (!empresa || !planta || !turno || !centro || !centroCosto || !puesto) {
         return;
     }
 
-    function repoblar(select, opciones, textoVacio) {
+    // Los marcadores se identifican por su código en texto y no por el id de la fila del
+    // catálogo: es el texto lo que se guarda en la asignación y lo que cruza con el
+    // archivo del marcador. Por eso su desplegable lee otra propiedad del JSON.
+    function repoblar(select, opciones, textoVacio, clave) {
         select.innerHTML = "";
 
         var vacia = document.createElement("option");
@@ -31,14 +41,14 @@
 
         opciones.forEach(function (opcion) {
             var elemento = document.createElement("option");
-            elemento.value = opcion.id;
+            elemento.value = opcion[clave || "id"];
             // textContent, nunca innerHTML: el nombre viene de la base de datos.
             elemento.textContent = opcion.nombre;
             select.appendChild(elemento);
         });
     }
 
-    function cargar(url, destino, textoVacio) {
+    function cargar(url, destino, textoVacio, clave) {
         return fetch(url, { headers: { "Accept": "application/json" } })
             .then(function (respuesta) {
                 if (!respuesta.ok) {
@@ -47,53 +57,73 @@
                 return respuesta.json();
             })
             .then(function (datos) {
-                repoblar(destino, datos, textoVacio);
+                repoblar(destino, datos, textoVacio, clave);
             })
             .catch(function () {
-                repoblar(destino, [], "No se pudo cargar");
+                repoblar(destino, [], "No se pudo cargar", clave);
             });
     }
 
     empresa.addEventListener("change", function () {
-        repoblar(area, [], "Seleccione una planta…");
-        repoblar(seccion, [], "Seleccione un área…");
+        repoblar(centro, [], "Seleccione una planta…");
+        repoblar(centroCosto, [], "Seleccione un centro…");
 
         if (!empresa.value) {
             repoblar(planta, [], "Seleccione una empresa…");
             repoblar(turno, [], "Sin turno asignado");
+            repoblar(puesto, [], "Seleccione una empresa…");
             return;
         }
 
         cargar("/Trabajadores/PlantasDeEmpresa?empresaId=" + encodeURIComponent(empresa.value),
                planta,
                "Seleccione…");
+
+        cargar("/Trabajadores/PuestosDeEmpresa?empresaId=" + encodeURIComponent(empresa.value),
+               puesto,
+               "Seleccione…");
     });
 
     planta.addEventListener("change", function () {
-        repoblar(seccion, [], "Seleccione un área…");
+        repoblar(centroCosto, [], "Seleccione un centro…");
 
         if (!planta.value) {
-            repoblar(area, [], "Seleccione una planta…");
+            repoblar(turno, [], "Sin turno asignado");
+            repoblar(centro, [], "Seleccione una planta…");
+
+            if (marcador) {
+                repoblar(marcador, [], "Seleccione una unidad…", "valor");
+            }
+
             return;
         }
-
-        cargar("/Trabajadores/AreasDePlanta?plantaId=" + encodeURIComponent(planta.value),
-               area,
-               "Seleccione…");
 
         cargar("/Trabajadores/TurnosDePlanta?plantaId=" + encodeURIComponent(planta.value),
                turno,
                "Sin turno asignado");
+
+        cargar("/Trabajadores/CentrosDePlanta?plantaId=" + encodeURIComponent(planta.value),
+               centro,
+               "Seleccione…");
+
+        // Cada marcador pertenece a una planta: al cambiarla, los que estaban ofrecidos
+        // dejan de ser válidos y el servidor rechazaría el guardado.
+        if (marcador) {
+            cargar("/Trabajadores/MarcadoresDePlanta?plantaId=" + encodeURIComponent(planta.value),
+                   marcador,
+                   "Sin marcador asignado",
+                   "valor");
+        }
     });
 
-    area.addEventListener("change", function () {
-        if (!area.value) {
-            repoblar(seccion, [], "Seleccione un área…");
+    centro.addEventListener("change", function () {
+        if (!centro.value) {
+            repoblar(centroCosto, [], "Seleccione un centro…");
             return;
         }
 
-        cargar("/Trabajadores/SeccionesDeArea?areaId=" + encodeURIComponent(area.value),
-               seccion,
+        cargar("/Trabajadores/CentrosCostoDeCentro?centroId=" + encodeURIComponent(centro.value),
+               centroCosto,
                "Seleccione…");
     });
 })();

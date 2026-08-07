@@ -1,3 +1,4 @@
+using ControlMarcacion.Domain.Organizacion;
 using ControlMarcacion.Domain.Personal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -27,6 +28,12 @@ public class TrabajadorConfiguracion : IEntityTypeConfiguration<Trabajador>
         builder.Property(t => t.Unidad).HasMaxLength(120);
         builder.Property(t => t.TipoPlanilla).HasConversion<string>().HasMaxLength(15).IsRequired();
 
+        // ---- Cese ----
+        // Enum como texto, igual que el resto: un 4 en la columna no le dice nada a quien
+        // consulte la base directamente, y "AbandonoLaboral" sí.
+        builder.Property(t => t.MotivoCese).HasConversion<string>().HasMaxLength(30);
+        builder.Property(t => t.ObservacionCese).HasMaxLength(300);
+
         // Un mismo número puede repetirse entre tipos de documento distintos,
         // así que la unicidad es por la combinación.
         builder.HasIndex(t => new { t.TipoDocumentoId, t.NumeroDocumento }).IsUnique();
@@ -47,6 +54,42 @@ public class TrabajadorConfiguracion : IEntityTypeConfiguration<Trabajador>
             .WithOne(a => a.Trabajador)
             .HasForeignKey(a => a.TrabajadorId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(t => t.AsignacionesSueldo)
+            .WithOne(a => a.Trabajador)
+            .HasForeignKey(a => a.TrabajadorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(t => t.PeriodosLaborales)
+            .WithOne(p => p.Trabajador)
+            .HasForeignKey(p => p.TrabajadorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Ignore(t => t.EstaVigente);
+    }
+}
+
+public class PeriodoLaboralConfiguracion : IEntityTypeConfiguration<PeriodoLaboral>
+{
+    public void Configure(EntityTypeBuilder<PeriodoLaboral> builder)
+    {
+        builder.ToTable("PeriodoLaboral");
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.MotivoCese).HasConversion<string>().HasMaxLength(30);
+        builder.Property(p => p.ObservacionCese).HasMaxLength(300);
+
+        // La pantalla de historial pide los vínculos de un trabajador ordenados por fecha.
+        builder.HasIndex(p => new { p.TrabajadorId, p.FechaIngreso });
+
+        // Restrict y no Cascade: la empresa es un catálogo con dos filas que nadie borra,
+        // y un cascade desde ahí arrastraría el historial laboral completo.
+        builder.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(p => p.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Ignore(p => p.EstaAbierto);
     }
 }
 
@@ -82,5 +125,18 @@ public class AsignacionTurnoConfiguracion : IEntityTypeConfiguration<AsignacionT
             .WithMany()
             .HasForeignKey(a => a.TurnoId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class AsignacionSueldoConfiguracion : IEntityTypeConfiguration<AsignacionSueldo>
+{
+    public void Configure(EntityTypeBuilder<AsignacionSueldo> builder)
+    {
+        builder.ToTable("AsignacionSueldo");
+        builder.HasKey(a => a.Id);
+
+        // Igual que con el marcador y el turno: sin este índice, resolver el sueldo
+        // vigente de cada trabajador para cada día del periodo se arrastra.
+        builder.HasIndex(a => new { a.TrabajadorId, a.FechaInicio, a.FechaFin });
     }
 }

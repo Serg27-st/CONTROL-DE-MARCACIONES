@@ -36,7 +36,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label for="periodoId">Periodo</label>
-                <select id="periodoId" name="periodoId">
+                <select id="periodoId" name="periodoId" class="select-buscable">
                     <option value="">Todos</option>
                     @foreach (var p in Model.Periodos)
                     {
@@ -47,7 +47,7 @@
 
             <div class="campo">
                 <label for="trabajadorId">Trabajador</label>
-                <select id="trabajadorId" name="trabajadorId">
+                <select id="trabajadorId" name="trabajadorId" class="select-buscable">
                     <option value="">Todos</option>
                     @foreach (var t in Model.Trabajadores)
                     {

@@ -1,8 +1,10 @@
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Catalogos.Dto;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -10,6 +12,7 @@ namespace ControlMarcacion.Web.Controllers;
 /// <summary>
 /// Mantenimiento de turnos.
 /// </summary>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class TurnosController(IServicioTurnos servicio) : Controller
 {
     [HttpGet]

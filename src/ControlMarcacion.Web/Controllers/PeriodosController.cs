@@ -15,7 +15,12 @@ namespace ControlMarcacion.Web.Controllers;
 /// El periodo gobierna el ciclo de apertura y cierre que congela la información. Por eso
 /// va en un controlador propio y no en el mantenimiento genérico de catálogos: no es
 /// código más nombre, y el cierre y la reapertura son acciones con reglas de negocio.
+///
+/// Todo el controlador es COORDINADOR/ADMINISTRADOR, no solo Cerrar/Reabrir: GERENCIA y
+/// TRABAJADOR_SOCIAL no gestionan periodos según la matriz de roles, ni siquiera para
+/// verlos o editar su rango de fechas por POST directo a Guardar.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class PeriodosController(IServicioPeriodos servicio) : Controller
 {
     [HttpGet]
@@ -90,9 +95,9 @@ public sealed class PeriodosController(IServicioPeriodos servicio) : Controller
 
     // Cerrar y reabrir un periodo son, junto con la gestión de usuarios, las acciones más
     // sensibles del sistema: una vez cerrado, ningún tareo de ese mes vuelve a escribirse
-    // salvo que alguien lo reabra explícitamente. Restringido a ADMINISTRADOR mientras no
-    // haya una matriz de roles más fina confirmada por GCA.
-    [Authorize(Roles = RolesSistema.Administrador)]
+    // salvo que alguien lo reabra explícitamente. El [Authorize] de clase ya cubre esto;
+    // no se repite aquí para no sugerir que estas dos acciones tienen una regla distinta
+    // del resto del controlador.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cerrar(long id, CancellationToken cancelacion)
@@ -117,7 +122,6 @@ public sealed class PeriodosController(IServicioPeriodos servicio) : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [Authorize(Roles = RolesSistema.Administrador)]
     [HttpGet]
     public async Task<IActionResult> Reabrir(long id, CancellationToken cancelacion)
     {
@@ -146,7 +150,6 @@ public sealed class PeriodosController(IServicioPeriodos servicio) : Controller
         });
     }
 
-    [Authorize(Roles = RolesSistema.Administrador)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Reabrir(ReabrirPeriodoVm modelo, CancellationToken cancelacion)

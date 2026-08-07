@@ -25,7 +25,49 @@
     }
 
     <div class="tarjeta">
-        <h2>Datos de la cuenta</h2>
+        <h2>Datos personales</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.ApellidoPaterno">Apellido paterno</label>
+                <input asp-for="Datos.ApellidoPaterno" type="text" maxlength="100" />
+                <span class="error-campo" asp-validation-for="Datos.ApellidoPaterno"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.ApellidoMaterno">Apellido materno</label>
+                <input asp-for="Datos.ApellidoMaterno" type="text" maxlength="100" />
+                <span class="error-campo" asp-validation-for="Datos.ApellidoMaterno"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombres">Nombres</label>
+                <input asp-for="Datos.Nombres" type="text" maxlength="120" />
+                <span class="error-campo" asp-validation-for="Datos.Nombres"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.TipoDocumentoId">Tipo de documento</label>
+                <select asp-for="Datos.TipoDocumentoId" id="TipoDocumentoId" class="select-buscable">
+                    <option value="">Seleccione…</option>
+                    @foreach (var tipo in Model.TiposDocumento)
+                    {
+                        <option value="@tipo.Id">@tipo.Nombre</option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TipoDocumentoId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.NumeroDocumento">Número de documento</label>
+                @* type="text", nunca "number": un DNI que empieza en cero pierde el dígito. *@
+                <input asp-for="Datos.NumeroDocumento" type="text" maxlength="20" autocomplete="off" />
+                <span class="error-campo" asp-validation-for="Datos.NumeroDocumento"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Acceso</h2>
         <div class="rejilla">
             <div class="campo">
                 <label asp-for="Datos.Correo">Correo</label>
@@ -34,14 +76,8 @@
             </div>
 
             <div class="campo">
-                <label asp-for="Datos.NombreCompleto">Nombre completo</label>
-                <input asp-for="Datos.NombreCompleto" type="text" maxlength="150" />
-                <span class="error-campo" asp-validation-for="Datos.NombreCompleto"></span>
-            </div>
-
-            <div class="campo">
                 <label asp-for="Datos.Rol">Rol</label>
-                <select asp-for="Datos.Rol">
+                <select asp-for="Datos.Rol" id="RolUsuario" class="select-buscable">
                     <option value="">Seleccione…</option>
                     @foreach (var rol in Model.Roles)
                     {
@@ -64,8 +100,46 @@
         </p>
     </div>
 
+    @* Bloque visible solo para ADMINISTRADOR. Que esté oculto no significa nada: si el
+       POST trae plantas con otro rol, el servicio las descarta igual. *@
+    <div class="tarjeta" id="bloque-plantas" hidden>
+        <h2>Plantas que gestiona</h2>
+        <p style="color: var(--color-texto-suave); margin-top: 0;">
+            Solo aplica al rol ADMINISTRADOR. La empresa es únicamente un filtro para
+            encontrar las plantas: no se guarda en la cuenta.
+        </p>
+
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.EmpresaId">Empresa (filtro)</label>
+                <select asp-for="Datos.EmpresaId" id="EmpresaId" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var empresa in Model.Empresas)
+                    {
+                        <option value="@empresa.Id">@empresa.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div id="lista-plantas" class="campo">
+            @foreach (var planta in Model.Plantas)
+            {
+                <label style="display:block; font-weight: normal;">
+                    <input type="checkbox" name="Datos.PlantaIds" value="@planta.Id"
+                           checked="@Model.Datos.PlantaIds.Contains(planta.Id)" />
+                    @planta.Nombre
+                </label>
+            }
+        </div>
+    </div>
+
     <div class="acciones">
         <button type="submit" class="boton boton-primario">Crear usuario</button>
         <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
     </div>
 </form>
+
+@section Scripts {
+    <script src="~/js/usuario-form.js" asp-append-version="true"></script>
+}

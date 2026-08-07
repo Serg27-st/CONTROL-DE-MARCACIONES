@@ -11,17 +11,27 @@ public sealed record FiltroReporte
 
     public long? PlantaId { get; init; }
 
-    public long? AreaId { get; init; }
+    public long? CentroId { get; init; }
 
-    public long? SeccionId { get; init; }
+    public long? CentroCostoId { get; init; }
 }
 
 /// <summary>
 /// Fila del resumen mensual: un trabajador, con sus totales del periodo.
 /// </summary>
 /// <remarks>
-/// Es el insumo para planilla, no la boleta: entrega minutos y conteos de días, nunca
-/// montos. El sistema no conoce ninguna remuneración.
+/// Es el insumo para planilla, no la boleta: entrega minutos y conteos de días. Las dos
+/// excepciones son <see cref="MontoBonoNocturno"/> — el sistema no calcula la remuneración
+/// completa del trabajador, pero ese concepto puntual (D.S. 007-2002-TR, art. 8) sí lo
+/// resuelve porque depende pura y exclusivamente de datos que el sistema ya tiene:
+/// franja nocturna trabajada, RMV, sobretasa y sueldo básico, todos con vigencia por fecha —
+/// y <see cref="MontoMovilidad"/>, días asistidos por la tarifa vigente, mismo criterio que
+/// usa el tareo final.
+///
+/// <see cref="Centro"/>/<see cref="CentroCosto"/> vienen del catálogo real de SAP asignado
+/// en Personal (<c>Trabajador.CentroCostoId</c>); si el trabajador todavía no tiene uno
+/// asignado, caen a la aproximación con Área/Sección — mismo criterio que
+/// <c>ServicioReportes.ArmarFilasTareoAsync</c> usa para el tareo final.
 /// </remarks>
 public sealed record ResumenTareoDto(
     long TrabajadorId,
@@ -29,8 +39,8 @@ public sealed record ResumenTareoDto(
     string? IdMarcador,
     string Empresa,
     string Planta,
-    string Area,
-    string Seccion,
+    string? Centro,
+    string? CentroCosto,
     string Puesto,
     int DiasPuntual,
     int DiasTardanza,
@@ -43,7 +53,9 @@ public sealed record ResumenTareoDto(
     int MinutosExtra25,
     int MinutosExtra35,
     int MinutosNocturnos,
-    int MinutosTardanzaAcumulados)
+    int MinutosTardanzaAcumulados,
+    decimal MontoBonoNocturno,
+    decimal MontoMovilidad)
 {
     public decimal HorasOrdinarias => Math.Round(MinutosOrdinarios / 60m, 2);
 

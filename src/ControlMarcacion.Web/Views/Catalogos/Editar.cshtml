@@ -37,7 +37,7 @@
             {
                 <div class="campo">
                     <label asp-for="Datos.PadreId">@Model.Definicion.EtiquetaPadre</label>
-                    <select asp-for="Datos.PadreId"
+                    <select asp-for="Datos.PadreId" class="select-buscable"
                             asp-items="@(new SelectList(Model.OpcionesPadre, "Id", "Nombre"))">
                         <option value="">Seleccione…</option>
                     </select>

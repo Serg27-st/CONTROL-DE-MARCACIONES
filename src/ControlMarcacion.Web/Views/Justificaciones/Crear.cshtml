@@ -38,7 +38,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label asp-for="Datos.TrabajadorId">Trabajador</label>
-                <select asp-for="Datos.TrabajadorId"
+                <select asp-for="Datos.TrabajadorId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Trabajadores, "Id", "Nombre"))">
                     <option value="">Seleccione…</option>
                 </select>
@@ -70,7 +70,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label asp-for="Datos.TipoAusenciaId">Tipo de ausencia</label>
-                <select asp-for="Datos.TipoAusenciaId"
+                <select asp-for="Datos.TipoAusenciaId" class="select-buscable"
                         asp-items="@(new SelectList(Model.TiposAusencia, "Id", "Nombre"))">
                     <option value="">No aplica</option>
                 </select>

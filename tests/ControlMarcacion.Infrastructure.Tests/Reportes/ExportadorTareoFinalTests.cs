@@ -32,8 +32,10 @@ public class ExportadorTareoFinalTests
         Dni = "07436907",
         ApellidosYNombres = "ACHO PIPA, MARSEBITH",
         Planta = "PLANTA 1",
+        Centro = "066D",
+        CentroCosto = "PE21400618",
         DescripcionCeco = "Envasado de Aerosoles/Insecticidas",
-        CentroCosto = "AEROSOLES",
+        Area = "AEROSOLES",
         FechaIngreso = new DateOnly(2023, 1, 3),
         DiasFalta = 2,
         DiasFaltaJustificada = 1,
@@ -83,9 +85,9 @@ public class ExportadorTareoFinalTests
         hoja.Cell("A1").GetString().ShouldBe("CA OUTSOURCING SAC");
         hoja.Cell("A2").GetString().ShouldBe("TAREO MENSUAL (OPERARIOS)");
         hoja.Cell("A3").GetString().ShouldBe("MES: NOVIEMBRE");
-        hoja.Cell("AG3").GetString().ShouldBe("DEL");
-        hoja.Cell("AH3").GetDateTime().ShouldBe(new DateTime(2024, 11, 1));
-        hoja.Cell("AK3").GetDateTime().ShouldBe(new DateTime(2024, 11, 30));
+        hoja.Cell("AF3").GetString().ShouldBe("DEL");
+        hoja.Cell("AG3").GetDateTime().ShouldBe(new DateTime(2024, 11, 1));
+        hoja.Cell("AJ3").GetDateTime().ShouldBe(new DateTime(2024, 11, 30));
     }
 
     /// <summary>
@@ -97,14 +99,14 @@ public class ExportadorTareoFinalTests
         using var libro = Exportar(Tareo());
         var hoja = libro.Worksheet("Tareo");
 
-        hoja.Cell("M6").GetString().ShouldBe("FALTAS");
-        hoja.Cell("N6").GetString().ShouldBe("SUSPENSION");
-        hoja.Cell("O6").GetString().ShouldBe("FALTAS JUS.");
-        hoja.Cell("P6").GetString().ShouldBe("TOTAL FALTAS");
-        hoja.Cell("Q6").GetString().ShouldBe("DM");
-        hoja.Cell("R6").GetString().ShouldBe("VACACI.");
-        hoja.Cell("X6").GetString().ShouldBe("PERMISOS");
-        hoja.Cell("Y6").GetString().ShouldBe("TARDANZA");
+        hoja.Cell("L6").GetString().ShouldBe("FALTAS");
+        hoja.Cell("M6").GetString().ShouldBe("SUSPENSION");
+        hoja.Cell("N6").GetString().ShouldBe("FALTAS JUS.");
+        hoja.Cell("O6").GetString().ShouldBe("TOTAL FALTAS");
+        hoja.Cell("P6").GetString().ShouldBe("DM");
+        hoja.Cell("Q6").GetString().ShouldBe("VACACI.");
+        hoja.Cell("W6").GetString().ShouldBe("PERMISOS");
+        hoja.Cell("X6").GetString().ShouldBe("TARDANZA");
     }
 
     [Fact]
@@ -113,18 +115,18 @@ public class ExportadorTareoFinalTests
         using var libro = Exportar(Tareo());
         var hoja = libro.Worksheet("Tareo");
 
-        hoja.Cell("AE6").GetString().ShouldBe("HRS NORMALES");
-        hoja.Cell("AF6").GetDouble().ShouldBe(0.25);
-        hoja.Cell("AG6").GetDouble().ShouldBe(0.35);
-        hoja.Cell("AH6").GetDouble().ShouldBe(1);
+        hoja.Cell("AD6").GetString().ShouldBe("HRS NORMALES");
+        hoja.Cell("AE6").GetDouble().ShouldBe(0.25);
+        hoja.Cell("AF6").GetDouble().ShouldBe(0.35);
+        hoja.Cell("AG6").GetDouble().ShouldBe(1);
 
-        hoja.Cell("AJ6").GetString().ShouldBe("B.NOCT. (HORAS)");
-        hoja.Cell("AK6").GetDouble().ShouldBe(0.25);
-        hoja.Cell("AL6").GetDouble().ShouldBe(0.35);
-        hoja.Cell("AM6").GetDouble().ShouldBe(1);
+        hoja.Cell("AI6").GetString().ShouldBe("B.NOCT. (HORAS)");
+        hoja.Cell("AJ6").GetDouble().ShouldBe(0.25);
+        hoja.Cell("AK6").GetDouble().ShouldBe(0.35);
+        hoja.Cell("AL6").GetDouble().ShouldBe(1);
 
         // Los tramos se muestran como porcentaje, no como 0.25 pelado.
-        hoja.Cell("AF6").Style.NumberFormat.Format.ShouldBe("0%");
+        hoja.Cell("AE6").Style.NumberFormat.Format.ShouldBe("0%");
     }
 
     [Fact]
@@ -134,11 +136,11 @@ public class ExportadorTareoFinalTests
         var hoja = libro.Worksheet("Tareo");
 
         // 14 400 min = 240 h; 1 002 min = 16.70 h; 5 760 min = 96 h; 802 min = 13.37 h.
-        hoja.Cell("AE7").GetDouble().ShouldBe(240);
-        hoja.Cell("AF7").GetDouble().ShouldBe(16.70);
-        hoja.Cell("AH7").GetDouble().ShouldBe(7.25);
-        hoja.Cell("AJ7").GetDouble().ShouldBe(96);
-        hoja.Cell("AK7").GetDouble().ShouldBe(13.37);
+        hoja.Cell("AD7").GetDouble().ShouldBe(240);
+        hoja.Cell("AE7").GetDouble().ShouldBe(16.70);
+        hoja.Cell("AG7").GetDouble().ShouldBe(7.25);
+        hoja.Cell("AI7").GetDouble().ShouldBe(96);
+        hoja.Cell("AJ7").GetDouble().ShouldBe(13.37);
     }
 
     /// <summary>
@@ -161,25 +163,140 @@ public class ExportadorTareoFinalTests
         using var libro = Exportar(Tareo());
         var hoja = libro.Worksheet("Tareo");
 
-        hoja.Cell("M7").GetDouble().ShouldBe(2);
-        hoja.Cell("O7").GetDouble().ShouldBe(1);
-        hoja.Cell("P7").GetDouble().ShouldBe(3);
+        hoja.Cell("L7").GetDouble().ShouldBe(2);
+        hoja.Cell("N7").GetDouble().ShouldBe(1);
+        hoja.Cell("O7").GetDouble().ShouldBe(3);
     }
 
+    /// <summary>
+    /// El bloque de llenado manual (Y-AC) se emite vacío, presente solo por título — igual
+    /// que en el archivo de GCA. Y si el trabajador no tiene centro de costo asignado, las
+    /// tres columnas de CECO salen vacías en vez de aproximarse con la jerarquía interna.
+    /// </summary>
     [Fact]
-    public void Las_columnas_sin_origen_se_emiten_presentes_pero_vacias()
+    public void Las_columnas_sin_origen_real_se_emiten_presentes_pero_vacias()
+    {
+        var fila = Fila() with { Centro = null, CentroCosto = null, DescripcionCeco = null };
+
+        using var libro = Exportar(Tareo([fila]));
+        var hoja = libro.Worksheet("Tareo");
+
+        // Presentes: el título existe y está en su posición.
+        hoja.Cell("Y4").GetString().ShouldBe("Ausencias");
+
+        // Vacías: no se inventa un dato que ningún catálogo real todavía resuelve.
+        hoja.Cell("Y7").IsEmpty().ShouldBeTrue();
+        hoja.Cell("E7").GetString().ShouldBe(string.Empty);
+        hoja.Cell("F7").GetString().ShouldBe(string.Empty);
+        hoja.Cell("G7").GetString().ShouldBe(string.Empty);
+
+        // AREA no depende del CECO: sigue saliendo.
+        hoja.Cell("H7").GetString().ShouldBe("AEROSOLES");
+    }
+
+    /// <summary>
+    /// Bloque de identificación del formato vigente de GCA: CENTRO (E) / CENTRO DE COSTO (F) /
+    /// DESCRIP. CECO (G) salen del catálogo real de SAP, y AREA (H) es el área interna.
+    /// </summary>
+    [Fact]
+    public void Ceco_y_area_se_escriben_en_las_columnas_del_formato_de_gca()
+    {
+        var fila = Fila() with
+        {
+            Centro = "066G",
+            CentroCosto = "PE21400303",
+            DescripcionCeco = "Manufactura Detergentes Lurín",
+            Area = "PROCESOS"
+        };
+
+        using var libro = Exportar(Tareo([fila]));
+        var hoja = libro.Worksheet("Tareo");
+
+        hoja.Cell("E4").GetString().ShouldBe("CENTRO");
+        hoja.Cell("F4").GetString().ShouldBe("CENTRO DE COSTO");
+        hoja.Cell("G4").GetString().ShouldBe("DESCRIP. CECO");
+        hoja.Cell("H4").GetString().ShouldBe("AREA");
+
+        hoja.Cell("E7").GetString().ShouldBe("066G");
+        hoja.Cell("F7").GetString().ShouldBe("PE21400303");
+        hoja.Cell("G7").GetString().ShouldBe("Manufactura Detergentes Lurín");
+        hoja.Cell("H7").GetString().ShouldBe("PROCESOS");
+    }
+
+    /// <summary>Movilidad (AH) y asignación familiar (AM): montos calculados por el sistema.</summary>
+    [Fact]
+    public void Movilidad_y_asignacion_familiar_se_escriben_como_numero()
+    {
+        var fila = Fila() with { MontoMovilidad = 90m, MontoAsignacionFamiliar = 113m };
+
+        using var libro = Exportar(Tareo([fila]));
+        var hoja = libro.Worksheet("Tareo");
+
+        hoja.Cell("AH7").GetDouble().ShouldBe(90);
+        hoja.Cell("AH7").DataType.ShouldBe(XLDataType.Number);
+        hoja.Cell("AM7").GetDouble().ShouldBe(113);
+        hoja.Cell("AM7").DataType.ShouldBe(XLDataType.Number);
+    }
+
+    /// <summary>Las 18 columnas del bloque REINTEGROS (AO-BF), cargadas desde ReintegroTareo.</summary>
+    [Fact]
+    public void Los_reintegros_se_escriben_en_el_bloque_AO_BF()
+    {
+        var fila = Fila() with
+        {
+            ReintegroHorasNormales = 8m,
+            ReintegroHorasExtra25 = 1m,
+            ReintegroHorasExtra35 = 0.5m,
+            ReintegroHorasNoLaborable = 2m,
+            ReintegroMontoMovilidad = 15m,
+            ReintegroHorasNocturnas = 3m,
+            ReintegroHorasExtra25Nocturnas = 0.25m,
+            ReintegroHorasExtra35Nocturnas = 0.1m,
+            ReintegroHorasNoLaborableNocturnas = 0.2m,
+            ReintegroViatico = 50m,
+            ReintegroDiasDescansoMedico = 2,
+            ReintegroDiasSubsidioMaternidad = 0,
+            ReintegroDiasSubsidioAccidente = 1,
+            ReintegroDiasLicenciaPaternidad = 4,
+            ReintegroLicenciaConGoce = 120m,
+            ReintegroAsignacionFamiliar = 113m,
+            ReintegroAfecto = 30m,
+            ReintegroDescuentoPagoIndebido = 25m
+        };
+
+        using var libro = Exportar(Tareo([fila]));
+        var hoja = libro.Worksheet("Tareo");
+
+        hoja.Cell("AN7").GetDouble().ShouldBe(8);
+        hoja.Cell("AO7").GetDouble().ShouldBe(1);
+        hoja.Cell("AP7").GetDouble().ShouldBe(0.5);
+        hoja.Cell("AQ7").GetDouble().ShouldBe(2);
+        hoja.Cell("AR7").GetDouble().ShouldBe(15);
+        hoja.Cell("AS7").GetDouble().ShouldBe(3);
+        hoja.Cell("AT7").GetDouble().ShouldBe(0.25);
+        hoja.Cell("AU7").GetDouble().ShouldBe(0.1);
+        hoja.Cell("AV7").GetDouble().ShouldBe(0.2);
+        hoja.Cell("AW7").GetDouble().ShouldBe(50);
+        hoja.Cell("AX7").GetDouble().ShouldBe(2);
+        hoja.Cell("AY7").GetDouble().ShouldBe(0);
+        hoja.Cell("AZ7").GetDouble().ShouldBe(1);
+        hoja.Cell("BA7").GetDouble().ShouldBe(4);
+        hoja.Cell("BB7").GetDouble().ShouldBe(120);
+        hoja.Cell("BC7").GetDouble().ShouldBe(113);
+        hoja.Cell("BD7").GetDouble().ShouldBe(30);
+        hoja.Cell("BE7").GetDouble().ShouldBe(25);
+    }
+
+    /// <summary>Sin reintegros cargados, el bloque AO-BF sale en cero (se ve como "-"), no vacío.</summary>
+    [Fact]
+    public void Sin_reintegros_cargados_el_bloque_sale_en_cero()
     {
         using var libro = Exportar(Tareo());
         var hoja = libro.Worksheet("Tareo");
 
-        // Presentes: el título existe y está en su posición.
-        hoja.Cell("AN4").GetString().ShouldBe("ASIG. FAMILIAR");
-        hoja.Cell("AX6").GetString().ShouldBe("VIATICO");
-        hoja.Cell("BF6").GetString().ShouldBe("DESC. PAGO INDEBIDO");
-
-        // Vacías: no se inventa un cero donde nadie calculó nada.
-        hoja.Cell("AN7").IsEmpty().ShouldBeTrue();
-        hoja.Cell("AX7").IsEmpty().ShouldBeTrue();
+        hoja.Cell("AN7").IsEmpty().ShouldBeFalse();
+        hoja.Cell("AN7").GetDouble().ShouldBe(0);
+        hoja.Cell("BE7").GetDouble().ShouldBe(0);
     }
 
     [Fact]
@@ -251,6 +368,6 @@ public class ExportadorTareoFinalTests
         using var libro = Exportar(Tareo(filas: []));
 
         libro.Worksheets.Count.ShouldBe(3);
-        libro.Worksheet("Tareo").Cell("M6").GetString().ShouldBe("FALTAS");
+        libro.Worksheet("Tareo").Cell("L6").GetString().ShouldBe("FALTAS");
     }
 }

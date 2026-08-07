@@ -4,6 +4,7 @@
 
     static string Horas(decimal h) => h == 0 ? "—" : h.ToString("N2");
     static string Dias(int d) => d == 0 ? "—" : d.ToString();
+    static string Soles(decimal s) => s == 0 ? "—" : "S/ " + s.ToString("N2");
 }
 
 <div class="titulo-pagina">
@@ -16,7 +17,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label for="PeriodoId">Periodo</label>
-                <select id="PeriodoId" name="PeriodoId" required>
+                <select id="PeriodoId" name="PeriodoId" class="select-buscable" required>
                     <option value="">Seleccione…</option>
                     @foreach (var p in Model.Periodos)
                     {
@@ -29,7 +30,7 @@
 
             <div class="campo">
                 <label for="EmpresaId">Empresa</label>
-                <select id="EmpresaId" name="EmpresaId">
+                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var e in Model.Empresas)
                     {
@@ -40,7 +41,7 @@
 
             <div class="campo">
                 <label for="PlantaId">Planta</label>
-                <select id="PlantaId" name="PlantaId">
+                <select id="PlantaId" name="PlantaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var p in Model.Plantas)
                     {
@@ -50,23 +51,23 @@
             </div>
 
             <div class="campo">
-                <label for="AreaId">Área</label>
-                <select id="AreaId" name="AreaId">
-                    <option value="">Todas</option>
-                    @foreach (var a in Model.Areas)
+                <label for="CentroId">Centro</label>
+                <select id="CentroId" name="CentroId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var c in Model.Centros)
                     {
-                        <option value="@a.Id" selected="@(Model.Filtro.AreaId == a.Id)">@a.Nombre</option>
+                        <option value="@c.Id" selected="@(Model.Filtro.CentroId == c.Id)">@c.Nombre</option>
                     }
                 </select>
             </div>
 
             <div class="campo">
-                <label for="SeccionId">Sección</label>
-                <select id="SeccionId" name="SeccionId">
-                    <option value="">Todas</option>
-                    @foreach (var s in Model.Secciones)
+                <label for="CentroCostoId">Centro de costo</label>
+                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var cc in Model.CentrosCosto)
                     {
-                        <option value="@s.Id" selected="@(Model.Filtro.SeccionId == s.Id)">@s.Nombre</option>
+                        <option value="@cc.Id" selected="@(Model.Filtro.CentroCostoId == cc.Id)">@cc.Nombre</option>
                     }
                 </select>
             </div>
@@ -82,8 +83,8 @@
                        ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
                        ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
                        ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
-                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
                    })">Exportar a Excel</a>
                 <a class="boton boton-primario"
                    asp-action="ExportarTareoFinal"
@@ -91,8 +92,8 @@
                        ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
                        ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
                        ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
-                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
                    })">Descargar tareo final</a>
             }
         </div>
@@ -124,8 +125,8 @@ else
                             <th>Trabajador</th>
                             <th>ID</th>
                             <th>Planta</th>
-                            <th>Área</th>
-                            <th>Sección</th>
+                            <th>Centro</th>
+                            <th>Centro de costo</th>
                             <th>Puntual</th>
                             <th>Tardanza</th>
                             <th>Falta</th>
@@ -137,6 +138,8 @@ else
                             <th>H. extra 35%</th>
                             <th>H. nocturnas</th>
                             <th>H. tardanza</th>
+                            <th>Bono nocturno</th>
+                            <th>Movilidad</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,8 +149,8 @@ else
                                 <td>@r.Trabajador</td>
                                 <td><code>@(r.IdMarcador ?? "—")</code></td>
                                 <td>@r.Planta</td>
-                                <td>@r.Area</td>
-                                <td>@r.Seccion</td>
+                                <td>@(r.Centro ?? "—")</td>
+                                <td>@(r.CentroCosto ?? "—")</td>
                                 <td>@Dias(r.DiasPuntual)</td>
                                 <td>@Dias(r.DiasTardanza)</td>
                                 <td>@Dias(r.DiasFalta)</td>
@@ -159,6 +162,8 @@ else
                                 <td>@Horas(r.HorasExtra35)</td>
                                 <td>@Horas(r.HorasNocturnas)</td>
                                 <td>@Horas(r.HorasTardanza)</td>
+                                <td>@Soles(r.MontoBonoNocturno)</td>
+                                <td>@Soles(r.MontoMovilidad)</td>
                             </tr>
                         }
                     </tbody>
@@ -180,6 +185,8 @@ else
                             <th>@Model.Filas.Sum(r => r.HorasExtra35).ToString("N2")</th>
                             <th>@Model.Filas.Sum(r => r.HorasNocturnas).ToString("N2")</th>
                             <th>@Model.Filas.Sum(r => r.HorasTardanza).ToString("N2")</th>
+                            <th>S/ @Model.Filas.Sum(r => r.MontoBonoNocturno).ToString("N2")</th>
+                            <th>S/ @Model.Filas.Sum(r => r.MontoMovilidad).ToString("N2")</th>
                         </tr>
                     </tfoot>
                 </table>

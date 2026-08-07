@@ -1,0 +1,162 @@
+/*
+  Desplegable con buscador (SearchableSelect).
+
+  Reusa las variables de sitio.css (--color-primario, --color-borde, etc.): no se
+  inventan colores nuevos para no desentonar con el resto del panel administrativo.
+
+  El <select> real queda dentro de .select-buscable-envoltorio, superpuesto sobre
+  .select-buscable-control con opacity: 0 (no display:none) — así sigue "renderizado"
+  y el navegador puede anclar ahí su aviso nativo de "complete este campo" en los
+  <select required>. pointer-events: none deja que los clics le lleguen al control
+  visible que está debajo.
+*/
+
+.select-buscable-envoltorio {
+  position: relative;
+  width: 100%;
+}
+
+.select-buscable-envoltorio > select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.select-buscable-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-texto);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select-buscable-control:hover {
+  border-color: #cbd5e1;
+}
+
+.select-buscable-control:focus,
+.select-buscable-envoltorio.abierto .select-buscable-control {
+  outline: none;
+  border-color: var(--color-acento);
+  box-shadow: 0 0 0 3px rgba(207, 115, 45, 0.15);
+}
+
+.select-buscable-control:disabled {
+  background: #f1f5f9;
+  color: var(--color-texto-suave);
+  cursor: not-allowed;
+}
+
+.select-buscable-etiqueta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-buscable-flecha {
+  flex-shrink: 0;
+  color: var(--color-texto-suave);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.select-buscable-envoltorio.abierto .select-buscable-flecha {
+  transform: rotate(180deg);
+}
+
+.select-buscable-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 8px;
+}
+
+.select-buscable-buscador {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  margin: 0 0 6px;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--color-texto);
+}
+
+.select-buscable-buscador:focus {
+  outline: none;
+  border-color: var(--color-acento);
+  box-shadow: 0 0 0 3px rgba(207, 115, 45, 0.15);
+}
+
+.select-buscable-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.select-buscable-opcion {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+
+.select-buscable-opcion.resaltada,
+.select-buscable-opcion:hover {
+  background: #f1f5f9;
+}
+
+.select-buscable-opcion-actual {
+  font-weight: 700;
+  color: var(--color-primario);
+}
+
+.select-buscable-opcion-actual::after {
+  content: " ✓";
+}
+
+.select-buscable-opcion-deshabilitada {
+  color: var(--color-texto-suave);
+  cursor: not-allowed;
+}
+
+.select-buscable-opcion-deshabilitada.resaltada,
+.select-buscable-opcion-deshabilitada:hover {
+  background: none;
+}
+
+.select-buscable-vacio {
+  padding: 10px;
+  text-align: center;
+  color: var(--color-texto-suave);
+  font-size: 13px;
+}

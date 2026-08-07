@@ -1,4 +1,5 @@
 using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Catalogos.Dto;
 using ControlMarcacion.Application.Comun;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,6 +34,14 @@ internal sealed class ConsultaCatalogos(MarcacionDbContext contexto) : IConsulta
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
+    public async Task<long?> EmpresaDePlantaAsync(long plantaId, CancellationToken cancelacion = default) =>
+        await contexto.Plantas
+            .AsNoTracking()
+            .Where(p => p.Id == plantaId && p.Activo)
+            .Select(p => (long?)p.EmpresaId)
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
+
     public async Task<IReadOnlyList<OpcionDto>> AreasAsync(long? plantaId, CancellationToken cancelacion = default) =>
         await contexto.Areas
             .AsNoTracking()
@@ -51,10 +60,30 @@ internal sealed class ConsultaCatalogos(MarcacionDbContext contexto) : IConsulta
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-    public async Task<IReadOnlyList<OpcionDto>> PuestosAsync(CancellationToken cancelacion = default) =>
+    public async Task<IReadOnlyList<OpcionDto>> CentrosAsync(long? empresaId, CancellationToken cancelacion = default) =>
+        await contexto.Centros
+            .AsNoTracking()
+            .Where(c => c.Activo && (empresaId == null || c.EmpresaId == empresaId))
+            .OrderBy(c => c.Codigo)
+            .Select(c => new OpcionDto(c.Id, c.Codigo))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<OpcionDto>> CentrosCostoAsync(long? centroId, CancellationToken cancelacion = default) =>
+        await contexto.CentrosCosto
+            .AsNoTracking()
+            .Where(cc => cc.Activo && (centroId == null || cc.CentroId == centroId))
+            .OrderBy(cc => cc.Codigo)
+            .Select(cc => new OpcionDto(cc.Id, cc.Codigo + " - " + cc.Descripcion))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<OpcionDto>> PuestosAsync(long? empresaId = null, CancellationToken cancelacion = default) =>
         await contexto.Puestos
             .AsNoTracking()
-            .Where(p => p.Activo)
+            // Un puesto sin empresa declarada aplica a todas (los 4 sembrados). Si
+            // declara una, solo aparece para esa: la regla vive en los datos.
+            .Where(p => p.Activo && (empresaId == null || p.EmpresaId == null || p.EmpresaId == empresaId))
             .OrderBy(p => p.Nombre)
             .Select(p => new OpcionDto(p.Id, p.Nombre))
             .ToListAsync(cancelacion)
@@ -74,4 +103,49 @@ internal sealed class ConsultaCatalogos(MarcacionDbContext contexto) : IConsulta
             .Select(t => new OpcionDto(t.Id, t.Codigo + " - " + t.Nombre))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<OpcionTextoDto>> MarcadoresAsync(
+        long? plantaId,
+        string? incluirCodigo = null,
+        CancellationToken cancelacion = default)
+    {
+        var forzado = string.IsNullOrWhiteSpace(incluirCodigo) ? null : incluirCodigo.Trim();
+
+        return await contexto.Marcadores
+            .AsNoTracking()
+            .Where(m => (m.Activo && (plantaId == null || m.PlantaId == plantaId))
+                // El código que el trabajador ya tiene asignado entra siempre, aunque
+                // esté inactivo o sea de otra planta: ver IConsultaCatalogos.
+                || (forzado != null && m.Codigo == forzado))
+            .OrderBy(m => m.Codigo)
+            .Select(m => new OpcionTextoDto(
+                m.Codigo,
+                m.Descripcion == null ? m.Codigo : m.Codigo + " - " + m.Descripcion))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<MarcadorCatalogoDto?> MarcadorPorCodigoAsync(
+        string codigo,
+        CancellationToken cancelacion = default)
+    {
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            return null;
+        }
+
+        var buscado = codigo.Trim();
+
+        return await contexto.Marcadores
+            .AsNoTracking()
+            .Where(m => m.Codigo == buscado)
+            .Select(m => new MarcadorCatalogoDto(
+                m.Id,
+                m.Codigo,
+                m.PlantaId,
+                m.Planta!.Nombre,
+                m.Activo))
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
+    }
 }

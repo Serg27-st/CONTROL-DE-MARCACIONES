@@ -1,5 +1,7 @@
 using ControlMarcacion.Application.Marcaciones;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -10,7 +12,11 @@ namespace ControlMarcacion.Web.Controllers;
 /// <remarks>
 /// Las marcaciones crudas son inmutables: esta pantalla solo inserta. No hay edición ni
 /// borrado, y no debe agregarse: toda corrección va por Justificaciones.
+///
+/// La carga del TXT es una superficie de ataque real (archivo de origen externo), así que
+/// además del filtro por rol el servicio valida tipo y tamaño antes de abrir nada.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class MarcacionesController(IServicioImportacion servicio) : Controller
 {
     /// <summary>Tamaño máximo aceptado. El archivo real de un mes pesa unos 100 KB.</summary>

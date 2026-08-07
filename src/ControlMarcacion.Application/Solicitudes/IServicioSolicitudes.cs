@@ -58,6 +58,32 @@ public interface IServicioSolicitudes
     /// <summary>Trabajadores vigentes, para el desplegable del formulario.</summary>
     Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default);
 
-    /// <summary>Tipos de ausencia activos.</summary>
-    Task<IReadOnlyList<OpcionDto>> TiposAusenciaAsync(CancellationToken cancelacion = default);
+    /// <summary>Tipos de ausencia activos, con su código y sus topes de días.</summary>
+    Task<IReadOnlyList<TipoAusenciaOpcionDto>> TiposAusenciaAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Periodos vacacionales seleccionables, del <c>2020-2021</c> al que abre el año en curso.
+    /// </summary>
+    /// <remarks>
+    /// Es una lista calculada y no una tabla: un periodo vacacional no tiene atributos
+    /// propios que mantener, solo un rótulo. Se genera en el servidor y se envía a la vista
+    /// para que el JavaScript no tenga que saber cómo se arma el rótulo.
+    ///
+    /// El límite inferior de 2020 es una decisión de captura: las vacaciones anteriores ya
+    /// están liquidadas y no se registran en este sistema.
+    /// </remarks>
+    static IReadOnlyList<string> GenerarPeriodosVacaciones()
+    {
+        const int primerAnio = 2020;
+
+        var ultimoAnio = DateTime.Now.Year;
+        var periodos = new List<string>(ultimoAnio - primerAnio + 1);
+
+        for (var anio = primerAnio; anio <= ultimoAnio; anio++)
+        {
+            periodos.Add($"{anio}-{anio + 1}");
+        }
+
+        return periodos;
+    }
 }

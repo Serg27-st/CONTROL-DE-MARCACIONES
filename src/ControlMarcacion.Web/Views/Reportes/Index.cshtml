@@ -14,11 +14,16 @@
     </p>
 
     <div class="aviso" style="background:#fef3e7; border-color:#f3d19e; color:#92400e;">
-        ⚠️ El <strong>tareo final</strong> ya sigue la estructura del archivo modelo de GCA.
-        Las columnas de CECO, movilidad, asignación familiar y reintegros se emiten vacías:
-        son conceptos de dinero que carga planilla, igual que en el archivo original. El
-        detalle clínico del descanso médico (contingencia, diagnóstico y centro de atención)
-        también sale vacío hasta que esos campos existan en el sistema.
+        ⚠️ El <strong>tareo final</strong> sigue el formato vigente de GCA.
+        <strong>Centro</strong>, <strong>Centro de costo</strong> y <strong>Descrip. Ceco</strong>
+        salen del catálogo real de SAP, y <strong>Área</strong> del catálogo interno; movilidad
+        y asignación familiar ya se calculan. Si un trabajador todavía no tiene centro de costo
+        asignado en <a asp-controller="Trabajadores" asp-action="Index">Personal</a>, esas tres
+        columnas salen vacías a propósito: rellenarlas con Área/Sección daría un código que no
+        existe en SAP. Siguen sin dato los <strong>reintegros</strong> (bloque AN-BE, de carga
+        manual en <a asp-controller="Reintegros" asp-action="Index">su propia pantalla</a> por
+        trabajador y periodo) y el detalle clínico del descanso médico (contingencia,
+        diagnóstico y centro de atención), que todavía no existe en el sistema.
     </div>
 
     <div class="tabla-contenedor">

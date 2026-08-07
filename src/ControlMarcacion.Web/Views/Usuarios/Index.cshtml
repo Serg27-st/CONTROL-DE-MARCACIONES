@@ -10,9 +10,10 @@
 
 <div class="tarjeta">
     <p style="color: var(--color-texto-suave); margin-top: 0; margin-bottom: 0;">
-        No hay autorregistro: cada cuenta la crea un administrador aquí, con el rol que le
+        No hay autorregistro: cada cuenta la crea un coordinador aquí, con el rol que le
         corresponde. Desactivar una cuenta bloquea el ingreso de inmediato; nunca se borra
-        un usuario, igual que el resto del sistema.
+        un usuario, igual que el resto del sistema. Las plantas que gestiona solo aplican
+        al rol ADMINISTRADOR.
     </p>
 </div>
 
@@ -29,7 +30,9 @@
                     <tr>
                         <th>Correo</th>
                         <th>Nombre completo</th>
+                        <th>Documento</th>
                         <th>Rol</th>
+                        <th>Plantas que gestiona</th>
                         <th>Estado</th>
                         <th></th>
                     </tr>
@@ -40,7 +43,9 @@
                         <tr>
                             <td>@u.Correo</td>
                             <td>@u.NombreCompleto</td>
+                            <td>@(string.IsNullOrWhiteSpace(u.NumeroDocumento) ? "—" : u.NumeroDocumento)</td>
                             <td><span class="etiqueta etiqueta-justificada">@u.Rol</span></td>
+                            <td>@(string.IsNullOrWhiteSpace(u.PlantasGestionadas) ? "—" : u.PlantasGestionadas)</td>
                             <td>
                                 @if (u.Activo)
                                 {

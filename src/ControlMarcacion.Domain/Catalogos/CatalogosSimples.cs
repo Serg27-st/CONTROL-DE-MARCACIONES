@@ -26,6 +26,15 @@ public class Puesto : EntidadBase
     public string Codigo { get; set; } = null!;
 
     public string Nombre { get; set; } = null!;
+
+    /// <summary>
+    /// Empresa a la que pertenece este puesto. Nulo si aplica a cualquier empresa
+    /// — mismo patrón que <see cref="Feriado.PlantaId"/> y
+    /// <c>TasaSobretasa.EmpresaId</c>. Los 4 puestos sembrados (OPER, SUPV, AUX,
+    /// ANAL) quedan universales; si GCA entrega puestos propios de una empresa se
+    /// agregan como filas nuevas con este campo asignado.
+    /// </summary>
+    public long? EmpresaId { get; set; }
 }
 
 /// <summary>

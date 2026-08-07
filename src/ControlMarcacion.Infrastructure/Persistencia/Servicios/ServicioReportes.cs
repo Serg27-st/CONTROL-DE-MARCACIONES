@@ -4,6 +4,7 @@ using ControlMarcacion.Application.Reportes.Dto;
 using ControlMarcacion.Domain.Asistencia;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
+using ControlMarcacion.Domain.Normativa;
 using ControlMarcacion.Domain.Solicitudes;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,12 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
+        var periodo = await contexto.Periodos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == filtro.PeriodoId, cancelacion)
+            .ConfigureAwait(false)
+            ?? throw new RecursoNoEncontradoException("el periodo", filtro.PeriodoId);
+
         var trabajadores = await ResolverTrabajadoresAsync(filtro, cancelacion).ConfigureAwait(false);
 
         if (trabajadores.Count == 0)
@@ -50,8 +57,11 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             .Select(t => new
             {
                 t.TrabajadorId,
+                t.Fecha,
                 t.Estado,
                 t.TipoDiaNoLaborable,
+                t.EntradaReal,
+                t.SalidaReal,
                 t.MinutosTrabajados,
                 t.MinutosOrdinarios,
                 t.MinutosExtra25,
@@ -64,11 +74,36 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
         var porTrabajador = tareos.ToLookup(t => t.TrabajadorId);
 
+        // Bono nocturno: es dinero, así que se resuelve aparte de los minutos y día por día,
+        // con el RMV/tasa/sueldo vigentes en la fecha de CADA jornada — no en una fecha fija
+        // del periodo. Ver CalcularBonoNocturnoPorTrabajadorAsync.
+        var diasNocturnos = tareos
+            .Where(t => t.MinutosNocturnos > 0)
+            .Select(t => (t.TrabajadorId, t.Fecha, t.MinutosNocturnos))
+            .ToList();
+
+        var bonoNocturnoPorTrabajador = await CalcularBonoNocturnoPorTrabajadorAsync(
+            diasNocturnos, trabajadores, cancelacion).ConfigureAwait(false);
+
+        // Movilidad: mismo criterio que el tareo final (ArmarFilasTareoAsync) — días
+        // asistidos (marcación real de entrada Y salida, Puntual o Tardanza; NO
+        // MinutosTrabajados > 0, que también se rellena en vacaciones justificadas) por la
+        // tarifa vigente al cierre del periodo.
+        var valorMovilidadDiaria = ResolverVigente(
+            await ObtenerParametroLegalAsync(TipoParametroLegal.ValorMovilidadDiaria, cancelacion)
+                .ConfigureAwait(false),
+            periodo.FechaFin,
+            "el valor de movilidad diaria");
+
         return
         [
             .. trabajadores.Select(trabajador =>
             {
                 var dias = porTrabajador[trabajador.Id];
+
+                var diasAsistidos = dias.Count(d =>
+                    d.EntradaReal != null && d.SalidaReal != null
+                    && (d.Estado == EstadoTareo.Puntual || d.Estado == EstadoTareo.Tardanza));
 
                 return new ResumenTareoDto(
                     trabajador.Id,
@@ -76,8 +111,10 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
                     trabajador.IdMarcador,
                     trabajador.Empresa,
                     trabajador.Planta,
-                    trabajador.Area,
-                    trabajador.Seccion,
+                    trabajador.CentroCodigo ?? trabajador.AreaCodigo,
+                    trabajador.CentroCostoDescripcion is null
+                        ? trabajador.Seccion
+                        : $"{trabajador.CentroCostoCodigo} - {trabajador.CentroCostoDescripcion}",
                     trabajador.Puesto,
                     dias.Count(d => d.Estado == EstadoTareo.Puntual),
                     dias.Count(d => d.Estado == EstadoTareo.Tardanza),
@@ -92,7 +129,9 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
                     dias.Sum(d => d.MinutosExtra25),
                     dias.Sum(d => d.MinutosExtra35),
                     dias.Sum(d => d.MinutosNocturnos),
-                    dias.Sum(d => d.MinutosTardanza));
+                    dias.Sum(d => d.MinutosTardanza),
+                    bonoNocturnoPorTrabajador.GetValueOrDefault(trabajador.Id, 0m),
+                    diasAsistidos * valorMovilidadDiaria);
             })
             .OrderBy(r => r.Trabajador)
         ];
@@ -190,7 +229,7 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
         var ids = trabajadores.Select(t => t.Id).ToList();
 
-        var filasTareo = await ArmarFilasTareoAsync(filtro, trabajadores, ids, cancelacion)
+        var filasTareo = await ArmarFilasTareoAsync(filtro, periodo, trabajadores, ids, cancelacion)
             .ConfigureAwait(false);
 
         var (descansos, vacaciones, licencias) =
@@ -233,20 +272,20 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             partesFiltro.Add($"Planta: {nombre}");
         }
 
-        if (filtro.AreaId is { } areaId)
+        if (filtro.CentroId is { } centroId)
         {
-            var nombre = await contexto.Areas.AsNoTracking()
-                .Where(a => a.Id == areaId).Select(a => a.Nombre).FirstOrDefaultAsync(cancelacion)
+            var codigo = await contexto.Centros.AsNoTracking()
+                .Where(c => c.Id == centroId).Select(c => c.Codigo).FirstOrDefaultAsync(cancelacion)
                 .ConfigureAwait(false);
-            partesFiltro.Add($"Área: {nombre}");
+            partesFiltro.Add($"Centro: {codigo}");
         }
 
-        if (filtro.SeccionId is { } seccionId)
+        if (filtro.CentroCostoId is { } centroCostoId)
         {
-            var nombre = await contexto.Secciones.AsNoTracking()
-                .Where(s => s.Id == seccionId).Select(s => s.Nombre).FirstOrDefaultAsync(cancelacion)
+            var codigo = await contexto.CentrosCosto.AsNoTracking()
+                .Where(cc => cc.Id == centroCostoId).Select(cc => cc.Codigo).FirstOrDefaultAsync(cancelacion)
                 .ConfigureAwait(false);
-            partesFiltro.Add($"Sección: {nombre}");
+            partesFiltro.Add($"Centro de costo: {codigo}");
         }
 
         return new MetadatosReporte(
@@ -270,11 +309,17 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         string Empresa,
         string Planta,
         string Area,
+        string AreaCodigo,
         string Seccion,
+        string SeccionCodigo,
         string Puesto,
         string Dni,
         DateOnly FechaIngreso,
-        DateOnly? FechaCese);
+        DateOnly? FechaCese,
+        bool TieneHijos,
+        string? CentroCodigo,
+        string? CentroCostoCodigo,
+        string? CentroCostoDescripcion);
 
     private async Task<List<TrabajadorResuelto>> ResolverTrabajadoresAsync(
         FiltroReporte filtro,
@@ -292,14 +337,15 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             consulta = consulta.Where(t => t.PlantaId == plantaId);
         }
 
-        if (filtro.AreaId is { } areaId)
+        if (filtro.CentroId is { } centroId)
         {
-            consulta = consulta.Where(t => t.AreaId == areaId);
+            consulta = consulta.Where(t =>
+                contexto.CentrosCosto.Any(cc => cc.Id == t.CentroCostoId && cc.CentroId == centroId));
         }
 
-        if (filtro.SeccionId is { } seccionId)
+        if (filtro.CentroCostoId is { } centroCostoId)
         {
-            consulta = consulta.Where(t => t.SeccionId == seccionId);
+            consulta = consulta.Where(t => t.CentroCostoId == centroCostoId);
         }
 
         return await consulta
@@ -314,13 +360,158 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
                 contexto.Empresas.Where(e => e.Id == t.EmpresaId).Select(e => e.RazonSocial).FirstOrDefault() ?? "-",
                 contexto.Plantas.Where(p => p.Id == t.PlantaId).Select(p => p.Nombre).FirstOrDefault() ?? "-",
                 contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Nombre).FirstOrDefault() ?? "-",
+                contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Codigo).FirstOrDefault() ?? "-",
                 contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Nombre).FirstOrDefault() ?? "-",
+                contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Codigo).FirstOrDefault() ?? "-",
                 contexto.Puestos.Where(p => p.Id == t.PuestoId).Select(p => p.Nombre).FirstOrDefault() ?? "-",
                 t.NumeroDocumento,
                 t.FechaIngreso,
-                t.FechaCese))
+                t.FechaCese,
+                t.TieneHijos,
+                // Catálogo real de CECO (Centro/CentroCosto). Nulo mientras nadie le haya
+                // asignado uno al trabajador: ArmarFilasTareoAsync recurre entonces a la
+                // aproximación con Área/Sección, no a un "-" que rompería el cruce.
+                contexto.CentrosCosto
+                    .Where(cc => cc.Id == t.CentroCostoId)
+                    .Select(cc => cc.Centro!.Codigo)
+                    .FirstOrDefault(),
+                contexto.CentrosCosto
+                    .Where(cc => cc.Id == t.CentroCostoId)
+                    .Select(cc => cc.Codigo)
+                    .FirstOrDefault(),
+                contexto.CentrosCosto
+                    .Where(cc => cc.Id == t.CentroCostoId)
+                    .Select(cc => cc.Descripcion)
+                    .FirstOrDefault()))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+    }
+
+    // ------------------------------------------------------------------
+    // Normativa: RMV, sobretasas y parámetros legales con vigencia por fecha
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Un valor con vigencia por fecha, proyectado sin cargar la entidad completa: es lo
+    /// mínimo para resolver en memoria "qué valor regía tal fecha".
+    /// </summary>
+    private sealed record ValorVigente(decimal Valor, DateOnly VigenteDesde, DateOnly? VigenteHasta)
+    {
+        public bool EstaVigenteEn(DateOnly fecha) =>
+            fecha >= VigenteDesde && (VigenteHasta is null || fecha <= VigenteHasta.Value);
+    }
+
+    private async Task<List<ValorVigente>> ObtenerParametroLegalAsync(
+        TipoParametroLegal tipo, CancellationToken cancelacion) =>
+        await contexto.ParametrosLegales
+            .AsNoTracking()
+            .Where(p => p.Activo && p.Tipo == tipo)
+            .Select(p => new ValorVigente(p.Valor, p.VigenteDesde, p.VigenteHasta))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    private async Task<List<ValorVigente>> ObtenerTasaSobretasaAsync(
+        ConceptoSobretasa concepto, CancellationToken cancelacion) =>
+        await contexto.TasasSobretasa
+            .AsNoTracking()
+            .Where(t => t.Activo && t.Concepto == concepto)
+            .Select(t => new ValorVigente(t.Porcentaje, t.VigenteDesde, t.VigenteHasta))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    /// <summary>
+    /// Resuelve el valor vigente a una fecha, o falla con un mensaje accionable.
+    /// </summary>
+    /// <remarks>
+    /// REGLA DURA, no negociable: nunca un 0 silencioso por falta de parámetro. Si
+    /// <paramref name="valores"/> no tiene ninguna fila vigente para <paramref name="fecha"/>
+    /// (por ejemplo, se está liquidando un periodo anterior a que existiera el dato), el
+    /// trabajador cobraría 0 de bono nocturno, movilidad o asignación familiar sin que nadie
+    /// se entere — exactamente la clase de falla que este sistema existe para evitar (ver
+    /// CLAUDE.md: "cada resultado se explica"). Se prefiere que la generación del reporte
+    /// falle a la vista, con un mensaje que dice qué cargar.
+    /// </remarks>
+    private static decimal ResolverVigente(IReadOnlyList<ValorVigente> valores, DateOnly fecha, string etiqueta)
+    {
+        var vigente = valores.FirstOrDefault(v => v.EstaVigenteEn(fecha));
+
+        if (vigente is null)
+        {
+            throw new ReglaNegocioException(
+                $"No hay {etiqueta} vigente para el {fecha:dd/MM/yyyy}: cargue el parámetro legal " +
+                "antes de generar el tareo final.");
+        }
+
+        return vigente.Valor;
+    }
+
+    /// <summary>
+    /// Bono nocturno del D.S. 007-2002-TR art. 8, sumado día por día.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CalculadoraBonoNocturno"/> es la función pura que hace la cuenta; este
+    /// método solo resuelve, para cada día con minutos en franja nocturna, los tres números
+    /// que ella necesita —RMV, sobretasa y sueldo básico— <b>vigentes ese día</b>, no en una
+    /// fecha fija del periodo. Si el sueldo cambió a mitad de mes, el día 10 usa el sueldo
+    /// de antes del cambio y el día 20 el de después.
+    /// </remarks>
+    private async Task<Dictionary<long, decimal>> CalcularBonoNocturnoPorTrabajadorAsync(
+        List<(long TrabajadorId, DateOnly Fecha, int MinutosNocturnos)> diasNocturnos,
+        List<TrabajadorResuelto> trabajadores,
+        CancellationToken cancelacion)
+    {
+        var resultado = new Dictionary<long, decimal>();
+
+        if (diasNocturnos.Count == 0)
+        {
+            return resultado;
+        }
+
+        var rmv = await ObtenerParametroLegalAsync(TipoParametroLegal.RemuneracionMinimaVital, cancelacion)
+            .ConfigureAwait(false);
+
+        var tasaNocturna = await ObtenerTasaSobretasaAsync(ConceptoSobretasa.TrabajoNocturno, cancelacion)
+            .ConfigureAwait(false);
+
+        var idsConNocturnidad = diasNocturnos.Select(d => d.TrabajadorId).Distinct().ToList();
+
+        var sueldos = await contexto.AsignacionesSueldo
+            .AsNoTracking()
+            .Where(a => a.Activo && idsConNocturnidad.Contains(a.TrabajadorId))
+            .Select(a => new { a.TrabajadorId, a.SueldoBasicoMensual, a.FechaInicio, a.FechaFin })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        var sueldosPorTrabajador = sueldos.ToLookup(s => s.TrabajadorId);
+        var nombresPorId = trabajadores.ToDictionary(t => t.Id, t => t.Nombre);
+
+        foreach (var dia in diasNocturnos)
+        {
+            var rmvVigente = ResolverVigente(rmv, dia.Fecha, "la Remuneración Mínima Vital (RMV)");
+            var tasaVigente = ResolverVigente(tasaNocturna, dia.Fecha, "la sobretasa de trabajo nocturno");
+
+            var sueldoVigente = sueldosPorTrabajador[dia.TrabajadorId]
+                .FirstOrDefault(s => s.FechaInicio <= dia.Fecha && (s.FechaFin is null || s.FechaFin >= dia.Fecha));
+
+            if (sueldoVigente is null)
+            {
+                var nombre = nombresPorId.GetValueOrDefault(dia.TrabajadorId, $"El trabajador {dia.TrabajadorId}");
+
+                throw new ReglaNegocioException(
+                    $"{nombre} no tiene sueldo básico vigente al {dia.Fecha:dd/MM/yyyy}, día con minutos " +
+                    "en franja nocturna: no se puede calcular su bono nocturno sin ese dato. Cargue su " +
+                    "asignación de sueldo antes de generar el reporte.");
+            }
+
+            var diasDelMes = DateTime.DaysInMonth(dia.Fecha.Year, dia.Fecha.Month);
+
+            var bono = CalculadoraBonoNocturno.BonoDiario(
+                rmvVigente, tasaVigente, sueldoVigente.SueldoBasicoMensual, diasDelMes);
+
+            resultado[dia.TrabajadorId] = resultado.GetValueOrDefault(dia.TrabajadorId) + bono;
+        }
+
+        return resultado;
     }
 
     // ------------------------------------------------------------------
@@ -342,6 +533,7 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
     private async Task<List<FilaTareoFinalDto>> ArmarFilasTareoAsync(
         FiltroReporte filtro,
+        Periodo periodo,
         List<TrabajadorResuelto> trabajadores,
         List<long> ids,
         CancellationToken cancelacion)
@@ -354,6 +546,8 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             .Select(t => new
             {
                 t.TrabajadorId,
+                t.EntradaReal,
+                t.SalidaReal,
                 t.Estado,
                 t.TipoDiaNoLaborable,
                 t.MinutosTrabajados,
@@ -375,6 +569,65 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             .ConfigureAwait(false);
 
         var porTrabajador = dias.ToLookup(d => d.TrabajadorId);
+
+        // Reintegros y descuentos manuales, cargados a mano por planilla en su propia
+        // pantalla (bloque AO-BF). Proyectados sin la entidad completa: son 18 columnas,
+        // no hace falta traer Id/auditoría/lo que no se muestra.
+        var reintegros = await contexto.ReintegrosTareo
+            .AsNoTracking()
+            .Where(r => r.PeriodoId == filtro.PeriodoId && ids.Contains(r.TrabajadorId))
+            .Select(r => new
+            {
+                r.TrabajadorId,
+                r.HorasNormales,
+                r.HorasExtra25,
+                r.HorasExtra35,
+                r.HorasNoLaborable,
+                r.MontoMovilidad,
+                r.HorasNocturnas,
+                r.HorasExtra25Nocturnas,
+                r.HorasExtra35Nocturnas,
+                r.HorasNoLaborableNocturnas,
+                r.Viatico,
+                r.DiasDescansoMedico,
+                r.DiasSubsidioMaternidad,
+                r.DiasSubsidioAccidente,
+                r.DiasLicenciaPaternidad,
+                r.LicenciaConGoce,
+                r.ReintegroAsignacionFamiliar,
+                r.ReintegroAfecto,
+                r.DescuentoPagoIndebido
+            })
+            .ToDictionaryAsync(r => r.TrabajadorId, cancelacion)
+            .ConfigureAwait(false);
+
+        // Movilidad y asignación familiar comparten vigencia (ver DatosSemilla), así que se
+        // resuelven una sola vez con una fecha dentro del periodo — a diferencia del bono
+        // nocturno, que sí varía día a día y se resuelve aparte, en ResumenTareoAsync.
+        var fechaResolucion = periodo.FechaFin;
+
+        var valorMovilidadDiaria = ResolverVigente(
+            await ObtenerParametroLegalAsync(TipoParametroLegal.ValorMovilidadDiaria, cancelacion)
+                .ConfigureAwait(false),
+            fechaResolucion,
+            "el valor de movilidad diaria");
+
+        var rmv = ResolverVigente(
+            await ObtenerParametroLegalAsync(TipoParametroLegal.RemuneracionMinimaVital, cancelacion)
+                .ConfigureAwait(false),
+            fechaResolucion,
+            "la Remuneración Mínima Vital (RMV)");
+
+        var porcentajeAsignacionFamiliar = ResolverVigente(
+            await ObtenerParametroLegalAsync(TipoParametroLegal.PorcentajeAsignacionFamiliar, cancelacion)
+                .ConfigureAwait(false),
+            fechaResolucion,
+            "el porcentaje de asignación familiar");
+
+        // Ley 25129: 10 % de la RMV, monto fijo mensual — no se prorratea por días.
+        var asignacionFamiliarSiCorresponde =
+            Math.Round(porcentajeAsignacionFamiliar / 100m * rmv, 2, MidpointRounding.AwayFromZero);
+
         var numero = 0;
 
         return
@@ -396,14 +649,40 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
                 int DiasCon(string codigo) => suyos.Count(d => d.CodigoAusencia == codigo);
 
+                // "Día asistido" para movilidad: hubo marcación real de entrada Y salida, y
+                // el día quedó Puntual o Tardanza. NO es MinutosTrabajados > 0: ese campo
+                // también se rellena en un día de vacaciones justificado (para pagarlo en
+                // horas), y un trabajador de vacaciones no viajó a la planta ese día.
+                var diasAsistidos = suyos.Count(d =>
+                    d.EntradaReal != null && d.SalidaReal != null
+                    && (d.Estado == EstadoTareo.Puntual || d.Estado == EstadoTareo.Tardanza));
+
+                reintegros.TryGetValue(t.Id, out var reintegro);
+
                 return new FilaTareoFinalDto
                 {
                     Numero = ++numero,
                     Dni = t.Dni,
                     ApellidosYNombres = t.Nombre,
                     Planta = t.Planta,
-                    DescripcionCeco = t.Area,
-                    CentroCosto = t.Seccion,
+
+                    // Las tres columnas de CECO salen siempre de la misma fila del catálogo
+                    // real que entregó GCA (Organizacion/Centro y Organizacion/CentroCosto):
+                    // CENTRO = Centro.Codigo (CO_AREA), CENTRO DE COSTO = CentroCosto.Codigo
+                    // (CO_SECC) y DESCRIP. CECO = CentroCosto.Descripcion (DE_SECC).
+                    //
+                    // Sin respaldo con Área/Sección: AREA es ahora una columna propia del
+                    // formato, y rellenar el CECO con la jerarquía interna daría un código de
+                    // centro de costo que no existe en SAP. Si el trabajador todavía no tiene
+                    // uno asignado, las tres salen vacías — el dato falta y así se ve.
+                    Centro = t.CentroCodigo,
+                    CentroCosto = t.CentroCostoCodigo,
+                    DescripcionCeco = t.CentroCostoDescripcion,
+
+                    // Área interna de trabajo (ENVASADO, LAVAVAJILLAS, PROCESOS…). Es un dato
+                    // por trabajador y no se deriva del centro de costo.
+                    Area = t.Area,
+
                     FechaIngreso = t.FechaIngreso,
                     FechaCese = t.FechaCese,
                     Observacion = t.FechaCese is null ? null : "CESE",
@@ -428,7 +707,29 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
                     MinutosNocturnos = suyos.Sum(d => d.MinutosNocturnos),
                     MinutosExtra25Nocturnos = laborables.Sum(d => d.MinutosExtra25Nocturnos),
                     MinutosExtra35Nocturnos = laborables.Sum(d => d.MinutosExtra35Nocturnos),
-                    MinutosNoLaborableNocturnos = noLaborables.Sum(d => d.MinutosNocturnos)
+                    MinutosNoLaborableNocturnos = noLaborables.Sum(d => d.MinutosNocturnos),
+
+                    MontoMovilidad = diasAsistidos * valorMovilidadDiaria,
+                    MontoAsignacionFamiliar = t.TieneHijos ? asignacionFamiliarSiCorresponde : 0m,
+
+                    ReintegroHorasNormales = reintegro?.HorasNormales ?? 0m,
+                    ReintegroHorasExtra25 = reintegro?.HorasExtra25 ?? 0m,
+                    ReintegroHorasExtra35 = reintegro?.HorasExtra35 ?? 0m,
+                    ReintegroHorasNoLaborable = reintegro?.HorasNoLaborable ?? 0m,
+                    ReintegroMontoMovilidad = reintegro?.MontoMovilidad ?? 0m,
+                    ReintegroHorasNocturnas = reintegro?.HorasNocturnas ?? 0m,
+                    ReintegroHorasExtra25Nocturnas = reintegro?.HorasExtra25Nocturnas ?? 0m,
+                    ReintegroHorasExtra35Nocturnas = reintegro?.HorasExtra35Nocturnas ?? 0m,
+                    ReintegroHorasNoLaborableNocturnas = reintegro?.HorasNoLaborableNocturnas ?? 0m,
+                    ReintegroViatico = reintegro?.Viatico ?? 0m,
+                    ReintegroDiasDescansoMedico = reintegro?.DiasDescansoMedico ?? 0,
+                    ReintegroDiasSubsidioMaternidad = reintegro?.DiasSubsidioMaternidad ?? 0,
+                    ReintegroDiasSubsidioAccidente = reintegro?.DiasSubsidioAccidente ?? 0,
+                    ReintegroDiasLicenciaPaternidad = reintegro?.DiasLicenciaPaternidad ?? 0,
+                    ReintegroLicenciaConGoce = reintegro?.LicenciaConGoce ?? 0m,
+                    ReintegroAsignacionFamiliar = reintegro?.ReintegroAsignacionFamiliar ?? 0m,
+                    ReintegroAfecto = reintegro?.ReintegroAfecto ?? 0m,
+                    ReintegroDescuentoPagoIndebido = reintegro?.DescuentoPagoIndebido ?? 0m
                 };
             })
         ];

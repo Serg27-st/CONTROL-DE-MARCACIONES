@@ -13,6 +13,8 @@ public class SolicitudAusenciaConfiguracion : IEntityTypeConfiguration<Solicitud
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(s => s.SubtipoVacaciones).HasMaxLength(10);
+        builder.Property(s => s.PeriodoVacacional).HasMaxLength(9);
         builder.Property(s => s.Sustento).HasMaxLength(500);
         builder.Property(s => s.RutaDocumentoSustento).HasMaxLength(400);
         builder.Property(s => s.Observacion).HasMaxLength(500);

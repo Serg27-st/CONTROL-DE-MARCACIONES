@@ -37,7 +37,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label for="trabajadorId">Trabajador</label>
-                <select id="trabajadorId" name="trabajadorId">
+                <select id="trabajadorId" name="trabajadorId" class="select-buscable">
                     <option value="">Todos</option>
                     @foreach (var t in Model.Trabajadores)
                     {
@@ -98,6 +98,10 @@
                                     <br /><small style="color: var(--color-texto-suave);">
                                         @s.HoraInicio!.Value.ToString("HH:mm") – @s.HoraFin!.Value.ToString("HH:mm")
                                     </small>
+                                }
+                                @if (s.DetalleVacaciones is { } detalle)
+                                {
+                                    <br /><small style="color: var(--color-texto-suave);">@detalle</small>
                                 }
                             </td>
                             <td>@s.FechaInicio.ToString("dd/MM/yyyy")</td>

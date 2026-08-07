@@ -1,6 +1,13 @@
 @{
     var controlador = ViewContext.RouteData.Values["controller"]?.ToString();
     string Activo(string nombre) => string.Equals(controlador, nombre, StringComparison.OrdinalIgnoreCase) ? "activo" : "";
+
+    // El menú solo refleja la matriz de [Authorize] de los controladores: ocultar un enlace
+    // no es un control de acceso — quien escriba la URL a mano igual recibe 403.
+    var esCoordinador = User.IsInRole(RolesSistema.Coordinador);
+    var gestionaTareo = esCoordinador || User.IsInRole(RolesSistema.Administrador);
+    var veSolicitudes = gestionaTareo || User.IsInRole(RolesSistema.TrabajadorSocial);
+    var veReportes = esCoordinador || User.IsInRole(RolesSistema.Gerencia);
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -9,22 +16,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] · Control de Marcación</title>
     <link rel="stylesheet" href="~/css/sitio.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/panel-flotante.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/searchable-select.css" asp-append-version="true" />
 </head>
 <body>
     <header class="encabezado">
         <div class="marca">GCA · Control de Marcación</div>
         <nav>
             <a class="@Activo("Inicio")" asp-controller="Inicio" asp-action="Index">Inicio</a>
-            <a class="@Activo("Trabajadores")" asp-controller="Trabajadores" asp-action="Index">Personal</a>
-            <a class="@Activo("Marcaciones")" asp-controller="Marcaciones" asp-action="Index">Marcaciones</a>
-            <a class="@Activo("Solicitudes")" asp-controller="Solicitudes" asp-action="Index">Solicitudes</a>
-            <a class="@Activo("Justificaciones")" asp-controller="Justificaciones" asp-action="Index">Justificaciones</a>
-            <a class="@Activo("Asistencia")" asp-controller="Asistencia" asp-action="Index">Tareo</a>
-            <a class="@Activo("Reportes")" asp-controller="Reportes" asp-action="Index">Reportes</a>
-            <a class="@Activo("Catalogos")" asp-controller="Catalogos" asp-action="Index">Catálogos</a>
-            @if (User.IsInRole(RolesSistema.Administrador))
+            @if (gestionaTareo)
             {
+                <a class="@Activo("Trabajadores")" asp-controller="Trabajadores" asp-action="Index">Personal</a>
+                <a class="@Activo("Marcaciones")" asp-controller="Marcaciones" asp-action="Index">Marcaciones</a>
+            }
+            @if (veSolicitudes)
+            {
+                <a class="@Activo("Solicitudes")" asp-controller="Solicitudes" asp-action="Index">Solicitudes</a>
+            }
+            @if (gestionaTareo)
+            {
+                <a class="@Activo("Justificaciones")" asp-controller="Justificaciones" asp-action="Index">Justificaciones</a>
+                <a class="@Activo("Asistencia")" asp-controller="Asistencia" asp-action="Index">Tareo</a>
+                <a class="@Activo("Reintegros")" asp-controller="Reintegros" asp-action="Index">Reintegros</a>
+            }
+            @if (veReportes)
+            {
+                <a class="@Activo("Reportes")" asp-controller="Reportes" asp-action="Index">Reportes</a>
+            }
+            @if (gestionaTareo)
+            {
+                <a class="@Activo("Catalogos")" asp-controller="Catalogos" asp-action="Index">Catálogos</a>
+            }
+            @if (esCoordinador)
+            {
+                <a class="@Activo("Feriados")" asp-controller="Feriados" asp-action="Index">Feriados</a>
                 <a class="@Activo("Usuarios")" asp-controller="Usuarios" asp-action="Index">Usuarios</a>
+                <a class="@Activo("Auditoria")" asp-controller="Auditoria" asp-action="Index">Auditoría</a>
             }
         </nav>
 
@@ -54,6 +81,19 @@
 
         @RenderBody()
     </main>
+
+    <script src="~/js/searchable-select.js" asp-append-version="true"></script>
+    <script>
+        // Va antes de las secciones de cada vista a propósito: los scripts propios de
+        // cada pantalla (trabajador-form.js, solicitudes-crear.js...) solo escuchan
+        // "change" sobre los <select> reales y no dependen de que ya estén envueltos,
+        // así que el orden entre ambos no importa. Lo que sí importa es que initAll()
+        // corra una sola vez, después de que todo el documento (incluidas esas otras
+        // secciones) terminó de parsear.
+        document.addEventListener("DOMContentLoaded", function () {
+            SearchableSelect.initAll();
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

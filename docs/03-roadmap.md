@@ -30,11 +30,15 @@ Solución .NET de 4 capas, modelo de dominio, agentes por rol y documentación d
 
 Hecho:
 
-- Mantenimiento de trabajadores completo: listado con filtros y paginación, alta y edición.
-- Asignación de ID de marcador y de turno **con vigencia por fecha**: al cambiarlas se cierra
-  la anterior y se abre una nueva, en vez de reescribir la existente.
+- Mantenimiento de trabajadores completo: listado con filtros, paginación y búsqueda en vivo
+  (debounce 300 ms). Ver y editar abren un **panel flotante lateral** sin navegar; el alta
+  completa mantiene su propia página.
+- Asignación de ID de marcador, turno **y sueldo básico**, los tres **con vigencia por
+  fecha**: al cambiarlos se cierra la anterior y se abre una nueva, en vez de reescribir la
+  existente.
 - Desplegables encadenados empresa → planta → área → sección, y planta → turnos habilitados
-  (el turno SAB solo aparece al elegir Planta 01).
+  (el turno SAB solo aparece al elegir Planta 01) — todos con buscador en vivo
+  (`searchable-select.js`), sin romper la cascada AJAX.
 - Reglas verificadas contra la aplicación en ejecución: documento duplicado rechazado,
   ID de marcador solapado rechazado, caso válido aceptado.
 
@@ -48,30 +52,36 @@ Hecho:
   cambiarse una vez que hay solicitudes o justificaciones que dependen de él.
 - Pantalla dedicada de **periodos**, con su ciclo de apertura y cierre.
 
-- **Autenticación con ASP.NET Core Identity** y los cuatro roles `ADMINISTRADOR`, `RRHH`,
-  `SUPERVISOR`, `CONSULTA`, sembrados con Id fijo desde migración. `[Authorize]` global:
-  toda pantalla exige sesión, `CuentaController` es la única puerta abierta.
-- **Sin autorregistro.** Las cuentas las crea un ADMINISTRADOR desde `/Usuarios`; el
-  primer administrador se crea al arrancar la aplicación leyendo
+- **Autenticación con ASP.NET Core Identity** y cuatro roles con matriz de acceso propia:
+  `COORDINADOR` (todo, único que gestiona usuarios), `ADMINISTRADOR` (gestiona el tareo:
+  personal, catálogos, marcaciones, justificaciones, asistencia, periodos), `GERENCIA`
+  (solo dashboard y reportes), `TRABAJADOR_SOCIAL` (solo solicitudes). Reemplazaron a los
+  cuatro roles originales (`ADMINISTRADOR`/`RRHH`/`SUPERVISOR`/`CONSULTA`) en una migración
+  que reasignó las cuentas `ADMINISTRADOR` existentes a `COORDINADOR` sin tocar su correo
+  ni contraseña. `[Authorize]` global: toda pantalla exige sesión, `CuentaController` es la
+  única puerta abierta.
+- **Sin autorregistro.** Las cuentas las crea un `COORDINADOR` desde `/Usuarios`, con
+  apellidos, tipo y número de documento, razón social y, si el rol es `ADMINISTRADOR`, las
+  plantas que gestiona. El primer coordinador se crea al arrancar la aplicación leyendo
   `Seguridad:AdminCorreo` / `Seguridad:AdminClave` de configuración externa — **nunca**
   de una migración ni de código versionado, porque una contraseña es un credencial.
   Solo actúa si la tabla de usuarios está vacía.
-- **Cerrar y reabrir un periodo, y gestionar usuarios, quedan restringidos a
-  ADMINISTRADOR** — la restricción es del servidor, verificada con un POST directo
-  saltándose la interfaz, no solo un botón oculto.
+- **Cada controlador exige el rol que le corresponde según la matriz** — la restricción es
+  del servidor, verificada con un POST directo saltándose la interfaz, no solo un enlace
+  oculto en el menú.
 - Desactivar una cuenta bloquea el inicio de sesión de inmediato (vía `LockoutEnd`, no
   solo el flag visible), con el mismo mensaje genérico que un correo inexistente o una
   contraseña incorrecta — no delata qué correos tienen cuenta.
 
 Verificado end-to-end contra la aplicación real: acceso anónimo redirige a login; login
-con el administrador de arranque funciona; RRHH puede entrar pero `/Usuarios` y
-`Periodos/Cerrar` le redirigen a Acceso Denegado, incluso por POST directo; desactivar la
-cuenta RRHH bloquea su siguiente intento de login.
+con las cuentas de cada rol funciona; un intento de acceso o de POST directo a una acción
+fuera de la matriz del rol redirige a Acceso Denegado; desactivar una cuenta bloquea su
+siguiente intento de login.
 
-**Pendiente:** la matriz fina de qué puede hacer cada rol en cada pantalla (RRHH vs.
-SUPERVISOR vs. CONSULTA) no está confirmada por GCA. Hoy el único control por rol es
-ADMINISTRADOR en Usuarios y en cierre/reapertura de periodo; el resto de pantallas solo
-exige "alguna sesión iniciada".
+**Pendiente:** las plantas que gestiona un `ADMINISTRADOR` se capturan
+(`UsuarioPlanta`) pero todavía no se usan para filtrar lo que ese usuario ve en
+Personal, Solicitudes o Reportes — nadie lo pidió explícitamente todavía; si hace falta,
+el dato ya está listo para esa fase.
 
 ---
 
@@ -175,7 +185,12 @@ Pendiente:
 
 - **Solicitudes de ausencia**: alta con validación de solapamiento, ciclo pendiente →
   aprobada / rechazada / anulada. Los tipos por horas exigen hora de inicio y fin y quedan
-  acotados a un solo día.
+  acotados a un solo día. **Topes por tipo**, guardados como dato en `TipoAusencia` (no
+  como `switch` en código): descanso médico 20 días/año calendario, licencia paternal 10
+  días/evento, licencia por maternidad 98 días/evento. Vacaciones con subtipo (gozadas 30
+  días/periodo, venta 15 días/periodo) y periodo `AAAA-AAAA`. Sustento obligatorio en todos
+  los casos. Validador puro en `Domain` (`ValidadorLimitesSolicitud`), sin tocar base de
+  datos, cubierto con tests de casos límite.
 - **Aprobar genera una justificación por cada día cubierto**, con el motivo, el sustento y
   el estado que tenía el tareo antes de justificarlo. Si un día cae en un periodo cerrado,
   sin periodo, o ya tiene otra justificación, se omite y se informa — nunca se sobrescribe
@@ -203,37 +218,50 @@ que ya existe en Periodos.
 
 ---
 
-## Fase 6 — Tareo final y reportes ⚠️ *primera versión, columnas provisionales*
+## Fase 6 — Tareo final y reportes ✅ *completada, una brecha de datos documentada*
 
-> El **archivo modelo del tareo** de GCA sigue sin llegar. En vez de esperar, se construyó
-> una primera versión con las columnas que el sistema puede sustentar hoy con el tareo ya
-> calculado. Cuando llegue la plantilla oficial, se ajustan las columnas — la infraestructura
-> (filtros, agregación, exportación) no cambia.
+El **archivo modelo del tareo** de GCA (`TAREO NOVIEMBRE 2024_PLANTA 1.xls`) llegó, se
+extrajo celda por celda con Excel COM (valores y fórmulas) y está documentado en
+`docs/04-formato-tareo-final.md`. El tareo final replica sus tres hojas exactas.
 
 Hecho:
 
 - **Resumen mensual**: un trabajador por fila — días puntual/tardanza/falta/ausencia
-  justificada/incompleto/no laborable trabajado, y horas ordinarias, extra 25 %, extra 35 %,
-  nocturnas y de tardanza acumuladas. Fila de totales.
+  justificada/incompleto/no laborable trabajado, horas ordinarias, extra 25 %, extra 35 %,
+  nocturnas y de tardanza acumuladas, y el **bono nocturno en soles**. Fila de totales.
 - **Excepciones**: un día por fila, solo los estados que necesitan revisión (falta, tardanza,
   ausencia justificada, marcación incompleta). Descanso, feriado y días sin vínculo no
   aparecen: no son una anomalía.
 - Filtro por periodo (obligatorio) y por empresa/planta/área/sección en cascada.
+- **Tareo final**: las tres hojas del archivo modelo — `Tareo`, `Descanso Medico`,
+  `Vacaciones-Licencias` — con **Centro/Ceco resueltos desde el catálogo real de SAP**
+  (`CENTROS DE COSTO POR EMPRESA.xlsx`, entregado por GCA: 106 centros de costo bajo 5
+  centros SAP, asignable por trabajador en Personal; cae a la aproximación con Área/Sección
+  solo mientras un trabajador no tenga uno asignado), movilidad y asignación familiar
+  calculadas contra `ParametroLegal` vigente, y el bloque de 18 columnas de reintegros
+  capturable a mano por trabajador y periodo desde su propia pantalla.
 - **Exportación a Excel con ClosedXML** (MIT, no EPPlus): cada archivo lleva periodo, filtros
-  aplicados, si el periodo seguía abierto, quién lo generó y cuándo, y una nota explícita de
-  que el sistema entrega minutos y horas — nunca dinero.
+  aplicados, si el periodo seguía abierto, quién lo generó y cuándo.
 - Verificado contra datos reales: el resumen de julio 2026 reprodujo los mismos totales que
-  ya estaban verificados en Asistencia; el Excel exportado se abrió, se inspeccionó su XML
-  interno y contiene el encabezado de trazabilidad y los datos correctos.
+  ya estaban verificados en Asistencia; el tareo final se generó y su `.xlsx` se abrió e
+  inspeccionó celda por celda (Centro, movilidad, asignación familiar) contra los valores
+  esperados.
+
+**La brecha real que queda** (detallada en `docs/04-formato-tareo-final.md`): detalle
+clínico del descanso médico — contingencia, diagnóstico y centro de atención no existen en
+`SolicitudAusencia`.
 
 Pendiente: reportes diario/semanal y por rango arbitrario, y CSV/PDF — se agregan cuando
-haya una necesidad concreta o llegue el archivo modelo que fije el formato esperado.
+haya una necesidad concreta.
 
 ---
 
 ## Fase 7 — Endurecimiento
 
-- Auditoría completa de las acciones sensibles.
+- ✅ **Auditoría completa de las acciones sensibles.** Interceptor de `SaveChanges`
+  (`InterceptorAuditoria`) sobre todas las tablas salvo cuatro exclusiones justificadas,
+  con pantalla de consulta en `/Auditoria` para el coordinador. Los datos personales de la
+  Ley 29733 se registran por nombre pero nunca por valor.
 - Revisión de seguridad con el agente `seguridad`.
 - Rendimiento con volumen real (varios miles de marcaciones por carga).
 - Despliegue y respaldo de la base.
@@ -242,10 +270,16 @@ haya una necesidad concreta o llegue el archivo modelo que fije el formato esper
 
 ## Insumos pendientes de GCA
 
-Los dos primeros bloquean fases completas:
+Los que bloqueaban fases completas ya llegaron: el **archivo TXT real** del ZKTeco G3
+(fase 3), el **archivo modelo del tareo final** (fase 6) y el **catálogo real de CECO**
+(`CENTROS DE COSTO POR EMPRESA.xlsx`, fase 6). Lo que queda no bloquea nada construido
+hasta ahora:
 
-1. **Archivo TXT real** del ZKTeco G3 → desbloquea la fase 3.
-2. **Archivo modelo del tareo final** → desbloquea la fase 6.
-3. Definición de "unidad" y "tipo de planilla".
-4. Corte del periodo (mes calendario o del 26 al 25).
-5. Convenio colectivo o política de sobretasas, si mejora los mínimos legales.
+1. Definición de "tipo de planilla". ✅ *"Unidad" resuelto: es sinónimo de planta, y así
+   quedó en el formulario de Personal y en la carga masiva.*
+2. Corte del periodo (mes calendario o del 26 al 25).
+3. Convenio colectivo o política de sobretasas, si mejora los mínimos legales.
+4. Detalle clínico del descanso médico (contingencia, diagnóstico, centro de atención).
+5. Confirmación de si los tramos nocturnos 25 %/35 %/100 % del tareo final son subconjunto
+   de los diurnos (como está modelado hoy) o categorías excluyentes — ver
+   `docs/04-formato-tareo-final.md`.

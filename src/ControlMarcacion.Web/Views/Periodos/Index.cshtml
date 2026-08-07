@@ -138,7 +138,7 @@
                             <td>
                                 <a asp-action="Editar" asp-route-id="@p.Id">Editar</a>
 
-                                @if (User.IsInRole(RolesSistema.Administrador))
+                                @if (User.IsInRole(RolesSistema.Coordinador) || User.IsInRole(RolesSistema.Administrador))
                                 {
                                     @if (p.EstaAbierto)
                                     {
@@ -159,7 +159,7 @@
                                 }
                                 else if (!p.EstaAbierto)
                                 {
-                                    <span style="margin-left:10px; color: var(--color-texto-suave);" title="Solo un administrador puede reabrir un periodo">
+                                    <span style="margin-left:10px; color: var(--color-texto-suave);" title="Solo un coordinador o un administrador puede reabrir un periodo">
                                         Cerrado
                                     </span>
                                 }

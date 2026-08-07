@@ -8,7 +8,10 @@
 
 <div class="titulo-pagina">
     <h1>Mantenimiento de personal</h1>
-    <a class="boton boton-primario" asp-action="Crear">Nuevo trabajador</a>
+    <div>
+        <a class="boton boton-secundario" asp-action="CargaMasiva">Carga masiva</a>
+        <a class="boton boton-primario" asp-action="Crear">Nuevo trabajador</a>
+    </div>
 </div>
 
 <div class="tarjeta">
@@ -23,7 +26,7 @@
 
             <div class="campo">
                 <label for="EmpresaId">Empresa</label>
-                <select id="EmpresaId" name="EmpresaId">
+                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var empresa in Model.Empresas)
                     {
@@ -34,11 +37,33 @@
 
             <div class="campo">
                 <label for="PlantaId">Planta</label>
-                <select id="PlantaId" name="PlantaId">
+                <select id="PlantaId" name="PlantaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var planta in Model.Plantas)
                     {
                         <option value="@planta.Id" selected="@(Model.Filtro.PlantaId == planta.Id)">@planta.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroId">Centro</label>
+                <select id="CentroId" name="CentroId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var centro in Model.Centros)
+                    {
+                        <option value="@centro.Id" selected="@(Model.Filtro.CentroId == centro.Id)">@centro.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroCostoId">Centro de costo</label>
+                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var centroCosto in Model.CentrosCosto)
+                    {
+                        <option value="@centroCosto.Id" selected="@(Model.Filtro.CentroCostoId == centroCosto.Id)">@centroCosto.Nombre</option>
                     }
                 </select>
             </div>
@@ -69,7 +94,13 @@
     </form>
 </div>
 
-<div class="tarjeta">
+<div class="busqueda-rapida">
+    <input type="search" id="BuscarRapidoInput" autocomplete="off"
+           placeholder="Búsqueda rápida: documento, apellidos, nombres o ID de marcador…" />
+    <div id="BuscarRapidoResultados" class="busqueda-rapida-resultados" hidden></div>
+</div>
+
+<div class="tarjeta" id="resultados-personal">
     @if (r.TotalElementos == 0)
     {
         <div class="sin-resultados">
@@ -86,8 +117,8 @@
                         <th>Apellidos y nombres</th>
                         <th>Empresa</th>
                         <th>Planta</th>
-                        <th>Área</th>
-                        <th>Sección</th>
+                        <th>Centro</th>
+                        <th>Centro de costo</th>
                         <th>Puesto</th>
                         <th>Turno</th>
                         <th>ID marcador</th>
@@ -104,8 +135,8 @@
                             <td>@t.ApellidosYNombres</td>
                             <td>@t.Empresa</td>
                             <td>@t.Planta</td>
-                            <td>@t.Area</td>
-                            <td>@t.Seccion</td>
+                            <td>@(t.Centro ?? "—")</td>
+                            <td>@(t.CentroCosto ?? "—")</td>
                             <td>@t.Puesto</td>
                             <td>@(t.TurnoVigente ?? "—")</td>
                             <td>@(t.IdMarcador ?? "—")</td>
@@ -120,7 +151,15 @@
                                     <span class="etiqueta etiqueta-cesado">Cesado @t.FechaCese!.Value.ToString("dd/MM/yyyy")</span>
                                 }
                             </td>
-                            <td><a asp-action="Editar" asp-route-id="@t.Id">Editar</a></td>
+                            <td class="acciones-fila">
+                                <button type="button" class="enlace-accion" data-panel-abrir data-panel-id="@t.Id" data-panel-modo="ver">Ver</button>
+                                <button type="button" class="enlace-accion" data-panel-abrir data-panel-id="@t.Id" data-panel-modo="editar">Editar</button>
+                                <a class="enlace-accion" asp-action="Historial" asp-route-id="@t.Id">Historial</a>
+                                @if (t.EstaActivo)
+                                {
+                                    <a class="enlace-accion" asp-action="Baja" asp-route-id="@t.Id">Baja</a>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -139,6 +178,8 @@
                        ["Busqueda"] = Model.Filtro.Busqueda,
                        ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
                        ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString(),
                        ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
                        ["Pagina"] = (r.Pagina - 1).ToString()
                    })">Anterior</a>
@@ -155,6 +196,8 @@
                        ["Busqueda"] = Model.Filtro.Busqueda,
                        ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
                        ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString(),
                        ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
                        ["Pagina"] = (r.Pagina + 1).ToString()
                    })">Siguiente</a>
@@ -162,3 +205,9 @@
         </div>
     }
 </div>
+
+<div id="panel-trabajador-contenedor"></div>
+
+@section Scripts {
+    <script src="~/js/panel-trabajador.js" asp-append-version="true"></script>
+}

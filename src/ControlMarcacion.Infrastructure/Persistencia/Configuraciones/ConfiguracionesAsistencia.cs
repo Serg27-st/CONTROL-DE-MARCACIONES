@@ -61,3 +61,47 @@ public class TasaSobretasaConfiguracion : IEntityTypeConfiguration<TasaSobretasa
         builder.HasIndex(t => new { t.Concepto, t.VigenteDesde, t.VigenteHasta });
     }
 }
+
+/// <summary>
+/// Valores legales absolutos con vigencia por fecha: RMV, asignación familiar, movilidad.
+/// </summary>
+/// <remarks>
+/// Vive junto a <see cref="TasaSobretasaConfiguracion"/> porque son la misma idea aplicada
+/// a dos formas distintas del mismo problema —lo que la ley fija hoy y puede cambiar
+/// mañana— y quien vaya a tocar una casi siempre necesita ver la otra.
+/// </remarks>
+public class ParametroLegalConfiguracion : IEntityTypeConfiguration<ParametroLegal>
+{
+    public void Configure(EntityTypeBuilder<ParametroLegal> builder)
+    {
+        builder.ToTable("ParametroLegal");
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Tipo).HasConversion<string>().HasMaxLength(40).IsRequired();
+
+        // DECIMAL(12,4), nunca FLOAT: aquí hay soles, y 1130.0000 tiene que ser
+        // exactamente 1130.0000 cuando planilla cuadre el bono nocturno a mano.
+        builder.Property(p => p.Valor).HasPrecision(12, 4).IsRequired();
+
+        builder.Property(p => p.BaseLegal).HasMaxLength(200);
+
+        // Misma consulta que en las tasas: "qué RMV regía el 15/07/2026".
+        builder.HasIndex(p => new { p.Tipo, p.VigenteDesde, p.VigenteHasta });
+    }
+}
+
+/// <summary>Reintegros y descuentos manuales del bloque AO-BF del tareo final.</summary>
+public class ReintegroTareoConfiguracion : IEntityTypeConfiguration<ReintegroTareo>
+{
+    public void Configure(EntityTypeBuilder<ReintegroTareo> builder)
+    {
+        builder.ToTable("ReintegroTareo");
+        builder.HasKey(r => r.Id);
+
+        // Un solo registro de reintegros por trabajador y periodo: la pantalla de captura
+        // edita ese único registro, nunca inserta uno nuevo al lado.
+        builder.HasIndex(r => new { r.TrabajadorId, r.PeriodoId })
+            .IsUnique()
+            .HasDatabaseName("UQ_reintegro_tareo_trabajador_periodo");
+    }
+}

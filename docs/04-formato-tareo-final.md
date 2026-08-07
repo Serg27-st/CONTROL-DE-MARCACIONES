@@ -45,12 +45,16 @@ Encabezado:
 Los títulos ocupan tres filas (4 = grupo, 5 = subgrupo, 6 = hoja), y los datos arrancan en
 la **fila 7**. La última fila lleva totales por columna.
 
-### Bloque identificación (A–L, título en fila 4)
+### Bloque identificación (A–K, título en fila 4)
 
-`N°` · `DNI` · `Apellidos y Nombres` · `Planta` · `Centro` · `Texto Centro` · `Ceco` ·
-`Descrip. Ceco` · `C. Costo` · `F. Ingreso` · `F. Cese` · `observacion`
+`N°` · `DNI` · `NOMBRE` · `PLANTA` · `CENTRO` · `CENTRO DE COSTO` · `DESCRIP. CECO` ·
+`AREA` · `FECHA INGRESO` · `FECHA CESE` · `OBS`
 
-### Bloque `REPORTE DE MOVIMIENTO DE PERSONAL EN DIAS` (M–Y)
+> Son 11 columnas, según el formato vigente de GCA (`RESUMEN FIN DE MES ... - PLANTA ...`).
+> El formato anterior traía además `Texto Centro` y `C. Costo`, que ya no existen; por eso
+> todo lo que sigue va corrido una columna a la izquierda respecto de aquel archivo.
+
+### Bloque `REPORTE DE MOVIMIENTO DE PERSONAL EN DIAS` (L–X)
 
 | Col | Título | Índice en `DATA` |
 |---|---|---|
@@ -157,23 +161,54 @@ Mismas columnas que `Descanso Medico` sin `RAZÓN SOCIAL` ni `EMPRESA`. En la mu
 | 0.25 / 0.35 diurnas | `MinutosExtra25` / `MinutosExtra35` | ✅ |
 | 100 % diurna | días con `TipoDiaNoLaborable ≠ Ninguno` | ✅ derivable |
 | B.NOCT. (HORAS) | `MinutosNocturnos` | ✅ |
-| **0.25 / 0.35 / 1 nocturnas** | — | ❌ **el motor no separa la nocturnidad por tramo** |
+| 0.25 / 0.35 / 1 nocturnas | `MinutosExtra25Nocturnos` / `MinutosExtra35Nocturnos` / derivado | ✅ el motor ya separa la nocturnidad por tramo |
 | SUSPENSION | — | ❌ no existe el tipo de ausencia |
-| Centro, Texto Centro, Ceco, Descrip. Ceco, C. Costo | — | ❌ no hay entidad CECO |
-| MOVIL S/., ASIG. FAMILIAR, VIATICO, todo `REINTEGROS` | — | ❌ son dinero; el sistema no calcula dinero (invariante 4) |
+| CENTRO | `Centro.Codigo` — el `CO_AREA` del catálogo de SAP, vía `Trabajador.CentroCostoId` | ✅ real |
+| CENTRO DE COSTO | `CentroCosto.Codigo` — el `CO_SECC` del catálogo de SAP | ✅ real |
+| DESCRIP. CECO | `CentroCosto.Descripcion` — el `DE_SECC` del catálogo de SAP | ✅ real |
+| AREA | `Area.Nombre` (catálogo interno) | ✅ real; **no se deriva del CECO** |
+| MOVIL S/. | días asistidos × `ParametroLegal.ValorMovilidadDiaria` vigente | ✅ |
+| ASIG. FAMILIAR | 10 % de `ParametroLegal.RemuneracionMinimaVital` vigente, si `Trabajador.TieneHijos` | ✅ monto fijo mensual, no prorrateado |
+| REINTEGROS (18 columnas, AO-BF) | `ReintegroTareo`, capturado a mano en su propia pantalla | ✅ el sistema no los calcula; alguien de planilla los carga por trabajador y periodo |
 | Ausencias, Dias Efectivas, Dias Pendientes, Dias Trabajados | — | ⬜ vacías también en el modelo original |
 | DM: CONTINGENCIA, DIAGNÓSTICO, CENTRO DE ATENCIÓN | — | ❌ `SolicitudAusencia` no tiene esos campos |
 | Vacaciones: DIAS, fechas, reparto por mes, RETORNO | `SolicitudAusencia` (`VAC`) | ✅ calculable |
 | Licencias: fechas y días | `SolicitudAusencia` | ✅ |
 
-### Las tres brechas reales
+✅ **Centro/Ceco ya usan el catálogo real de SAP**, entregado por GCA
+(`CENTROS DE COSTO POR EMPRESA.xlsx`, 106 centros de costo bajo 5 centros SAP: 066D/E/F de
+CA Outsourcing, 066G/H de Consulting Advisers) — sembrado en `Organizacion/Centro` y
+`Organizacion/CentroCosto`. Se asigna por trabajador en Personal (cascada Empresa → Centro →
+Centro de costo, igual que Empresa → Planta → Área → Sección) y queda en
+`Trabajador.CentroCostoId` — campo plano, sin vigencia por fecha, igual que Área/Sección hoy.
 
-1. **Nocturnidad por tramo.** `TareoDiario.MinutosNocturnos` es un solo balde: los minutos
-   caídos entre 22:00 y 06:00. El modelo pide separarlos en normales / 25 % / 35 % / 100 %,
-   y en la muestra esas celdas traen valores (`AK11 = 18.7`, `AL11 = 2.25`, `AM11 = 7`), no
-   ceros. Cerrarla toca `CalculadoraTareo`, la entidad y una migración.
-2. **Detalle clínico del descanso médico.** Contingencia, diagnóstico y centro de atención
-   no existen en el modelo de datos. Sin ellos la hoja `Descanso Medico` sale con tres
-   columnas en blanco.
-3. **Centro de costo.** El CECO viene del SAP de Intradevco (hoja `Ceco`: 168 centros). Hoy
-   tenemos `Área` / `Sección` / `Puesto`, que no es lo mismo.
+**Sin aproximación con Área/Sección.** Si el trabajador todavía no tiene `CentroCostoId`
+asignado, las tres columnas de CECO salen **vacías**. Rellenarlas con la jerarquía interna
+—como se hacía antes de tener el catálogo— produciría un código de centro de costo que no
+existe en SAP, y planilla no tiene cómo distinguirlo de uno real. El dato falta y así se ve.
+
+**`AREA` es una columna propia y no se deriva del CECO.** En el archivo de GCA el CECO
+`PE21420300` aparece con tres áreas distintas (`COORD. RRHH`, `SUP. PRODUCCION`,
+`VOLANTES`), así que es un atributo por trabajador. Área sigue existiendo en Personal y
+**convive** con el CECO en vez de haber quedado reemplazada por él.
+
+**`Texto Centro` y `C. Costo` ya no existen.** Eran columnas del archivo modelo anterior
+(`TAREO NOVIEMBRE 2024_PLANTA 1.xls`), donde además venían vacías en las 183 filas. El
+formato vigente (`RESUMEN FIN DE MES ... - PLANTA ...`) las reemplazó por `CENTRO DE COSTO`
+y `AREA`. Al quitarlas, el bloque de identificación pasó de 12 a 11 columnas y el resto de
+la hoja corrió una posición a la izquierda: el ancho total es ahora **57 columnas (A-BE)**.
+
+El bono nocturno en soles (D.S. 007-2002-TR, art. 8) **no está en esta hoja**: las 58
+columnas de `Tareo` ya están verificadas celda por celda contra el archivo real de GCA, y el
+bloque `HORARIO NOCTURNO` (AJ-AM) son horas, sin ninguna celda pensada para soles. Vive en el
+**Resumen mensual** (`ResumenTareoDto.MontoBonoNocturno`), que sí es un reporte nuevo, sin la
+restricción de calzar con un archivo modelo ya cerrado.
+
+### La brecha real que queda
+
+**Detalle clínico del descanso médico.** Contingencia, diagnóstico y centro de atención no
+existen en el modelo de datos. Sin ellos la hoja `Descanso Medico` sale con tres columnas en
+blanco.
+
+El CECO real (antes la otra brecha de esta lista) ya está resuelto: catálogo `Centro`/
+`CentroCosto` sembrado desde el archivo que entregó GCA, asignable por trabajador en Personal.

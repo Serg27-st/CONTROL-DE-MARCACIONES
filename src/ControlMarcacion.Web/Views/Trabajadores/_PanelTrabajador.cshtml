@@ -1,0 +1,313 @@
+@model PanelTrabajadorVm
+@{
+    var detalle = Model.Detalle;
+}
+
+<div class="panel-overlay" data-panel-overlay></div>
+
+<aside class="panel-flotante" data-trabajador-id="@detalle.Id">
+    <header class="panel-flotante-cabecera">
+        <h2>Información del colaborador</h2>
+        <button type="button" class="panel-flotante-cerrar" data-panel-cerrar aria-label="Cerrar panel">&times;</button>
+    </header>
+
+    <div class="panel-flotante-contenido">
+        <div data-bloque-ver class="@(Model.EsEdicion ? "oculto" : "")">
+            <div class="panel-seccion">
+                <h3>Datos personales</h3>
+                <dl class="panel-datos">
+                    <div>
+                        <dt>Apellido paterno</dt>
+                        <dd>@detalle.ApellidoPaterno</dd>
+                    </div>
+                    <div>
+                        <dt>Apellido materno</dt>
+                        <dd>@detalle.ApellidoMaterno</dd>
+                    </div>
+                    <div class="panel-dato-ancho">
+                        <dt>Nombres</dt>
+                        <dd>@detalle.Nombres</dd>
+                    </div>
+                    <div>
+                        <dt>Tipo de documento</dt>
+                        <dd>@detalle.TipoDocumento</dd>
+                    </div>
+                    <div>
+                        <dt>Número de documento</dt>
+                        <dd>@detalle.NumeroDocumento</dd>
+                    </div>
+                    <div>
+                        <dt>Sexo</dt>
+                        <dd>@(detalle.Sexo == Sexo.Masculino ? "Masculino" : "Femenino")</dd>
+                    </div>
+                    <div>
+                        <dt>Tiene hijos</dt>
+                        <dd>@(detalle.TieneHijos ? "Sí" : "No")</dd>
+                    </div>
+                    <div>
+                        <dt>Teléfono</dt>
+                        <dd>@(detalle.Telefono ?? "—")</dd>
+                    </div>
+                    <div>
+                        <dt>Correo electrónico</dt>
+                        <dd>@(detalle.CorreoElectronico ?? "—")</dd>
+                    </div>
+                    <div class="panel-dato-ancho">
+                        <dt>Dirección</dt>
+                        <dd>@(detalle.Direccion ?? "—")</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="panel-seccion">
+                <h3>Datos laborales</h3>
+                <dl class="panel-datos">
+                    <div class="panel-dato-ancho">
+                        <dt>Empresa</dt>
+                        <dd>@detalle.Empresa</dd>
+                    </div>
+                    <div>
+                        <dt>Planta</dt>
+                        <dd>@detalle.Planta</dd>
+                    </div>
+                    <div>
+                        <dt>Puesto</dt>
+                        <dd>@detalle.Puesto</dd>
+                    </div>
+                    <div class="panel-dato-ancho">
+                        <dt>Centro de costo</dt>
+                        <dd>@(detalle.CentroCosto ?? "—")</dd>
+                    </div>
+                    <div>
+                        <dt>Unidad (planta)</dt>
+                        <dd>@detalle.Planta</dd>
+                    </div>
+                    <div>
+                        <dt>Tipo de planilla</dt>
+                        <dd>@(detalle.TipoPlanilla == TipoPlanilla.Obrero ? "Obrero (OBM)" : "Empleado (EMP)")</dd>
+                    </div>
+                    <div>
+                        <dt>Fecha de ingreso</dt>
+                        <dd>@detalle.FechaIngreso.ToString("dd/MM/yyyy")</dd>
+                    </div>
+                    <div>
+                        <dt>Fecha de cese</dt>
+                        <dd>@(detalle.FechaCese?.ToString("dd/MM/yyyy") ?? "—")</dd>
+                    </div>
+                    <div>
+                        <dt>Motivo del cese</dt>
+                        <dd>@(detalle.MotivoCeseLegible ?? "—")</dd>
+                    </div>
+                    <div class="panel-dato-ancho">
+                        <dt>Sueldo básico vigente</dt>
+                        <dd>@(detalle.SueldoBasicoMensual is { } sueldo ? "S/ " + sueldo.ToString("N2") : "—")</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="panel-seccion">
+                <h3>Asignaciones</h3>
+                <dl class="panel-datos">
+                    <div>
+                        <dt>ID de marcador</dt>
+                        <dd>@(detalle.IdMarcador ?? "—")</dd>
+                    </div>
+                    <div>
+                        <dt>Turno</dt>
+                        <dd>@(detalle.Turno ?? "—")</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="acciones">
+                <button type="button" class="boton boton-primario" data-panel-cambiar-modo="editar">Editar</button>
+            </div>
+        </div>
+
+        <div data-bloque-editar class="@(Model.EsEdicion ? "" : "oculto")">
+            <form data-panel-formulario asp-controller="Trabajadores" asp-action="Guardar" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Datos.Id" />
+
+                @* El cese no se edita desde el panel: tiene pantalla propia porque exige
+                   motivo y cierra las asignaciones vigentes. Viajan ocultos para que el
+                   servicio valide el rango contra lo ya registrado. *@
+                <input type="hidden" asp-for="Datos.FechaCese" />
+                <input type="hidden" asp-for="Datos.MotivoCese" />
+
+                <div data-panel-mensaje class="aviso aviso-error oculto" role="alert"></div>
+
+                <div class="panel-seccion">
+                    <h3>Datos personales</h3>
+                    <div class="rejilla">
+                        <div class="campo">
+                            <label asp-for="Datos.TipoDocumentoId">Tipo de documento</label>
+                            <select asp-for="Datos.TipoDocumentoId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.TiposDocumento, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.NumeroDocumento">Número de documento</label>
+                            <input asp-for="Datos.NumeroDocumento" type="text" maxlength="20" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.ApellidoPaterno">Apellido paterno</label>
+                            <input asp-for="Datos.ApellidoPaterno" type="text" maxlength="80" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.ApellidoMaterno">Apellido materno</label>
+                            <input asp-for="Datos.ApellidoMaterno" type="text" maxlength="80" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.Nombres">Nombres</label>
+                            <input asp-for="Datos.Nombres" type="text" maxlength="120" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.Sexo">Sexo</label>
+                            <select asp-for="Datos.Sexo">
+                                <option value="@((int)Sexo.Masculino)">Masculino</option>
+                                <option value="@((int)Sexo.Femenino)">Femenino</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.Telefono">Teléfono</label>
+                            <input asp-for="Datos.Telefono" type="text" maxlength="30" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.CorreoElectronico">Correo electrónico</label>
+                            <input asp-for="Datos.CorreoElectronico" type="email" maxlength="150" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.Direccion">Dirección</label>
+                            <input asp-for="Datos.Direccion" type="text" maxlength="250" />
+                        </div>
+
+                        <div class="campo campo-casilla">
+                            <input asp-for="Datos.TieneHijos" type="checkbox" />
+                            <label asp-for="Datos.TieneHijos">Tiene hijos</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-seccion">
+                    <h3>Datos laborales</h3>
+                    <div class="rejilla">
+                        <div class="campo">
+                            <label asp-for="Datos.EmpresaId">Empresa</label>
+                            <select asp-for="Datos.EmpresaId" id="PanelEmpresaId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Empresas, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.TipoPlanilla">Tipo de planilla</label>
+                            <select asp-for="Datos.TipoPlanilla">
+                                <option value="@((int)TipoPlanilla.Obrero)">Obrero (OBM)</option>
+                                <option value="@((int)TipoPlanilla.Empleado)">Empleado (EMP)</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.PlantaId">Unidad (planta)</label>
+                            <select asp-for="Datos.PlantaId" id="PanelPlantaId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.PuestoId">Puesto</label>
+                            <select asp-for="Datos.PuestoId" id="PanelPuestoId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Puestos, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.FechaIngreso">Fecha de ingreso</label>
+                            <input asp-for="Datos.FechaIngreso" type="date" />
+                        </div>
+
+                        <div class="campo">
+                            <label>Cese</label>
+                            @if (Model.Datos.FechaCese is { } fechaCese)
+                            {
+                                <p style="margin: 6px 0;">@fechaCese.ToString("dd/MM/yyyy")</p>
+                            }
+                            else
+                            {
+                                <a class="boton boton-secundario" asp-controller="Trabajadores"
+                                   asp-action="Baja" asp-route-id="@Model.Datos.Id"
+                                   style="padding: 6px 14px; font-size: 13px;">Registrar baja</a>
+                            }
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.MontoSueldoBasico">Sueldo básico mensual (S/)</label>
+                            <input asp-for="Datos.MontoSueldoBasico" type="number" step="0.01" min="0" />
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="CentroId">Centro</label>
+                            <select asp-for="CentroId" id="PanelCentroId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Centros, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.CentroCostoId">Centro de costo</label>
+                            <select asp-for="Datos.CentroCostoId" id="PanelCentroCostoId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.CentrosCosto, "Id", "Nombre"))">
+                                <option value="">Seleccione…</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-seccion">
+                    <h3>Asignaciones</h3>
+                    <div class="rejilla">
+                        <div class="campo">
+                            <label asp-for="Datos.IdMarcador">ID de marcador</label>
+                            <select asp-for="Datos.IdMarcador" id="PanelIdMarcador" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Marcadores, "Valor", "Nombre"))">
+                                <option value="">Sin marcador asignado</option>
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label asp-for="Datos.TurnoId">Turno</label>
+                            <select asp-for="Datos.TurnoId" id="PanelTurnoId" class="select-buscable"
+                                    asp-items="@(new SelectList(Model.Turnos, "Id", "Nombre"))">
+                                <option value="">Sin turno asignado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <p class="panel-nota">
+                        El identificador del marcador, el turno y el sueldo básico se guardan con
+                        vigencia por fecha. Al cambiarlos se cierra la asignación anterior y se
+                        abre una nueva, para que las marcaciones ya registradas sigan atribuidas
+                        correctamente.
+                    </p>
+                </div>
+
+                <div class="acciones">
+                    <button type="submit" class="boton boton-primario">Guardar cambios</button>
+                    <button type="button" class="boton boton-secundario" data-panel-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</aside>

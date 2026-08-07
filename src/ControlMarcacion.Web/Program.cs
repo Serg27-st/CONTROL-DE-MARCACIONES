@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Text;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Infrastructure;
 using ControlMarcacion.Infrastructure.Persistencia;
 using ControlMarcacion.Infrastructure.Seguridad;
+using ControlMarcacion.Web.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
@@ -30,6 +32,12 @@ var cadenaConexion = builder.Configuration.GetConnectionString("BaseDatos")
         "ConnectionStrings__BaseDatos.");
 
 builder.Services.AgregarInfraestructura(cadenaConexion, builder.Configuration);
+
+// Quién firma cada cambio en la bitácora de auditoría. Va DESPUÉS de la infraestructura
+// a propósito: esta registración reemplaza al respaldo "sistema" que ella deja puesto
+// para poder arrancar sin una capa web delante.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IProveedorUsuarioActual, ProveedorUsuarioActualHttp>();
 
 // ASP.NET Core Identity con los cuatro roles del sistema. Se registra en Web y no en
 // Infrastructure porque configura el pipeline HTTP (cookie, rutas de login): Identity
@@ -102,7 +110,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Inicio}/{action=Index}/{id?}");
 
-// El primer administrador se crea aquí, no en una migración: una contraseña es un
+// El primer coordinador se crea aquí, no en una migración: una contraseña es un
 // credencial y este archivo no se versiona con datos. Ver InicializadorSeguridad.
 using (var alcance = app.Services.CreateScope())
 {

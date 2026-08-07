@@ -2,9 +2,11 @@ using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Justificaciones;
 using ControlMarcacion.Application.Justificaciones.Dto;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Justificaciones;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -16,7 +18,11 @@ namespace ControlMarcacion.Web.Controllers;
 /// La mayoría se generan solas al aprobar una solicitud. Esta pantalla las muestra todas,
 /// con su origen, y permite el alta manual para el caso puntual que no amerita el trámite
 /// completo de una solicitud.
+///
+/// Es la pantalla donde se puede maquillar una falta: por eso queda en los dos roles
+/// responsables del tareo y toda edición deja rastro con el valor anterior.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class JustificacionesController(
     IServicioJustificaciones servicio,
     IServicioPeriodos periodos) : Controller

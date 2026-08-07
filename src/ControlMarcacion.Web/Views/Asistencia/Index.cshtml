@@ -45,7 +45,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label for="periodoId">Periodo</label>
-                <select id="periodoId" name="periodoId">
+                <select id="periodoId" name="periodoId" class="select-buscable">
                     @foreach (var p in Model.Periodos)
                     {
                         <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">
@@ -57,7 +57,7 @@
 
             <div class="campo">
                 <label for="estado">Estado</label>
-                <select id="estado" name="estado">
+                <select id="estado" name="estado" class="select-buscable">
                     <option value="">Todos</option>
                     @foreach (var e in Enum.GetValues<EstadoTareo>())
                     {

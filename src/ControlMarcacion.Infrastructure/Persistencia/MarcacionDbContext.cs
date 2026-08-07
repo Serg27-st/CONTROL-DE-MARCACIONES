@@ -1,5 +1,6 @@
 using System.Text;
 using ControlMarcacion.Domain.Asistencia;
+using ControlMarcacion.Domain.Auditoria;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Justificaciones;
@@ -32,15 +33,20 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
     public DbSet<Planta> Plantas => Set<Planta>();
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<Seccion> Secciones => Set<Seccion>();
+    public DbSet<Centro> Centros => Set<Centro>();
+    public DbSet<CentroCosto> CentrosCosto => Set<CentroCosto>();
 
     // Personal
     public DbSet<Trabajador> Trabajadores => Set<Trabajador>();
     public DbSet<AsignacionMarcador> AsignacionesMarcador => Set<AsignacionMarcador>();
     public DbSet<AsignacionTurno> AsignacionesTurno => Set<AsignacionTurno>();
+    public DbSet<AsignacionSueldo> AsignacionesSueldo => Set<AsignacionSueldo>();
+    public DbSet<PeriodoLaboral> PeriodosLaborales => Set<PeriodoLaboral>();
 
     // Catálogos
     public DbSet<TipoDocumento> TiposDocumento => Set<TipoDocumento>();
     public DbSet<Puesto> Puestos => Set<Puesto>();
+    public DbSet<Marcador> Marcadores => Set<Marcador>();
     public DbSet<Feriado> Feriados => Set<Feriado>();
     public DbSet<Turno> Turnos => Set<Turno>();
     public DbSet<TurnoPlanta> TurnosPlanta => Set<TurnoPlanta>();
@@ -59,6 +65,15 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
     // Asistencia y normativa
     public DbSet<TareoDiario> TareosDiarios => Set<TareoDiario>();
     public DbSet<TasaSobretasa> TasasSobretasa => Set<TasaSobretasa>();
+    public DbSet<ParametroLegal> ParametrosLegales => Set<ParametroLegal>();
+    public DbSet<ReintegroTareo> ReintegrosTareo => Set<ReintegroTareo>();
+
+    // Seguridad. Los usuarios y roles los aporta IdentityDbContext; esta es la única
+    // tabla propia del módulo.
+    public DbSet<UsuarioPlanta> UsuariosPlanta => Set<UsuarioPlanta>();
+
+    // Auditoría. La escribe InterceptorAuditoria al guardar; nadie más la toca.
+    public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
 
     /// <summary>
     /// Convenciones por defecto de tipos.

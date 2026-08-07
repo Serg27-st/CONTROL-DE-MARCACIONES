@@ -1,0 +1,78 @@
+@model EditarMarcadorVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo marcador" : "Editar marcador";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al catálogo</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+    <input type="hidden" asp-for="AsignacionesTotales" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código del marcador</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="30" readonly="@Model.EstaEnUso" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+                <small style="color: var(--color-texto-suave);">
+                    Tal como lo escribe el equipo en el archivo, con los ceros a la izquierda
+                    incluidos (por ejemplo <code>00123</code>).
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Planta</label>
+                <select asp-for="Datos.PlantaId" class="select-buscable"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Descripcion">Descripción</label>
+                <input asp-for="Datos.Descripcion" type="text" maxlength="150"
+                       placeholder="Ubicación o referencia del equipo" />
+                <span class="error-campo" asp-validation-for="Datos.Descripcion"></span>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+
+        @if (Model.EstaEnUso)
+        {
+            <div class="aviso aviso-error" role="status">
+                Este marcador tiene <strong>@Model.AsignacionesTotales asignación(es)</strong>
+                registradas, así que su código ya no se puede cambiar: las asignaciones lo
+                referencian por su texto y renombrarlo las dejaría apuntando a un código que
+                no existe. Si el código está mal, dé de baja este marcador y cree uno nuevo.
+            </div>
+        }
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

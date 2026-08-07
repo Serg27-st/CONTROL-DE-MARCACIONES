@@ -37,7 +37,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label for="PeriodoId">Periodo</label>
-                <select id="PeriodoId" name="PeriodoId" required>
+                <select id="PeriodoId" name="PeriodoId" class="select-buscable" required>
                     <option value="">Seleccione…</option>
                     @foreach (var p in Model.Periodos)
                     {
@@ -50,7 +50,7 @@
 
             <div class="campo">
                 <label for="EmpresaId">Empresa</label>
-                <select id="EmpresaId" name="EmpresaId">
+                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var e in Model.Empresas)
                     {
@@ -61,7 +61,7 @@
 
             <div class="campo">
                 <label for="PlantaId">Planta</label>
-                <select id="PlantaId" name="PlantaId">
+                <select id="PlantaId" name="PlantaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var p in Model.Plantas)
                     {
@@ -71,23 +71,23 @@
             </div>
 
             <div class="campo">
-                <label for="AreaId">Área</label>
-                <select id="AreaId" name="AreaId">
-                    <option value="">Todas</option>
-                    @foreach (var a in Model.Areas)
+                <label for="CentroId">Centro</label>
+                <select id="CentroId" name="CentroId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var c in Model.Centros)
                     {
-                        <option value="@a.Id" selected="@(Model.Filtro.AreaId == a.Id)">@a.Nombre</option>
+                        <option value="@c.Id" selected="@(Model.Filtro.CentroId == c.Id)">@c.Nombre</option>
                     }
                 </select>
             </div>
 
             <div class="campo">
-                <label for="SeccionId">Sección</label>
-                <select id="SeccionId" name="SeccionId">
-                    <option value="">Todas</option>
-                    @foreach (var s in Model.Secciones)
+                <label for="CentroCostoId">Centro de costo</label>
+                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var cc in Model.CentrosCosto)
                     {
-                        <option value="@s.Id" selected="@(Model.Filtro.SeccionId == s.Id)">@s.Nombre</option>
+                        <option value="@cc.Id" selected="@(Model.Filtro.CentroCostoId == cc.Id)">@cc.Nombre</option>
                     }
                 </select>
             </div>
@@ -103,8 +103,8 @@
                        ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
                        ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
                        ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["AreaId"] = Model.Filtro.AreaId?.ToString(),
-                       ["SeccionId"] = Model.Filtro.SeccionId?.ToString()
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
                    })">Exportar a Excel</a>
             }
         </div>

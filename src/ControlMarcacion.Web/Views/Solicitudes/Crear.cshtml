@@ -29,7 +29,7 @@
         <div class="rejilla">
             <div class="campo">
                 <label asp-for="Datos.TrabajadorId">Trabajador</label>
-                <select asp-for="Datos.TrabajadorId"
+                <select asp-for="Datos.TrabajadorId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Trabajadores, "Id", "Nombre"))">
                     <option value="">Seleccione…</option>
                 </select>
@@ -38,11 +38,65 @@
 
             <div class="campo">
                 <label asp-for="Datos.TipoAusenciaId">Tipo de ausencia</label>
-                <select asp-for="Datos.TipoAusenciaId"
-                        asp-items="@(new SelectList(Model.TiposAusencia, "Id", "Nombre"))">
+                @* Las opciones se arman a mano y no con asp-items para poder colgar de cada
+                   una su código y sus topes: así el aviso de límite lo dicta el catálogo y
+                   no una copia de las reglas escrita en JavaScript. *@
+                <select asp-for="Datos.TipoAusenciaId" id="tipo-ausencia" class="select-buscable">
                     <option value="">Seleccione…</option>
+                    @foreach (var tipo in Model.TiposAusencia)
+                    {
+                        @* Sin selected= a mano: el tag helper del <select> ya marca la
+                           opción que coincide con el modelo al volver con errores. *@
+                        <option value="@tipo.Id"
+                                data-codigo="@tipo.Codigo"
+                                data-maximo-evento="@(tipo.MaximoDiasPorEvento?.ToString() ?? "")"
+                                data-maximo-anio="@(tipo.MaximoDiasPorAnioCalendario?.ToString() ?? "")">
+                            @tipo.Etiqueta
+                        </option>
+                    }
                 </select>
                 <span class="error-campo" asp-validation-for="Datos.TipoAusenciaId"></span>
+                <p id="aviso-limite" class="nota-limite" hidden></p>
+            </div>
+
+            <div class="campo" id="campo-subtipo-vacaciones" hidden>
+                <label asp-for="Datos.SubtipoVacaciones">Tipo de vacaciones</label>
+                <select asp-for="Datos.SubtipoVacaciones" id="subtipo-vacaciones" class="select-buscable">
+                    <option value="">Seleccione…</option>
+                    <option value="GOZADAS">Vacaciones gozadas</option>
+                    <option value="VENTA">Venta de vacaciones</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.SubtipoVacaciones"></span>
+                <p id="aviso-subtipo" class="nota-limite" hidden></p>
+            </div>
+
+            <div class="campo" id="campo-periodo-gozadas" hidden>
+                <label for="periodo-gozadas">Periodo vacacional</label>
+                @* Dos controles para un solo campo del modelo: el que está oculto se
+                   deshabilita, y un control deshabilitado no se envía, así que nunca llegan
+                   dos valores de PeriodoVacacional al servidor. *@
+                <select id="periodo-gozadas" name="Datos.PeriodoVacacional" class="select-buscable" disabled>
+                    <option value="">Seleccione…</option>
+                    @foreach (var periodo in Model.PeriodosVacacionales)
+                    {
+                        <option value="@periodo" selected="@(Model.Datos.PeriodoVacacional == periodo)">
+                            @periodo
+                        </option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PeriodoVacacional"></span>
+            </div>
+
+            <div class="campo" id="campo-periodo-venta" hidden>
+                <label for="periodo-venta">Periodo vacacional</label>
+                @* El title acompaña al aviso nativo del pattern: sin él, el navegador
+                   muestra su propio texto genérico y en su propio idioma. *@
+                <input type="text" id="periodo-venta" name="Datos.PeriodoVacacional"
+                       value="@Model.Datos.PeriodoVacacional"
+                       maxlength="9" placeholder="2025-2026" pattern="\d{4}-\d{4}"
+                       title="Escriba el periodo como AAAA-AAAA, por ejemplo 2025-2026."
+                       autocomplete="off" disabled />
+                <span class="error-campo" id="error-periodo-venta"></span>
             </div>
 
             <div class="campo">
@@ -80,8 +134,10 @@
         <h2>Sustento</h2>
         <div class="rejilla">
             <div class="campo">
-                <label asp-for="Datos.Sustento">Descripción del sustento</label>
-                <input asp-for="Datos.Sustento" type="text" maxlength="500" />
+                <label asp-for="Datos.Sustento">
+                    Descripción del sustento <span class="obligatorio" aria-hidden="true">*</span>
+                </label>
+                <input asp-for="Datos.Sustento" type="text" maxlength="500" minlength="5" required />
                 <span class="error-campo" asp-validation-for="Datos.Sustento"></span>
             </div>
 
@@ -97,8 +153,9 @@
         </div>
 
         <p style="color: var(--color-texto-suave); font-size: 13.5px; margin-bottom: 0;">
-            Algunos tipos exigen sustento documentado para poder aprobarse; puede completarlo
-            después, antes de aprobar.
+            La descripción del sustento es obligatoria: es lo que explica, meses después, por
+            qué ese día no quedó como falta. El <strong>documento</strong> (certificado médico,
+            resolución) sí puede adjuntarse más tarde, antes de aprobar.
         </p>
     </div>
 
@@ -107,3 +164,7 @@
         <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
     </div>
 </form>
+
+@section Scripts {
+    <script src="~/js/solicitudes-crear.js" asp-append-version="true"></script>
+}

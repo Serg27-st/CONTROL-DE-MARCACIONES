@@ -32,7 +32,19 @@ public sealed class EditarSolicitudVm
 
     [BindNever]
     [ValidateNever]
-    public IReadOnlyList<OpcionDto> TiposAusencia { get; set; } = [];
+    public IReadOnlyList<TipoAusenciaOpcionDto> TiposAusencia { get; set; } = [];
+
+    /// <summary>
+    /// Periodos vacacionales que ofrece el desplegable cuando se eligen vacaciones gozadas.
+    /// </summary>
+    /// <remarks>
+    /// Se generan en el servidor: la lista es una regla de captura ("desde 2020"), no un
+    /// detalle de presentación, y armarla en JavaScript la dejaría fuera del alcance de
+    /// cualquier prueba.
+    /// </remarks>
+    [BindNever]
+    [ValidateNever]
+    public IReadOnlyList<string> PeriodosVacacionales { get; set; } = [];
 }
 
 /// <summary>Modelo del formulario de rechazo o anulación, que exigen motivo.</summary>

@@ -13,9 +13,9 @@ public sealed class FiltroReporteVm
 
     public long? PlantaId { get; init; }
 
-    public long? AreaId { get; init; }
+    public long? CentroId { get; init; }
 
-    public long? SeccionId { get; init; }
+    public long? CentroCostoId { get; init; }
 }
 
 /// <summary>Modelo del resumen mensual de tareo.</summary>
@@ -29,9 +29,9 @@ public sealed class ResumenTareoVm
 
     public IReadOnlyList<OpcionDto> Plantas { get; init; } = [];
 
-    public IReadOnlyList<OpcionDto> Areas { get; init; } = [];
+    public IReadOnlyList<OpcionDto> Centros { get; init; } = [];
 
-    public IReadOnlyList<OpcionDto> Secciones { get; init; } = [];
+    public IReadOnlyList<OpcionDto> CentrosCosto { get; init; } = [];
 
     public IReadOnlyList<ResumenTareoDto> Filas { get; init; } = [];
 
@@ -49,9 +49,9 @@ public sealed class ExcepcionesVm
 
     public IReadOnlyList<OpcionDto> Plantas { get; init; } = [];
 
-    public IReadOnlyList<OpcionDto> Areas { get; init; } = [];
+    public IReadOnlyList<OpcionDto> Centros { get; init; } = [];
 
-    public IReadOnlyList<OpcionDto> Secciones { get; init; } = [];
+    public IReadOnlyList<OpcionDto> CentrosCosto { get; init; } = [];
 
     public IReadOnlyList<ExcepcionDto> Filas { get; init; } = [];
 

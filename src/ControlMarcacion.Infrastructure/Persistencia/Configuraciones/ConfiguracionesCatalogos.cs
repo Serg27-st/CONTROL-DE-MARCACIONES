@@ -134,3 +134,30 @@ public class TipoAusenciaConfiguracion : IEntityTypeConfiguration<TipoAusencia>
         builder.HasIndex(t => t.Codigo).IsUnique();
     }
 }
+
+public class MarcadorConfiguracion : IEntityTypeConfiguration<Marcador>
+{
+    public void Configure(EntityTypeBuilder<Marcador> builder)
+    {
+        builder.ToTable("Marcador");
+        builder.HasKey(m => m.Id);
+
+        // Texto, para conservar los ceros a la izquierda ("00123").
+        builder.Property(m => m.Codigo).HasMaxLength(30).IsRequired();
+        builder.Property(m => m.Descripcion).HasMaxLength(150);
+
+        // Único en TODO el sistema, no por planta. El TXT del G3 no trae ninguna columna
+        // que diga de qué planta salió cada marcación: la ingesta resuelve ID → trabajador
+        // solo por el texto del ID y la fecha. Dos plantas con el código "001" harían esas
+        // marcaciones inatribuibles. Ver Marcador.
+        builder.HasIndex(m => m.Codigo).IsUnique();
+
+        // El formulario de Personal filtra los marcadores por la planta del trabajador.
+        builder.HasIndex(m => new { m.PlantaId, m.Activo });
+
+        builder.HasOne(m => m.Planta)
+            .WithMany()
+            .HasForeignKey(m => m.PlantaId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

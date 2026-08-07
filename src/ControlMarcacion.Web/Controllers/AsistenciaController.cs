@@ -1,8 +1,10 @@
 using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Asistencia;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -10,6 +12,7 @@ namespace ControlMarcacion.Web.Controllers;
 /// <summary>
 /// Tareo diario: ejecución del motor de cálculo y consulta del resultado.
 /// </summary>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class AsistenciaController(
     IServicioCalculoTareo servicio,
     IServicioPeriodos periodos) : Controller

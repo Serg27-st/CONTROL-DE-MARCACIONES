@@ -32,6 +32,14 @@
 
 * { box-sizing: border-box; }
 
+/*
+  El atributo hidden tiene que ganarle a cualquier display de las clases del sitio.
+  Sin esta regla, .campo { display: flex } deja visibles los contenedores que un
+  formulario oculta —los de vacaciones, por ejemplo— y el usuario vería campos que no
+  corresponden al tipo elegido.
+*/
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -163,6 +171,16 @@ body {
 .campo-casilla label { font-weight: 400; color: var(--color-texto); }
 
 .error-campo { color: var(--estado-falta); font-size: 12.5px; margin-top: 2px; }
+
+/* Aviso del tope de días del tipo de ausencia elegido. No es un error: informa antes
+   de que el usuario escriba un rango que el servidor va a rechazar. */
+.nota-limite {
+  color: var(--color-texto-suave);
+  font-size: 12.5px;
+  margin: 2px 0 0;
+}
+
+.obligatorio { color: var(--estado-falta); font-weight: 700; }
 
 /* ---------- Botones ---------- */
 

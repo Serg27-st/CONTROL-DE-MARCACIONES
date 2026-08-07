@@ -1,0 +1,81 @@
+@using ControlMarcacion.Application.Personal
+@model BajaTrabajadorVm
+@{
+    ViewData["Title"] = "Registrar baja";
+}
+
+<div class="titulo-pagina">
+    <h1>Registrar baja</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="RegistrarBaja">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.TrabajadorId" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo registrar la baja. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>@Model.ApellidosYNombres</h2>
+        <p style="color: var(--color-texto-suave); margin-top: 0;">
+            Documento <strong>@Model.NumeroDocumento</strong> · ingresó el
+            <strong>@Model.FechaIngreso.ToString("dd/MM/yyyy")</strong>.
+        </p>
+
+        <div class="aviso aviso-error" role="status">
+            Registrar la baja <strong>cierra en la fecha de cese</strong> las asignaciones
+            vigentes de ID de marcador, turno y sueldo. El ID del marcador queda libre para
+            reasignarse, y recién entonces se podrá mover al trabajador a la otra razón social.
+        </div>
+
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.FechaCese">Fecha de cese</label>
+                <input asp-for="Datos.FechaCese" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaCese"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Motivo">Motivo de la baja</label>
+                <select asp-for="Datos.Motivo">
+                    <option value="">Seleccione…</option>
+                    @foreach (var (valor, etiqueta) in EtiquetasPersonal.MotivosCese)
+                    {
+                        <option value="@((int)valor)">@etiqueta</option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.Motivo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Observacion">Observación</label>
+                <input asp-for="Datos.Observacion" type="text" maxlength="300"
+                       placeholder="Detalle adicional, opcional" />
+                <span class="error-campo" asp-validation-for="Datos.Observacion"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario"
+                data-confirmar="¿Registrar la baja de @Model.ApellidosYNombres? Se cerrarán sus asignaciones vigentes.">
+            Registrar baja
+        </button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

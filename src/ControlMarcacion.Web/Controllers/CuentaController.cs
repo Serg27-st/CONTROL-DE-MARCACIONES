@@ -10,8 +10,8 @@ namespace ControlMarcacion.Web.Controllers;
 /// Inicio y cierre de sesión.
 /// </summary>
 /// <remarks>
-/// No hay autorregistro: las cuentas las crea un ADMINISTRADOR desde
-/// <see cref="UsuariosController"/>, igual que RRHH da de alta al trabajador en Personal.
+/// No hay autorregistro: las cuentas las crea un COORDINADOR desde
+/// <see cref="UsuariosController"/>, igual que se da de alta al trabajador en Personal.
 /// </remarks>
 [AllowAnonymous]
 public sealed class CuentaController(

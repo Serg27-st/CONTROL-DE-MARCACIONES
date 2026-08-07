@@ -29,15 +29,19 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         using var libro = new XLWorkbook();
         var hoja = libro.Worksheets.Add("Resumen de tareo");
 
-        EscribirEncabezado(hoja, metadatos, "Resumen de tareo mensual");
+        EscribirEncabezado(
+            hoja, metadatos, "Resumen de tareo mensual",
+            "Este reporte entrega minutos, horas y conteos de días. La columna \"Bono nocturno (S/.)\" " +
+            "es la única cifra en soles que calcula el sistema aquí (D.S. 007-2002-TR, art. 8); el resto " +
+            "de la remuneración sigue a cargo de planilla.");
 
         string[] columnas =
         [
-            "Trabajador", "ID marcador", "Empresa", "Planta", "Área", "Sección", "Puesto",
+            "Trabajador", "ID marcador", "Empresa", "Planta", "Centro", "Centro de costo", "Puesto",
             "Días puntual", "Días tardanza", "Días falta", "Días ausencia justificada",
             "Días incompleto", "Días no laborable trabajado",
             "Horas ordinarias", "Horas extra 25%", "Horas extra 35%", "Horas nocturnas",
-            "Horas de tardanza acumuladas"
+            "Horas de tardanza acumuladas", "Bono nocturno (S/.)", "Movilidad (S/.)"
         ];
 
         EscribirTitulosColumna(hoja, columnas);
@@ -51,8 +55,8 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             hoja.Cell(fila, col++).Value = r.IdMarcador ?? "—";
             hoja.Cell(fila, col++).Value = r.Empresa;
             hoja.Cell(fila, col++).Value = r.Planta;
-            hoja.Cell(fila, col++).Value = r.Area;
-            hoja.Cell(fila, col++).Value = r.Seccion;
+            hoja.Cell(fila, col++).Value = r.Centro ?? "—";
+            hoja.Cell(fila, col++).Value = r.CentroCosto ?? "—";
             hoja.Cell(fila, col++).Value = r.Puesto;
             hoja.Cell(fila, col++).Value = r.DiasPuntual;
             hoja.Cell(fila, col++).Value = r.DiasTardanza;
@@ -64,7 +68,12 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             hoja.Cell(fila, col++).Value = r.HorasExtra25;
             hoja.Cell(fila, col++).Value = r.HorasExtra35;
             hoja.Cell(fila, col++).Value = r.HorasNocturnas;
-            hoja.Cell(fila, col).Value = r.HorasTardanza;
+            hoja.Cell(fila, col++).Value = r.HorasTardanza;
+            hoja.Cell(fila, col).Value = r.MontoBonoNocturno;
+            hoja.Cell(fila, col).Style.NumberFormat.Format = "#,##0.00";
+            col++;
+            hoja.Cell(fila, col).Value = r.MontoMovilidad;
+            hoja.Cell(fila, col).Style.NumberFormat.Format = "#,##0.00";
             fila++;
         }
 
@@ -172,11 +181,13 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
     /// tres niveles y los datos desde la fila 7.
     /// </summary>
     /// <remarks>
-    /// Las columnas que el sistema no alimenta —CECO, movilidad, asignación familiar y todo
-    /// el bloque de reintegros— se emiten <b>vacías pero presentes</b>, en su posición
-    /// exacta. En el archivo de GCA también vienen vacías: las carga planilla a mano. Quitar
-    /// la columna obligaría a rehacer su proceso; dejarla en cero mentiría sobre un dato que
-    /// nadie calculó.
+    /// Centro/Texto Centro/Ceco/Descrip. Ceco (aproximación con Área/Sección), movilidad,
+    /// asignación familiar y los 18 campos de reintegros ya se alimentan. Lo que el sistema
+    /// de verdad no puede llenar —el CECO real de SAP (<c>C. Costo</c>) y el bloque manual
+    /// <c>Ausencias</c>/<c>Dias Efectivas</c>/<c>Dias Pendientes</c>/<c>Dias Trabajados</c>—
+    /// se emite <b>vacío pero presente</b>, en su posición exacta. En el archivo de GCA
+    /// también vienen vacías: las carga planilla a mano. Quitar la columna obligaría a
+    /// rehacer su proceso; dejarla en cero mentiría sobre un dato que nadie calculó.
     /// </remarks>
     private static void EscribirHojaTareo(IXLWorksheet hoja, TareoFinalDto tareo)
     {
@@ -188,16 +199,22 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         hoja.Cell("A2").Style.Font.Bold = true;
 
         hoja.Cell("A3").Value = $"MES: {tareo.NombreMes}";
-        hoja.Cell("AG3").Value = "DEL";
-        EscribirFecha(hoja.Cell("AH3"), tareo.FechaInicio);
-        hoja.Cell("AJ3").Value = "AL";
-        EscribirFecha(hoja.Cell("AK3"), tareo.FechaFin);
+        hoja.Cell("AF3").Value = "DEL";
+        EscribirFecha(hoja.Cell("AG3"), tareo.FechaInicio);
+        hoja.Cell("AI3").Value = "AL";
+        EscribirFecha(hoja.Cell("AJ3"), tareo.FechaFin);
 
         // --- Fila 4: identificación y títulos de grupo ---
+        // Bloque de identificación según el formato vigente de GCA ("RESUMEN FIN DE MES ... -
+        // PLANTA ..."): CENTRO / CENTRO DE COSTO / DESCRIP. CECO salen las tres de la misma
+        // fila del catálogo real de SAP (CO_AREA / CO_SECC / DE_SECC), y AREA es el área
+        // interna del operario, que no se deriva del CECO. El formato anterior tenía además
+        // "Texto Centro" y "C. Costo"; ninguna de las dos existe ya, así que el resto de la
+        // hoja corre una columna a la izquierda y el ancho total pasa de 58 a 57.
         string[] identificacion =
         [
-            "N°", "DNI", "Apellidos y Nombres", "Planta", "Centro", "Texto Centro",
-            "Ceco", "Descrip. Ceco", "C. Costo", "F. Ingreso", "F. Cese", "observacion"
+            "N°", "DNI", "NOMBRE", "PLANTA", "CENTRO", "CENTRO DE COSTO", "DESCRIP. CECO",
+            "AREA", "FECHA INGRESO", "FECHA CESE", "OBS"
         ];
 
         for (var i = 0; i < identificacion.Length; i++)
@@ -206,33 +223,33 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             hoja.Range(4, i + 1, 6, i + 1).Merge();
         }
 
-        Grupo(hoja, "M4:Y4", "REPORTE DE MOVIMIENTO DE PERSONAL EN DIAS");
+        Grupo(hoja, "L4:X4", "REPORTE DE MOVIMIENTO DE PERSONAL EN DIAS");
 
         // Columnas de llenado manual: vienen vacías también en el archivo de GCA.
         string[] manuales = ["Ausencias", "Tardanza", "Dias Efectivas", "Dias Pendientes", "Dias Trabajados"];
 
         for (var i = 0; i < manuales.Length; i++)
         {
-            hoja.Cell(4, 26 + i).Value = manuales[i];
-            hoja.Range(4, 26 + i, 6, 26 + i).Merge();
+            hoja.Cell(4, 25 + i).Value = manuales[i];
+            hoja.Range(4, 25 + i, 6, 25 + i).Merge();
         }
 
-        Grupo(hoja, "AE4:AM4", "R E S U M E N");
-        Grupo(hoja, "AO4:BF4", "REINTEGROS");
+        Grupo(hoja, "AD4:AL4", "R E S U M E N");
+        Grupo(hoja, "AN4:BE4", "REINTEGROS");
 
-        hoja.Cell("AN4").Value = "ASIG. FAMILIAR";
-        hoja.Range("AN4:AN6").Merge();
+        hoja.Cell("AM4").Value = "ASIG. FAMILIAR";
+        hoja.Range("AM4:AM6").Merge();
 
         // --- Fila 5: subgrupos horario ---
-        Grupo(hoja, "AE5:AH5", "HORARIO DIURNO");
-        Grupo(hoja, "AJ5:AM5", "HORARIO NOCTURNO");
-        Grupo(hoja, "AO5:AR5", "HORARIO DIURNO");
-        Grupo(hoja, "AT5:AW5", "HORARIO NOCTURNO");
+        Grupo(hoja, "AD5:AG5", "HORARIO DIURNO");
+        Grupo(hoja, "AI5:AL5", "HORARIO NOCTURNO");
+        Grupo(hoja, "AN5:AQ5", "HORARIO DIURNO");
+        Grupo(hoja, "AS5:AV5", "HORARIO NOCTURNO");
 
-        hoja.Cell("AI5").Value = "MOVIL S/.";
-        hoja.Range("AI5:AI6").Merge();
-        hoja.Cell("AS5").Value = "MOVIL S/.";
-        hoja.Range("AS5:AS6").Merge();
+        hoja.Cell("AH5").Value = "MOVIL S/.";
+        hoja.Range("AH5:AH6").Merge();
+        hoja.Cell("AR5").Value = "MOVIL S/.";
+        hoja.Range("AR5:AR6").Merge();
 
         // --- Fila 6: títulos de hoja ---
         string[] enDias =
@@ -244,14 +261,14 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < enDias.Length; i++)
         {
-            hoja.Cell(6, 13 + i).Value = enDias[i];
+            hoja.Cell(6, 12 + i).Value = enDias[i];
         }
 
         // Los tramos van como número con formato de porcentaje, igual que en el modelo.
-        EscribirTramos(hoja, columnaBase: 31, titulo: "HRS NORMALES");   // AE
-        EscribirTramos(hoja, columnaBase: 36, titulo: "B.NOCT. (HORAS)"); // AJ
-        EscribirTramos(hoja, columnaBase: 41, titulo: "HRS NORMALES");   // AO
-        EscribirTramos(hoja, columnaBase: 46, titulo: "B.NOCT. (HORAS)"); // AT
+        EscribirTramos(hoja, columnaBase: 30, titulo: "HRS NORMALES");   // AD
+        EscribirTramos(hoja, columnaBase: 35, titulo: "B.NOCT. (HORAS)"); // AI
+        EscribirTramos(hoja, columnaBase: 40, titulo: "HRS NORMALES");   // AN
+        EscribirTramos(hoja, columnaBase: 45, titulo: "B.NOCT. (HORAS)"); // AS
 
         string[] conceptosReintegro =
         [
@@ -262,10 +279,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < conceptosReintegro.Length; i++)
         {
-            hoja.Cell(6, 50 + i).Value = conceptosReintegro[i];
+            hoja.Cell(6, 49 + i).Value = conceptosReintegro[i];
         }
 
-        EstilarTitulos(hoja.Range(4, 1, 6, 58));
+        EstilarTitulos(hoja.Range(4, 1, 6, 57));
 
         // --- Datos ---
         var fila = FilaDatosTareo;
@@ -281,18 +298,25 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             hoja.Cell(fila, 3).Value = f.ApellidosYNombres;
             hoja.Cell(fila, 4).Value = f.Planta;
-            hoja.Cell(fila, 7).Value = f.Ceco ?? string.Empty;
-            hoja.Cell(fila, 8).Value = f.DescripcionCeco ?? string.Empty;
-            hoja.Cell(fila, 9).Value = f.CentroCosto ?? string.Empty;
-            EscribirFecha(hoja.Cell(fila, 10), f.FechaIngreso);
+
+            // CENTRO / CENTRO DE COSTO / DESCRIP. CECO: las tres del catálogo real de SAP
+            // (CO_AREA / CO_SECC / DE_SECC), siempre de la misma fila. AREA es el área
+            // interna del operario. Si el trabajador todavía no tiene centro de costo
+            // asignado en Personal, las tres de CECO salen vacías: no se aproximan con
+            // Área/Sección, porque eso daría un código que no existe en SAP.
+            hoja.Cell(fila, 5).Value = f.Centro ?? string.Empty;
+            hoja.Cell(fila, 6).Value = f.CentroCosto ?? string.Empty;
+            hoja.Cell(fila, 7).Value = f.DescripcionCeco ?? string.Empty;
+            hoja.Cell(fila, 8).Value = f.Area ?? string.Empty;
+            EscribirFecha(hoja.Cell(fila, 9), f.FechaIngreso);
 
             if (f.FechaCese is { } cese)
             {
-                EscribirFecha(hoja.Cell(fila, 11), cese);
-                hoja.Cell(fila, 11).Style.Font.FontColor = XLColor.FromHtml("#c0392b");
+                EscribirFecha(hoja.Cell(fila, 10), cese);
+                hoja.Cell(fila, 10).Style.Font.FontColor = XLColor.FromHtml("#c0392b");
             }
 
-            hoja.Cell(fila, 12).Value = f.Observacion ?? string.Empty;
+            hoja.Cell(fila, 11).Value = f.Observacion ?? string.Empty;
 
             int[] enDiasValores =
             [
@@ -304,10 +328,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             for (var i = 0; i < enDiasValores.Length; i++)
             {
-                EscribirNumero(hoja.Cell(fila, 13 + i), enDiasValores[i], "#,##0.00;;\"-\"");
+                EscribirNumero(hoja.Cell(fila, 12 + i), enDiasValores[i], "#,##0.00;;\"-\"");
             }
 
-            EscribirNumero(hoja.Cell(fila, 25), f.HorasTardanza, "#,##0.00;;\"-\"");
+            EscribirNumero(hoja.Cell(fila, 24), f.HorasTardanza, "#,##0.00;;\"-\"");
 
             decimal[] resumen =
             [
@@ -316,8 +340,11 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             for (var i = 0; i < resumen.Length; i++)
             {
-                EscribirNumero(hoja.Cell(fila, 31 + i), resumen[i], "#,##0.00;;\"-\"");
+                EscribirNumero(hoja.Cell(fila, 30 + i), resumen[i], "#,##0.00;;\"-\"");
             }
+
+            // AH: movilidad calculada (días asistidos × valor diario vigente en el periodo).
+            EscribirNumero(hoja.Cell(fila, 34), f.MontoMovilidad, "#,##0.00;;\"-\"");
 
             decimal[] nocturno =
             [
@@ -327,7 +354,53 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             for (var i = 0; i < nocturno.Length; i++)
             {
-                EscribirNumero(hoja.Cell(fila, 36 + i), nocturno[i], "#,##0.00;;\"-\"");
+                EscribirNumero(hoja.Cell(fila, 35 + i), nocturno[i], "#,##0.00;;\"-\"");
+            }
+
+            // AM: asignación familiar (10 % de la RMV, fija si el trabajador tiene hijos).
+            EscribirNumero(hoja.Cell(fila, 39), f.MontoAsignacionFamiliar, "#,##0.00;;\"-\"");
+
+            // AN-AQ: reintegro de horas normales/25 %/35 %/100 %, cargado a mano.
+            decimal[] reintegroDiurno =
+            [
+                f.ReintegroHorasNormales, f.ReintegroHorasExtra25, f.ReintegroHorasExtra35,
+                f.ReintegroHorasNoLaborable
+            ];
+
+            for (var i = 0; i < reintegroDiurno.Length; i++)
+            {
+                EscribirNumero(hoja.Cell(fila, 40 + i), reintegroDiurno[i], "#,##0.00;;\"-\"");
+            }
+
+            // AR: reintegro de movilidad.
+            EscribirNumero(hoja.Cell(fila, 44), f.ReintegroMontoMovilidad, "#,##0.00;;\"-\"");
+
+            // AS-AV: reintegro de horas nocturnas/25 %/35 %/100 %.
+            decimal[] reintegroNocturno =
+            [
+                f.ReintegroHorasNocturnas, f.ReintegroHorasExtra25Nocturnas,
+                f.ReintegroHorasExtra35Nocturnas, f.ReintegroHorasNoLaborableNocturnas
+            ];
+
+            for (var i = 0; i < reintegroNocturno.Length; i++)
+            {
+                EscribirNumero(hoja.Cell(fila, 45 + i), reintegroNocturno[i], "#,##0.00;;\"-\"");
+            }
+
+            // AW-BE: viático, días de DM/subsidios/licencia paternal, licencia con goce y los
+            // tres reintegros/descuentos nombrados. Cargados a mano en ReintegroTareo; cero
+            // se ve como "-", igual que el resto de la hoja.
+            decimal[] conceptosReintegroValores =
+            [
+                f.ReintegroViatico, f.ReintegroDiasDescansoMedico, f.ReintegroDiasSubsidioMaternidad,
+                f.ReintegroDiasSubsidioAccidente, f.ReintegroDiasLicenciaPaternidad,
+                f.ReintegroLicenciaConGoce, f.ReintegroAsignacionFamiliar, f.ReintegroAfecto,
+                f.ReintegroDescuentoPagoIndebido
+            ];
+
+            for (var i = 0; i < conceptosReintegroValores.Length; i++)
+            {
+                EscribirNumero(hoja.Cell(fila, 49 + i), conceptosReintegroValores[i], "#,##0.00;;\"-\"");
             }
 
             fila++;
@@ -340,7 +413,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         hoja.SheetView.FreezeRows(6);
         hoja.SheetView.FreezeColumns(3);
-        hoja.Columns(1, 58).AdjustToContents();
+        hoja.Columns(1, 57).AdjustToContents();
         hoja.Column(3).Width = Math.Min(hoja.Column(3).Width, 38);
     }
 
@@ -377,7 +450,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < totales.Length; i++)
         {
-            EscribirNumero(hoja.Cell(fila, 13 + i), totales[i], "#,##0.00;;\"-\"");
+            EscribirNumero(hoja.Cell(fila, 12 + i), totales[i], "#,##0.00;;\"-\"");
         }
 
         decimal[] horas =
@@ -388,8 +461,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < horas.Length; i++)
         {
-            EscribirNumero(hoja.Cell(fila, 31 + i), horas[i], "#,##0.00;;\"-\"");
+            EscribirNumero(hoja.Cell(fila, 30 + i), horas[i], "#,##0.00;;\"-\"");
         }
+
+        EscribirNumero(hoja.Cell(fila, 34), filas.Sum(f => f.MontoMovilidad), "#,##0.00;;\"-\"");
 
         decimal[] nocturnas =
         [
@@ -399,10 +474,50 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < nocturnas.Length; i++)
         {
-            EscribirNumero(hoja.Cell(fila, 36 + i), nocturnas[i], "#,##0.00;;\"-\"");
+            EscribirNumero(hoja.Cell(fila, 35 + i), nocturnas[i], "#,##0.00;;\"-\"");
         }
 
-        var rango = hoja.Range(fila, 1, fila, 58);
+        EscribirNumero(hoja.Cell(fila, 39), filas.Sum(f => f.MontoAsignacionFamiliar), "#,##0.00;;\"-\"");
+
+        decimal[] reintegroDiurno =
+        [
+            filas.Sum(f => f.ReintegroHorasNormales), filas.Sum(f => f.ReintegroHorasExtra25),
+            filas.Sum(f => f.ReintegroHorasExtra35), filas.Sum(f => f.ReintegroHorasNoLaborable)
+        ];
+
+        for (var i = 0; i < reintegroDiurno.Length; i++)
+        {
+            EscribirNumero(hoja.Cell(fila, 40 + i), reintegroDiurno[i], "#,##0.00;;\"-\"");
+        }
+
+        EscribirNumero(hoja.Cell(fila, 44), filas.Sum(f => f.ReintegroMontoMovilidad), "#,##0.00;;\"-\"");
+
+        decimal[] reintegroNocturno =
+        [
+            filas.Sum(f => f.ReintegroHorasNocturnas), filas.Sum(f => f.ReintegroHorasExtra25Nocturnas),
+            filas.Sum(f => f.ReintegroHorasExtra35Nocturnas), filas.Sum(f => f.ReintegroHorasNoLaborableNocturnas)
+        ];
+
+        for (var i = 0; i < reintegroNocturno.Length; i++)
+        {
+            EscribirNumero(hoja.Cell(fila, 45 + i), reintegroNocturno[i], "#,##0.00;;\"-\"");
+        }
+
+        decimal[] conceptosReintegroTotales =
+        [
+            filas.Sum(f => f.ReintegroViatico), filas.Sum(f => f.ReintegroDiasDescansoMedico),
+            filas.Sum(f => f.ReintegroDiasSubsidioMaternidad), filas.Sum(f => f.ReintegroDiasSubsidioAccidente),
+            filas.Sum(f => f.ReintegroDiasLicenciaPaternidad), filas.Sum(f => f.ReintegroLicenciaConGoce),
+            filas.Sum(f => f.ReintegroAsignacionFamiliar), filas.Sum(f => f.ReintegroAfecto),
+            filas.Sum(f => f.ReintegroDescuentoPagoIndebido)
+        ];
+
+        for (var i = 0; i < conceptosReintegroTotales.Length; i++)
+        {
+            EscribirNumero(hoja.Cell(fila, 49 + i), conceptosReintegroTotales[i], "#,##0.00;;\"-\"");
+        }
+
+        var rango = hoja.Range(fila, 1, fila, 57);
         rango.Style.Font.Bold = true;
         rango.Style.Border.TopBorder = XLBorderStyleValues.Double;
     }
@@ -571,7 +686,11 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
     // ------------------------------------------------------------------
 
-    private static void EscribirEncabezado(IXLWorksheet hoja, MetadatosReporte metadatos, string titulo)
+    private static void EscribirEncabezado(
+        IXLWorksheet hoja,
+        MetadatosReporte metadatos,
+        string titulo,
+        string notaDinero = "Este reporte entrega minutos, horas y conteos de días — no calcula remuneración.")
     {
         hoja.Cell(1, 1).Value = titulo;
         hoja.Cell(1, 1).Style.Font.Bold = true;
@@ -587,10 +706,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         hoja.Cell(4, 1).Value = $"Filtros: {metadatos.FiltrosDescripcion}";
         hoja.Cell(5, 1).Value = $"Generado el {metadatos.GeneradoEn:dd/MM/yyyy HH:mm} por {metadatos.GeneradoPor}";
 
-        // El sistema no calcula dinero: lo dice en el propio Excel, para que quien lo abra
-        // en planilla no asuma que las horas equivalentes ya son un monto.
-        hoja.Cell(6, 1).Value =
-            "Este reporte entrega minutos, horas y conteos de días — no calcula remuneración.";
+        // El sistema no calcula la remuneración completa: lo dice en el propio Excel, para
+        // que quien lo abra en planilla no asuma que las horas equivalentes ya son un monto.
+        // El Resumen mensual pasa una nota distinta porque ahí sí hay una columna en soles.
+        hoja.Cell(6, 1).Value = notaDinero;
         hoja.Cell(6, 1).Style.Font.Italic = true;
         hoja.Cell(6, 1).Style.Font.FontColor = XLColor.FromHtml("#64748b");
     }
@@ -623,8 +742,12 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         hoja.Cell(fila, 16).Value = filas.Sum(r => r.HorasExtra35);
         hoja.Cell(fila, 17).Value = filas.Sum(r => r.HorasNocturnas);
         hoja.Cell(fila, 18).Value = filas.Sum(r => r.HorasTardanza);
+        hoja.Cell(fila, 19).Value = filas.Sum(r => r.MontoBonoNocturno);
+        hoja.Cell(fila, 19).Style.NumberFormat.Format = "#,##0.00";
+        hoja.Cell(fila, 20).Value = filas.Sum(r => r.MontoMovilidad);
+        hoja.Cell(fila, 20).Style.NumberFormat.Format = "#,##0.00";
 
-        var rango = hoja.Range(fila, 1, fila, 18);
+        var rango = hoja.Range(fila, 1, fila, 20);
         rango.Style.Font.Bold = true;
         rango.Style.Border.TopBorder = XLBorderStyleValues.Thin;
     }

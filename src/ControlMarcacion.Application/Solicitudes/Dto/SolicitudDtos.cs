@@ -19,9 +19,19 @@ public sealed record SolicitudListaDto(
     string? Sustento,
     string? Observacion,
     string? MotivoAnulacion,
+    string? SubtipoVacaciones,
+    string? PeriodoVacacional,
     int JustificacionesGeneradas)
 {
     public int Dias => FechaFin.DayNumber - FechaInicio.DayNumber + 1;
+
+    /// <summary>Detalle del subtipo y periodo, solo en las solicitudes de vacaciones.</summary>
+    public string? DetalleVacaciones => SubtipoVacaciones switch
+    {
+        "GOZADAS" => $"Gozadas · periodo {PeriodoVacacional}",
+        "VENTA" => $"Venta · periodo {PeriodoVacacional}",
+        _ => null
+    };
 
     public bool EsPorHoras => HoraInicio is not null;
 
@@ -54,14 +64,69 @@ public sealed record GuardarSolicitudRequest
 
     public TimeOnly? HoraFin { get; init; }
 
-    [StringLength(500, ErrorMessage = "El sustento no puede superar los 500 caracteres.")]
-    public string? Sustento { get; init; }
+    /// <summary>
+    /// <c>GOZADAS</c> o <c>VENTA</c>. Obligatorio cuando el tipo es vacaciones; en el resto
+    /// de tipos el servicio lo descarta.
+    /// </summary>
+    /// <remarks>
+    /// No lleva <c>[Required]</c> porque solo aplica a un tipo de ausencia entre nueve:
+    /// exigirlo aquí bloquearía cualquier otra solicitud. La obligatoriedad condicional la
+    /// resuelve <c>ValidadorLimitesSolicitud</c>, que sí sabe de qué tipo se trata.
+    /// </remarks>
+    [StringLength(10)]
+    public string? SubtipoVacaciones { get; init; }
+
+    /// <summary>Periodo vacacional en formato AAAA-AAAA, p. ej. 2025-2026.</summary>
+    /// <remarks>
+    /// La expresión regular no alcanza a comprobar que el segundo año sea el siguiente del
+    /// primero: 2025-2027 la pasa. Esa validación va en el servidor, en el validador de
+    /// límites.
+    /// </remarks>
+    [StringLength(9)]
+    [RegularExpression(@"^\d{4}-\d{4}$", ErrorMessage = "El periodo debe tener el formato AAAA-AAAA.")]
+    public string? PeriodoVacacional { get; init; }
+
+    /// <summary>
+    /// Descripción de por qué se pide la ausencia. Es obligatoria.
+    /// </summary>
+    /// <remarks>
+    /// Una solicitud sin sustento escrito no se puede defender ante una inspección: la
+    /// justificación que genera al aprobarse hereda este texto y es lo que explica, meses
+    /// después, por qué ese día no quedó como falta.
+    /// </remarks>
+    [Required(ErrorMessage = "La descripción del sustento es obligatoria.")]
+    [StringLength(500, MinimumLength = 5, ErrorMessage = "El sustento debe tener entre 5 y 500 caracteres.")]
+    public string Sustento { get; init; } = string.Empty;
 
     [StringLength(400)]
     public string? RutaDocumentoSustento { get; init; }
 
     [StringLength(500)]
     public string? Observacion { get; init; }
+}
+
+/// <summary>
+/// Opción del desplegable de tipos de ausencia, con lo que el formulario necesita saber.
+/// </summary>
+/// <remarks>
+/// Lleva el código y los topes además del nombre porque la pantalla cambia según el tipo
+/// elegido: vacaciones abre el subtipo, y los tipos con tope muestran su límite. Enviarlos
+/// como dato evita que el JavaScript tenga una copia de las reglas —"si es DM, 20 días"—
+/// que quedaría desfasada la primera vez que GCA cambie un tope en el catálogo.
+/// </remarks>
+public sealed record TipoAusenciaOpcionDto(
+    long Id,
+    string Codigo,
+    string Nombre,
+    int? MaximoDiasPorEvento,
+    int? MaximoDiasPorAnioCalendario)
+{
+    /// <summary>Etiqueta del desplegable, con el mismo formato que el resto del sistema.</summary>
+    public string Etiqueta => $"{Codigo} - {Nombre}";
+
+    /// <summary>Es el tipo de vacaciones, el único que pide subtipo y periodo.</summary>
+    public bool EsVacaciones =>
+        string.Equals(Codigo, "VAC", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>Filtro del listado de solicitudes.</summary>

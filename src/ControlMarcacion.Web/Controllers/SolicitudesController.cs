@@ -1,8 +1,10 @@
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Application.Solicitudes;
 using ControlMarcacion.Application.Solicitudes.Dto;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Solicitudes;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -13,7 +15,12 @@ namespace ControlMarcacion.Web.Controllers;
 /// <remarks>
 /// Aprobar genera justificaciones, una por día cubierto; anular las retira. El
 /// controlador no decide nada de eso: solo traduce HTTP hacia <see cref="IServicioSolicitudes"/>.
+///
+/// El atributo cubre <b>toda</b> la clase, incluidas Aprobar, Rechazar y Anular: aprobar una
+/// solicitud escribe justificaciones que cambian el tareo, así que no es una acción de
+/// consulta y no puede quedar abierta a cualquier autenticado.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador},{RolesSistema.TrabajadorSocial}")]
 public sealed class SolicitudesController(IServicioSolicitudes servicio) : Controller
 {
     [HttpGet]
@@ -37,7 +44,8 @@ public sealed class SolicitudesController(IServicioSolicitudes servicio) : Contr
         {
             Datos = new GuardarSolicitudRequest { FechaInicio = DateOnly.FromDateTime(DateTime.Now) },
             Trabajadores = await servicio.TrabajadoresAsync(cancelacion).ConfigureAwait(false),
-            TiposAusencia = await servicio.TiposAusenciaAsync(cancelacion).ConfigureAwait(false)
+            TiposAusencia = await servicio.TiposAusenciaAsync(cancelacion).ConfigureAwait(false),
+            PeriodosVacacionales = IServicioSolicitudes.GenerarPeriodosVacaciones()
         });
 
     [HttpPost]
@@ -70,6 +78,7 @@ public sealed class SolicitudesController(IServicioSolicitudes servicio) : Contr
 
         modelo.Trabajadores = await servicio.TrabajadoresAsync(cancelacion).ConfigureAwait(false);
         modelo.TiposAusencia = await servicio.TiposAusenciaAsync(cancelacion).ConfigureAwait(false);
+        modelo.PeriodosVacacionales = IServicioSolicitudes.GenerarPeriodosVacaciones();
 
         return View("Crear", modelo);
     }

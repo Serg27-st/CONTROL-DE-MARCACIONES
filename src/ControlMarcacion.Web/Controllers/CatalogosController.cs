@@ -1,7 +1,9 @@
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Catalogos.Dto;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
@@ -14,6 +16,7 @@ namespace ControlMarcacion.Web.Controllers;
 /// periodos y tipos de ausencia quedan fuera porque tienen reglas propias y necesitan
 /// pantallas dedicadas.
 /// </remarks>
+[Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class CatalogosController(IServicioCatalogos servicio) : Controller
 {
     /// <summary>Portada con todos los catálogos disponibles.</summary>

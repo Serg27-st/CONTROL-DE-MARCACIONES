@@ -33,6 +33,29 @@ public class TipoAusencia : EntidadBase
 
     /// <summary>Se registra por horas dentro de un día en vez de por días completos.</summary>
     public bool EsPorHoras { get; set; }
+
+    /// <summary>
+    /// Días máximos de <b>una sola</b> solicitud de este tipo. Nulo = sin tope.
+    /// </summary>
+    /// <remarks>
+    /// Es el tope que se agota en cada evento y no en el año: la licencia paternal son diez
+    /// días por hijo y la de maternidad noventa y ocho por parto, así que dos eventos en el
+    /// mismo año dan derecho a dos licencias completas.
+    ///
+    /// Está aquí y no en un <c>switch</c> por código porque el tope es parte de la definición
+    /// del tipo: si GCA agrega "licencia por fallecimiento de familiar" con tres días, tiene
+    /// que seguir siendo un INSERT y no un despliegue.
+    /// </remarks>
+    public int? MaximoDiasPorEvento { get; set; }
+
+    /// <summary>
+    /// Días máximos acumulados de este tipo dentro de un año calendario. Nulo = sin tope.
+    /// </summary>
+    /// <remarks>
+    /// Es el tope del descanso médico: veinte días al año, sumando todos los certificados.
+    /// El año se cuenta por la fecha de inicio de cada solicitud.
+    /// </remarks>
+    public int? MaximoDiasPorAnioCalendario { get; set; }
 }
 
 public enum ComportamientoAusencia

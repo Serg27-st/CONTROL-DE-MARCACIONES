@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace ControlMarcacion.Infrastructure.Seguridad;
 
 /// <summary>
-/// Crea el primer administrador cuando la base todavía no tiene ningún usuario.
+/// Crea el primer coordinador cuando la base todavía no tiene ningún usuario.
 /// </summary>
 /// <remarks>
 /// Los roles se siembran por migración porque son nombres, no secretos. Una cuenta con
@@ -45,16 +45,19 @@ public static partial class InicializadorSeguridad
             return;
         }
 
-        var administrador = new ApplicationUser
+        // COORDINADOR, no ADMINISTRADOR: desde el rediseño de roles, ADMINISTRADOR gestiona
+        // el tareo pero no puede crear cuentas. Arrancar con ADMINISTRADOR dejaría el
+        // sistema sin nadie capaz de dar de alta al resto.
+        var coordinador = new ApplicationUser
         {
             UserName = correo,
             Email = correo,
-            NombreCompleto = "Administrador inicial",
+            NombreCompleto = "Coordinador inicial",
             EmailConfirmed = true,
             Activo = true
         };
 
-        var resultado = await userManager.CreateAsync(administrador, clave).ConfigureAwait(false);
+        var resultado = await userManager.CreateAsync(coordinador, clave).ConfigureAwait(false);
 
         if (!resultado.Succeeded)
         {
@@ -62,9 +65,9 @@ public static partial class InicializadorSeguridad
             return;
         }
 
-        await userManager.AddToRoleAsync(administrador, RolesSistema.Administrador).ConfigureAwait(false);
+        await userManager.AddToRoleAsync(coordinador, RolesSistema.Coordinador).ConfigureAwait(false);
 
-        RegistrarAdminCreado(logger, correo);
+        RegistrarAdminCreado(logger);
     }
 
     [LoggerMessage(
@@ -72,15 +75,20 @@ public static partial class InicializadorSeguridad
         Message = "No hay ningún usuario registrado y Seguridad:AdminCorreo / Seguridad:AdminClave no están " +
                    "configurados. Defínalos (user-secrets en desarrollo, variables de entorno " +
                    "Seguridad__AdminCorreo / Seguridad__AdminClave en producción) y reinicie la aplicación " +
-                   "para crear el primer administrador.")]
+                   "para crear el primer coordinador.")]
     private static partial void RegistrarFaltanCredenciales(ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "No se pudo crear el administrador inicial: {Errores}")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "No se pudo crear el coordinador inicial: {Errores}")]
     private static partial void RegistrarErrorCreacion(ILogger logger, string errores);
 
+    // Sin el correo en el mensaje: un correo es dato personal y no va al log de la
+    // aplicación (Ley 29733). Quien arranca el sistema ya sabe qué valor puso en
+    // Seguridad:AdminCorreo, así que nombrarlo aquí no aporta nada y sí deja el
+    // identificador de una cuenta en un archivo que se copia y se comparte.
     [LoggerMessage(
         Level = LogLevel.Information,
-        Message = "Se creó el administrador inicial '{Correo}'. Cambie la contraseña desde su primer inicio " +
-                   "de sesión y retire Seguridad:AdminClave de la configuración.")]
-    private static partial void RegistrarAdminCreado(ILogger logger, string correo);
+        Message = "Se creó el coordinador inicial con el correo configurado en Seguridad:AdminCorreo. " +
+                   "Cambie la contraseña desde su primer inicio de sesión y retire Seguridad:AdminClave " +
+                   "de la configuración.")]
+    private static partial void RegistrarAdminCreado(ILogger logger);
 }

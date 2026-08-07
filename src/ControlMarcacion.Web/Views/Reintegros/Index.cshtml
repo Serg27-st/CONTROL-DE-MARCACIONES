@@ -1,0 +1,47 @@
+@model SeleccionarReintegroVm
+@{
+    ViewData["Title"] = "Reintegros y descuentos";
+}
+
+<div class="titulo-pagina">
+    <h1>Reintegros y descuentos</h1>
+</div>
+
+<div class="tarjeta">
+    <p style="color: var(--color-texto-suave); margin-top: 0;">
+        Correcciones de periodos anteriores y conceptos de dinero que el sistema no calcula
+        —viáticos, subsidios en trámite, reintegro de asignación familiar, descuentos por
+        pago indebido—. Elija trabajador y periodo para cargarlos: es el bloque
+        <strong>REINTEGROS</strong> del tareo final.
+    </p>
+
+    <form method="get" asp-action="Editar">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="trabajadorId">Trabajador</label>
+                <select id="trabajadorId" name="trabajadorId" class="select-buscable" required>
+                    <option value="">Seleccione…</option>
+                    @foreach (var t in Model.Trabajadores)
+                    {
+                        <option value="@t.Id">@t.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="periodoId">Periodo</label>
+                <select id="periodoId" name="periodoId" class="select-buscable" required>
+                    <option value="">Seleccione…</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id">@p.Codigo — @p.Nombre @(p.EstaAbierto ? "" : "(cerrado)")</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Cargar</button>
+        </div>
+    </form>
+</div>

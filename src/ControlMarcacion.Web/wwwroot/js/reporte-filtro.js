@@ -1,5 +1,5 @@
 // Encadena los filtros de organización de las pantallas de reportes:
-//   empresa → planta → área → sección
+//   empresa → planta → centro → centro de costo
 //
 // Reutiliza los mismos endpoints de catálogo que el formulario de personal
 // (no hay nada específico de reportes en ellos), pero sin el turno: aquí no aplica.
@@ -9,10 +9,10 @@
 
     var empresa = document.getElementById("EmpresaId");
     var planta = document.getElementById("PlantaId");
-    var area = document.getElementById("AreaId");
-    var seccion = document.getElementById("SeccionId");
+    var centro = document.getElementById("CentroId");
+    var centroCosto = document.getElementById("CentroCostoId");
 
-    if (!empresa || !planta || !area || !seccion) {
+    if (!empresa || !planta || !centro || !centroCosto) {
         return;
     }
 
@@ -55,8 +55,8 @@
     empresa.addEventListener("change", function () {
         if (!empresa.value) {
             repoblar(planta, [], "Todas");
-            repoblar(area, [], "Seleccione una planta…");
-            repoblar(seccion, [], "Seleccione un área…");
+            repoblar(centro, [], "Todos");
+            repoblar(centroCosto, [], "Todos");
             return;
         }
 
@@ -65,20 +65,20 @@
 
     planta.addEventListener("change", function () {
         if (!planta.value) {
-            repoblar(area, [], "Todas");
-            repoblar(seccion, [], "Seleccione un área…");
+            repoblar(centro, [], "Todos");
+            repoblar(centroCosto, [], "Todos");
             return;
         }
 
-        cargar("/Trabajadores/AreasDePlanta?plantaId=" + encodeURIComponent(planta.value), area, "Todas");
+        cargar("/Trabajadores/CentrosDePlanta?plantaId=" + encodeURIComponent(planta.value), centro, "Todos");
     });
 
-    area.addEventListener("change", function () {
-        if (!area.value) {
-            repoblar(seccion, [], "Todas");
+    centro.addEventListener("change", function () {
+        if (!centro.value) {
+            repoblar(centroCosto, [], "Todos");
             return;
         }
 
-        cargar("/Trabajadores/SeccionesDeArea?areaId=" + encodeURIComponent(area.value), seccion, "Todas");
+        cargar("/Trabajadores/CentrosCostoDeCentro?centroId=" + encodeURIComponent(centro.value), centroCosto, "Todos");
     });
 })();
