@@ -1,0 +1,86 @@
+@model ListaUsuariosVm
+@{
+    ViewData["Title"] = "Usuarios";
+}
+
+<div class="titulo-pagina">
+    <h1>Usuarios</h1>
+    <a class="boton boton-primario" asp-action="Crear">Nuevo usuario</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo-compacto">
+        No hay autorregistro: cada cuenta la crea un coordinador aquí, con el rol que le
+        corresponde. Desactivar una cuenta bloquea el ingreso de inmediato; nunca se borra
+        un usuario, igual que el resto del sistema. Las plantas que gestiona solo aplican
+        al rol ADMINISTRADOR.
+    </p>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Usuarios.Count == 0)
+    {
+        <div class="sin-resultados">No hay usuarios registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Correo</th>
+                        <th>Nombre completo</th>
+                        <th>Documento</th>
+                        <th>Rol</th>
+                        <th>Plantas que gestiona</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Usuarios)
+                    {
+                        <tr>
+                            <td>@u.Correo</td>
+                            <td>@u.NombreCompleto</td>
+                            <td>@(string.IsNullOrWhiteSpace(u.NumeroDocumento) ? "—" : u.NumeroDocumento)</td>
+                            <td><span class="etiqueta etiqueta-justificada">@u.Rol</span></td>
+                            <td>@(string.IsNullOrWhiteSpace(u.PlantasGestionadas) ? "—" : u.PlantasGestionadas)</td>
+                            <td>
+                                @if (u.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <form method="post" asp-action="CambiarEstado" class="en-linea">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@u.Id" />
+                                    <input type="hidden" name="activo" value="@((!u.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario boton-chico"
+                                            data-confirmar="@(u.Activo
+                                                ? $"¿Desactivar a '{u.NombreCompleto}'? No podrá volver a iniciar sesión."
+                                                : $"¿Reactivar a '{u.NombreCompleto}'?")">
+                                        @(u.Activo ? "Desactivar" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Usuarios.Count usuario(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

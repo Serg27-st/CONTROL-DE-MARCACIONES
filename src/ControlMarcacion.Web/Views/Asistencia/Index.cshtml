@@ -1,0 +1,284 @@
+@model TareoVm
+@using ControlMarcacion.Domain.Asistencia
+@{
+    ViewData["Title"] = "Tareo";
+
+    static string Horas(int minutos) => minutos == 0 ? "—" : $"{minutos / 60}:{minutos % 60:00}";
+
+    static string ClaseEstado(EstadoTareo estado) => estado switch
+    {
+        EstadoTareo.Puntual => "etiqueta-puntual",
+        EstadoTareo.Tardanza => "etiqueta-tardanza",
+        EstadoTareo.Falta => "etiqueta-falta",
+        EstadoTareo.AusenciaJustificada => "etiqueta-justificada",
+        EstadoTareo.Incompleto => "etiqueta-incompleto",
+        _ => "etiqueta-sin-horario"
+    };
+
+    static string NombreEstado(EstadoTareo estado) => estado switch
+    {
+        EstadoTareo.Puntual => "Puntual",
+        EstadoTareo.Tardanza => "Tardanza",
+        EstadoTareo.Falta => "Falta",
+        EstadoTareo.AusenciaJustificada => "Justificada",
+        EstadoTareo.Incompleto => "Incompleto",
+        EstadoTareo.SinHorario => "Sin horario",
+        EstadoTareo.Descanso => "Descanso",
+        EstadoTareo.Feriado => "Feriado",
+        EstadoTareo.SinVinculo => "Sin vínculo",
+        _ => estado.ToString()
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>Tareo diario</h1>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        El tareo se <strong>reconstruye</strong> desde las marcaciones y el turno vigente de
+        cada día. Recalcular dos veces da exactamente el mismo resultado y no duplica nada.
+        Un periodo cerrado no se recalcula.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="periodoId">Periodo</label>
+                <select id="periodoId" name="periodoId" class="select-buscable">
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">
+                            @p.Codigo — @p.Nombre (@p.FechaInicio.ToString("dd/MM") al @p.FechaFin.ToString("dd/MM/yyyy"))
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="estado">Estado</label>
+                <select id="estado" name="estado" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var e in Enum.GetValues<EstadoTareo>())
+                    {
+                        <option value="@((int)e)" selected="@(Model.Estado == e)">@NombreEstado(e)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Ver</button>
+        </div>
+    </form>
+</div>
+
+@if (Model.PeriodoSeleccionado is { } periodo)
+{
+    <div class="tarjeta">
+        <h2>Recalcular</h2>
+
+        @if (periodo.EstaAbierto)
+        {
+            <form method="post" asp-action="Recalcular">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="periodoId" value="@periodo.Id" />
+                <div class="acciones" style="margin-top: 0;">
+                    <button type="submit" class="boton boton-primario"
+                            data-confirmar="¿Recalcular el tareo de @periodo.Codigo? Se rehará el cálculo de todos los días del periodo.">
+                        Recalcular @periodo.Codigo
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="aviso aviso-error" role="alert">
+                El periodo <strong>@periodo.Codigo</strong> está cerrado: su tareo está
+                congelado y no puede recalcularse. Reábralo indicando el motivo si
+                corresponde rehacer el cálculo.
+            </div>
+        }
+    </div>
+}
+
+@if (Model.Liquidacion is { } liq && Model.Tareos.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Liquidación del periodo</h2>
+
+        <p class="subtitulo">
+            El sistema <strong>no calcula dinero</strong>: no conoce ninguna remuneración.
+            Entrega los minutos por concepto y la tasa que regía en esas fechas, con su base
+            legal, para que planilla multiplique. La columna <em>equivalente</em> expresa esa
+            aplicación en tiempo: 120 min al 25 % equivalen a 150 min de jornada ordinaria.
+        </p>
+
+        @if (liq.HayConceptosSinTasa)
+        {
+            <div class="aviso aviso-error" role="alert">
+                <strong>Hay conceptos con minutos acumulados y sin tasa vigente</strong>
+                para las fechas de este periodo:
+                @string.Join(", ", liq.SinTasa.Select(c => c.Etiqueta)).
+                Ese trabajo no se puede valorizar hasta que se cargue la tasa correspondiente.
+            </div>
+        }
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th>Horas</th>
+                        <th>Sobretasa</th>
+                        <th>Horas equivalentes</th>
+                        <th>Base legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Jornada ordinaria</strong></td>
+                        <td>@liq.HorasOrdinarias.ToString("N2")</td>
+                        <td>—</td>
+                        <td>@liq.HorasOrdinarias.ToString("N2")</td>
+                        <td>—</td>
+                    </tr>
+                    @foreach (var c in liq.Conceptos.Where(x => x.Minutos > 0))
+                    {
+                        <tr>
+                            <td>@c.Etiqueta</td>
+                            <td>@c.Horas.ToString("N2")</td>
+                            <td>
+                                @if (c.TieneTasaVigente)
+                                {
+                                    <strong>+@c.Porcentaje.ToString("N0") %</strong>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-falta">Sin tasa</span>
+                                }
+                            </td>
+                            <td>@c.HorasEquivalentes.ToString("N2")</td>
+                            <td style="font-size: 12.5px; color: var(--color-texto-suave);">
+                                @(c.BaseLegal ?? "—")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Total en horas equivalentes</th>
+                        <th></th>
+                        <th></th>
+                        <th>@liq.TotalHorasEquivalentes.ToString("N2")</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+}
+
+@if (Model.Tareos.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Resumen</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        @foreach (var par in Model.Resumen.OrderBy(p => p.Key))
+                        {
+                            <th>@NombreEstado(par.Key)</th>
+                        }
+                        <th>Sobretiempo</th>
+                        <th>Tardanza</th>
+                        <th>Nocturno</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        @foreach (var par in Model.Resumen.OrderBy(p => p.Key))
+                        {
+                            <td><strong>@par.Value</strong></td>
+                        }
+                        <td>@Horas(Model.MinutosExtraTotales) h</td>
+                        <td>@Horas(Model.MinutosTardanzaTotales) h</td>
+                        <td>@Horas(Model.MinutosNocturnosTotales) h</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="tarjeta">
+    @if (Model.Tareos.Count == 0)
+    {
+        <div class="sin-resultados">
+            No hay tareo calculado para este periodo. Use «Recalcular» para generarlo.
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Turno</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Trabajado</th>
+                        <th>Ordinario</th>
+                        <th>Extra 25%</th>
+                        <th>Extra 35%</th>
+                        <th>Nocturno</th>
+                        <th>Tardanza</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tareos)
+                    {
+                        <tr title="@t.Observacion">
+                            <td>@t.Trabajador</td>
+                            <td><code>@(t.IdMarcador ?? "—")</code></td>
+                            <td>@t.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td>@(t.Turno ?? "—")</td>
+                            <td>@(t.EntradaReal?.ToString("HH:mm") ?? "—")</td>
+                            <td>@(t.SalidaReal?.ToString("HH:mm") ?? "—")</td>
+                            <td>@Horas(t.MinutosTrabajados)</td>
+                            <td>@Horas(t.MinutosOrdinarios)</td>
+                            <td>@Horas(t.MinutosExtra25)</td>
+                            <td>@Horas(t.MinutosExtra35)</td>
+                            <td>@Horas(t.MinutosNocturnos)</td>
+                            <td>@(t.MinutosTardanza == 0 ? "—" : $"{t.MinutosTardanza} min")</td>
+                            <td>
+                                <span class="etiqueta @ClaseEstado(t.Estado)">@NombreEstado(t.Estado)</span>
+                                @if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.DescansoSemanal)
+                                {
+                                    <br /><span class="etiqueta etiqueta-justificada">Descanso +100%</span>
+                                }
+                                else if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado)
+                                {
+                                    <br /><span class="etiqueta etiqueta-justificada">Feriado +100%</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Tareos.Count día(s) calculado(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

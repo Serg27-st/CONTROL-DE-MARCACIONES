@@ -1,0 +1,152 @@
+@model CargaMasivaVm
+@{
+    ViewData["Title"] = "Carga masiva de personal";
+    var resultado = Model.Resultado;
+}
+
+<div class="titulo-pagina">
+    <h1>Carga masiva de personal</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<div class="tarjeta">
+    <h2>1. Prepare el archivo</h2>
+
+    <p class="texto-suave">
+        El archivo puede ser un <strong>Excel (.xlsx)</strong> o un CSV, con una fila por
+        trabajador. La primera fila es el encabezado y
+        <strong>el orden de las columnas no importa</strong>: se reconocen por su nombre.
+        Los catálogos se indican por su código o su nombre —"DNI", "CONSULTING ADVISERS",
+        "DETERGENTES", "OPER"—, nunca por su número interno.
+    </p>
+
+    <p class="texto-suave">
+        Columnas obligatorias: <code>tipo_documento</code>, <code>numero_documento</code>,
+        <code>apellido_paterno</code>, <code>apellido_materno</code>, <code>nombres</code>,
+        <code>sexo</code>, <code>empresa</code>, <code>unidad</code>,
+        <code>tipo_planilla</code>, <code>puesto</code> y <code>fecha_ingreso</code>
+        (formato <code>dd/mm/aaaa</code>).
+        <br />
+        Opcionales: <code>telefono</code>, <code>direccion</code>, <code>correo</code>,
+        <code>tiene_hijos</code>, <code>centro_costo</code>, <code>id_marcador</code>,
+        <code>turno</code> y <code>sueldo_basico</code>.
+    </p>
+
+    <p style="color: var(--color-texto-suave); margin-bottom: 0;">
+        <strong>Unidad</strong> es el nombre que usa GCA para lo que el sistema llama
+        <strong>planta</strong>: son lo mismo.
+        El <code>id_marcador</code>, si se indica, debe existir en el
+        <a asp-controller="Marcadores" asp-action="Index">catálogo de marcadores</a> y ser de
+        la planta del trabajador.
+    </p>
+
+    <div class="acciones">
+        <a class="boton boton-secundario" asp-action="PlantillaCargaMasiva">
+            Descargar plantilla de ejemplo
+        </a>
+    </div>
+</div>
+
+<div class="tarjeta">
+    <h2>2. Cárguelo</h2>
+
+    <form method="post" asp-action="ProcesarCargaMasiva" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+
+        <div class="campo">
+            <label for="archivo">Archivo CSV o Excel</label>
+            <input type="file" id="archivo" name="archivo" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+        </div>
+
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="actualizarExistentes" name="actualizarExistentes" value="true" />
+            <label for="actualizarExistentes">Actualizar los trabajadores que ya existan</label>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" name="soloValidar" value="true" class="boton boton-secundario">
+                Validar sin guardar
+            </button>
+            <button type="submit" name="soloValidar" value="false" class="boton boton-primario">
+                Cargar trabajadores
+            </button>
+        </div>
+
+        <p class="nota-pie">
+            <strong>Validar sin guardar</strong> procesa el archivo completo y muestra el
+            mismo reporte, pero deshace todo al final. Conviene usarlo primero: detecta
+            incluso los documentos repetidos dentro del propio archivo.
+            <br />
+            Al cargar, las filas válidas se registran aunque otras fallen. Las rechazadas se
+            listan con su número de fila y el motivo.
+            <br />
+            <strong>Actualizar los que ya existan</strong> hace que un documento ya
+            registrado <em>corrija</em> esa ficha en lugar de rechazarse por duplicado. Úselo
+            para volver a subir el mismo padrón con un dato que faltaba —los ceses, por
+            ejemplo—. Apagado, la carga solo da de alta.
+        </p>
+    </form>
+</div>
+
+@if (resultado is not null)
+{
+    <div class="tarjeta">
+        <h2>Resultado</h2>
+
+        @if (resultado.SoloValidacion)
+        {
+            <div class="aviso aviso-error" role="status">
+                <strong>Validación: no se guardó nada.</strong>
+                Se revisaron @resultado.FilasLeidas fila(s) de <code>@resultado.NombreArchivo</code>.
+                @if (resultado.TieneErrores)
+                {
+                    <text>@resultado.Rechazados serían rechazadas; las demás pasarían sin problema.</text>
+                }
+                else
+                {
+                    <text>Todas pasarían sin problema.</text>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="aviso aviso-exito" role="status">
+                Se registraron <strong>@resultado.Creados</strong> de @resultado.FilasLeidas
+                fila(s) de <code>@resultado.NombreArchivo</code>.
+                @if (resultado.TieneErrores)
+                {
+                    <text>@resultado.Rechazados quedaron sin registrar.</text>
+                }
+            </div>
+        }
+
+        @if (resultado.TieneErrores)
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Documento</th>
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var error in resultado.Errores)
+                        {
+                            <tr>
+                                <td>@error.Fila</td>
+                                <td>@error.Referencia</td>
+                                <td>@error.Motivo</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="nota-pie">
+                El número de fila es el que muestra Excel: la fila 1 es el encabezado.
+            </p>
+        }
+    </div>
+}

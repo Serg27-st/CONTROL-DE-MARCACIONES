@@ -1,0 +1,180 @@
+@model ListaPeriodosVm
+@{
+    ViewData["Title"] = "Periodos";
+
+    static string Fecha(DateOnly d) => d.ToString("dd/MM/yyyy");
+}
+
+<div class="titulo-pagina">
+    <h1>Periodos</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nuevo periodo</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        El periodo <strong>gobierna qué se puede modificar</strong>. Mientras está abierto admite
+        carga de marcaciones, solicitudes, justificaciones y recálculo. Al <strong>cerrarlo</strong>
+        la información queda congelada para toda escritura; solo se puede reabrir con un motivo,
+        que queda registrado para auditoría.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="incluirInactivos" name="incluirInactivos"
+                   value="true" checked="@Model.IncluirInactivos" />
+            <label for="incluirInactivos">Mostrar también los periodos inactivos</label>
+        </div>
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-controller="Catalogos" asp-action="Index">Volver a catálogos</a>
+        </div>
+    </form>
+</div>
+
+@if (Model.DiasSinPeriodo.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Días con marcaciones fuera de todo periodo</h2>
+
+        <div class="aviso aviso-error" role="alert">
+            <strong>Hay @Model.DiasSinPeriodo.Count día(s) con marcaciones cargadas que no
+            caen dentro de ningún periodo activo.</strong>
+            <p class="nota-compacta">
+                Esas marcaciones <strong>no se podrán tarear</strong>: el cálculo recorre
+                periodos, y un día que no pertenece a ninguno queda invisible. El caso
+                típico es cerrar un mes de 31 días hasta el 30. Corrija el rango del
+                periodo correspondiente o cree el que falta.
+            </p>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Marcaciones sin periodo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dia in Model.DiasSinPeriodo)
+                    {
+                        <tr>
+                            <td>@Fecha(dia.Fecha)</td>
+                            <td><strong class="texto-error">@dia.Marcaciones</strong></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="tarjeta">
+    @if (Model.Periodos.Count == 0)
+    {
+        <div class="sin-resultados">No hay periodos registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Rango</th>
+                        <th>Días</th>
+                        <th>Tareos</th>
+                        <th>Estado</th>
+                        <th>Auditoría de cierre / reapertura</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <tr>
+                            <td><code>@p.Codigo</code></td>
+                            <td>@p.Nombre</td>
+                            <td>@Fecha(p.FechaInicio) → @Fecha(p.FechaFin)</td>
+                            <td>@p.Dias</td>
+                            <td>@(p.TareosGenerados == 0 ? "—" : p.TareosGenerados.ToString())</td>
+                            <td>
+                                @if (p.Activo && p.EstaAbierto)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Abierto</span>
+                                }
+                                else if (p.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Cerrado</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                @if (p.EstaAbierto)
+                                {
+                                    if (p.ReabiertoEn is { } reabierto)
+                                    {
+                                        <span class="texto-suave">
+                                            Reabierto el @reabierto.ToString("dd/MM/yyyy HH:mm") por @(p.ReabiertoPor ?? "—")
+                                            <br /><small>Motivo: @p.MotivoReapertura</small>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="texto-suave">Creado, sin cerrar aún</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="texto-suave">
+                                        Cerrado el @(p.CerradoEn?.ToString("dd/MM/yyyy HH:mm") ?? "—") por @(p.CerradoPor ?? "—")
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar" asp-route-id="@p.Id">Editar</a>
+
+                                @if (User.IsInRole(RolesSistema.Coordinador) || User.IsInRole(RolesSistema.Administrador))
+                                {
+                                    @if (p.EstaAbierto)
+                                    {
+                                        <form method="post" asp-action="Cerrar" class="en-linea-sep">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@p.Id" />
+                                            <button type="submit" class="boton boton-secundario boton-chico"
+                                                    data-confirmar="@($"¿Cerrar el periodo '{p.Codigo}'? Quedará congelado y no admitirá modificaciones.")">
+                                                Cerrar
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="Reabrir" asp-route-id="@p.Id" class="separado">Reabrir</a>
+                                    }
+                                }
+                                else if (!p.EstaAbierto)
+                                {
+                                    <span class="separado texto-suave" title="Solo un coordinador o un administrador puede reabrir un periodo">
+                                        Cerrado
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Periodos.Count periodo(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

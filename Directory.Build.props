@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- Configuración común a todos los proyectos de la solución. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Los avisos del compilador se tratan como errores: en un sistema que calcula
+         planilla, un warning ignorado hoy es una hora extra mal pagada mañana. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Cultura por defecto del sistema. Evita que el formato de fechas y decimales
+         dependa de la configuración regional del servidor donde se despliegue. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <Company>GCA</Company>
+    <Product>Sistema de Control de Marcación</Product>
+    <NeutralLanguage>es-PE</NeutralLanguage>
+  </PropertyGroup>
+
+</Project>

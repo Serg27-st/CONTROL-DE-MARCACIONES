@@ -1,0 +1,208 @@
+@model ListaSolicitudesVm
+@{
+    ViewData["Title"] = "Solicitudes";
+
+    var r = Model.Resultado;
+
+    // Conserva los filtros al pasar de página: sin esto, "Siguiente" devolvería el listado
+    // completo y el usuario perdería la búsqueda que acababa de hacer.
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var valores = new Dictionary<string, string> { ["pagina"] = pagina.ToString() };
+
+        if (Model.TrabajadorId is { } trabajador)
+        {
+            valores["trabajadorId"] = trabajador.ToString();
+        }
+
+        if (Model.Estado is { } estadoFiltro)
+        {
+            valores["estado"] = estadoFiltro.ToString();
+        }
+
+        return valores;
+    }
+
+    static string ClaseEstado(EstadoSolicitud estado) => estado switch
+    {
+        EstadoSolicitud.Pendiente => "etiqueta-tardanza",
+        EstadoSolicitud.Aprobada => "etiqueta-puntual",
+        EstadoSolicitud.Rechazada => "etiqueta-falta",
+        _ => "etiqueta-incompleto"
+    };
+
+    static string NombreEstado(EstadoSolicitud estado) => estado switch
+    {
+        EstadoSolicitud.Pendiente => "Pendiente",
+        EstadoSolicitud.Aprobada => "Aprobada",
+        EstadoSolicitud.Rechazada => "Rechazada",
+        EstadoSolicitud.Anulada => "Anulada",
+        _ => estado.ToString()
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>Solicitudes de ausencia</h1>
+    <a class="boton boton-primario" asp-action="Crear">Nueva solicitud</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Al <strong>aprobar</strong> una solicitud se genera una justificación por cada día
+        cubierto. Es esa justificación, no la solicitud, la que el motor de cálculo aplica
+        sobre el tareo. Anular una solicitud aprobada retira las justificaciones que generó,
+        salvo que ya caigan en un periodo cerrado.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="trabajadorId">Trabajador</label>
+                <select id="trabajadorId" name="trabajadorId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var t in Model.Trabajadores)
+                    {
+                        <option value="@t.Id" selected="@(Model.TrabajadorId == t.Id)">@t.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="estado">Estado</label>
+                <select id="estado" name="estado">
+                    <option value="">Todos</option>
+                    @foreach (var e in Enum.GetValues<EstadoSolicitud>())
+                    {
+                        <option value="@((int)e)" selected="@(Model.Estado == e)">@NombreEstado(e)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (r.TotalElementos == 0)
+    {
+        <div class="sin-resultados">No hay solicitudes registradas con estos filtros.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>Tipo</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th>Días</th>
+                        <th>Sustento</th>
+                        <th>Justificaciones</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in r.Elementos)
+                    {
+                        <tr>
+                            <td>@s.Trabajador</td>
+                            <td>
+                                @s.TipoAusencia
+                                @if (s.EsPorHoras)
+                                {
+                                    <br /><small class="texto-suave">
+                                        @s.HoraInicio!.Value.ToString("HH:mm") – @s.HoraFin!.Value.ToString("HH:mm")
+                                    </small>
+                                }
+                                @if (s.DetalleVacaciones is { } detalle)
+                                {
+                                    <br /><small class="texto-suave">@detalle</small>
+                                }
+                                @* Contingencia y centro de atención, nunca el diagnóstico:
+                                   es dato sensible de salud y este listado es la pantalla
+                                   más expuesta del módulo. Ver SolicitudListaDto. *@
+                                @if (s.DetalleClinico is { } clinico)
+                                {
+                                    <br /><small class="texto-suave">@clinico</small>
+                                }
+                            </td>
+                            <td>@s.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>@s.FechaFin.ToString("dd/MM/yyyy")</td>
+                            <td>@s.Dias</td>
+                            <td>
+                                @if (s.RequiereSustento)
+                                {
+                                    @(string.IsNullOrWhiteSpace(s.Sustento)
+                                        ? "Falta"
+                                        : "Sí")
+                                }
+                                else
+                                {
+                                    <span class="texto-suave">No exigido</span>
+                                }
+                            </td>
+                            <td>@(s.JustificacionesGeneradas == 0 ? "—" : s.JustificacionesGeneradas.ToString())</td>
+                            <td>
+                                <span class="etiqueta @ClaseEstado(s.Estado)">@NombreEstado(s.Estado)</span>
+                                @if (s.Estado == EstadoSolicitud.Rechazada && !string.IsNullOrWhiteSpace(s.Observacion))
+                                {
+                                    <br /><small class="texto-suave">@s.Observacion</small>
+                                }
+                                @if (s.Estado == EstadoSolicitud.Anulada && !string.IsNullOrWhiteSpace(s.MotivoAnulacion))
+                                {
+                                    <br /><small class="texto-suave">@s.MotivoAnulacion</small>
+                                }
+                            </td>
+                            <td>
+                                @if (s.AdmiteDecision)
+                                {
+                                    <form method="post" asp-action="Aprobar" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@s.Id" />
+                                        <button type="submit" class="boton boton-primario boton-chico"
+                                                data-confirmar="@($"¿Aprobar la solicitud de {s.Trabajador}? Se generará una justificación por cada día del {s.FechaInicio:dd/MM/yyyy} al {s.FechaFin:dd/MM/yyyy}.")">
+                                            Aprobar
+                                        </button>
+                                    </form>
+                                    <a asp-action="Rechazar" asp-route-id="@s.Id">Rechazar</a>
+                                }
+                                @if (s.AdmiteAnulacion)
+                                {
+                                    <a asp-action="Anular" asp-route-id="@s.Id">Anular</a>
+                                }
+                                @if (!s.AdmiteDecision && !s.AdmiteAnulacion)
+                                {
+                                    <span class="texto-suave">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@r.TotalElementos solicitud(es) · página @r.Pagina de @r.TotalPaginas</span>
+
+            @if (r.HayPaginaAnterior)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
+            }
+
+            @if (r.HayPaginaSiguiente)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

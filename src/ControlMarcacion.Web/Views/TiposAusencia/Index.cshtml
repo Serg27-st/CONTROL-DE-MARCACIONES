@@ -1,0 +1,113 @@
+@model ListaTiposAusenciaVm
+@{
+    ViewData["Title"] = "Tipos de ausencia";
+}
+
+<div class="titulo-pagina">
+    <h1>Tipos de ausencia</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nuevo tipo de ausencia</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        El <strong>comportamiento</strong> es lo que decide cómo trata el motor de cálculo
+        cada tipo: si la ausencia es justificada y remunerada, sin goce, subsidiada por
+        EsSalud o un permiso parcial. Crear un tipo sin elegirlo correctamente produciría
+        tareos incorrectos en silencio.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="incluirInactivos" name="incluirInactivos"
+                   value="true" checked="@Model.IncluirInactivos" />
+            <label for="incluirInactivos">Mostrar también los inactivos</label>
+        </div>
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-controller="Catalogos" asp-action="Index">Volver a catálogos</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Tipos.Count == 0)
+    {
+        <div class="sin-resultados">No hay tipos de ausencia registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Comportamiento</th>
+                        <th>Asistencia</th>
+                        <th>Sustento</th>
+                        <th>Por horas</th>
+                        <th>En uso</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tipos)
+                    {
+                        <tr>
+                            <td><code>@t.Codigo</code></td>
+                            <td>@t.Nombre</td>
+                            <td>@t.ComportamientoEtiqueta</td>
+                            <td>
+                                @if (t.ComputaComoAsistencia)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">No</span>
+                                }
+                            </td>
+                            <td>@(t.RequiereSustento ? "Sí" : "No")</td>
+                            <td>@(t.EsPorHoras ? "Sí" : "No")</td>
+                            <td>@(t.Usos == 0 ? "—" : t.Usos.ToString())</td>
+                            <td>
+                                @if (t.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar" asp-route-id="@t.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" class="en-linea-sep">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <input type="hidden" name="activo" value="@((!t.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario boton-chico"
+                                            data-confirmar="@(t.Activo
+                                                ? $"¿Desactivar el tipo de ausencia '{t.Nombre}'? Dejará de ofrecerse en las solicitudes."
+                                                : $"¿Reactivar el tipo de ausencia '{t.Nombre}'?")">
+                                        @(t.Activo ? "Desactivar" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Tipos.Count tipo(s) de ausencia</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

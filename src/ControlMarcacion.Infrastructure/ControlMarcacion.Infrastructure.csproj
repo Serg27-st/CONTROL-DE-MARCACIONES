@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capa de infraestructura: EF Core, configuraciones Fluent API, repositorios,
+    el lector del TXT del marcador ZKTeco y los exportadores.
+
+    Toda la configuración de mapeo vive aquí (IEntityTypeConfiguration<T>), NUNCA
+    como atributos sobre las entidades: eso es lo que mantiene Domain limpio.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ControlMarcacion.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Los exportadores y repositorios son internal a propósito: se consumen por su interfaz
+      de Application, nunca por su tipo concreto. Los tests sí necesitan instanciarlos para
+      verificar el layout del Excel celda por celda.
+    -->
+    <InternalsVisibleTo Include="ControlMarcacion.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ControlMarcacion.Application\ControlMarcacion.Application.csproj" />
+    <ProjectReference Include="..\ControlMarcacion.Domain\ControlMarcacion.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
+
+    <!-- Exportación a Excel. ClosedXML es MIT; NO usar EPPlus (licencia no comercial desde la v5). -->
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+
+    <!-- AddHttpClient para el proveedor externo de feriados (Nager.Date). Este proyecto es
+         Microsoft.NET.Sdk simple, no Sdk.Web: sin este paquete no trae el helper de DI. -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
+  </ItemGroup>
+
+  <!--
+    NOTA sobre codificaciones: los TXT del ZKTeco suelen venir en Windows-1252 / Latin-1,
+    no en UTF-8. En .NET 10 el proveedor de páginas de códigos ya viene en el framework
+    compartido, así que NO hace falta el paquete System.Text.Encoding.CodePages.
+
+    Lo que sí hay que hacer, una sola vez al arrancar la aplicación, es registrarlo:
+
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+    Sin esa línea, Encoding.GetEncoding(1252) lanza excepción y las tildes y las ñ
+    llegan rotas.
+  -->
+
+</Project>

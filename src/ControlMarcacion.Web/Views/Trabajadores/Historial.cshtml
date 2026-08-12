@@ -1,0 +1,284 @@
+@using ControlMarcacion.Domain.Auditoria
+@model HistorialTrabajadorVm
+@{
+    ViewData["Title"] = "Historial del trabajador";
+    var h = Model.Historial;
+
+    static string Rango(DateOnly inicio, DateOnly? fin) =>
+        fin is { } hasta
+            ? $"{inicio:dd/MM/yyyy} – {hasta:dd/MM/yyyy}"
+            : $"{inicio:dd/MM/yyyy} – vigente";
+}
+
+<div class="titulo-pagina">
+    <h1>Historial de @h.ApellidosYNombres</h1>
+    <div>
+        <a class="boton boton-secundario" asp-action="Editar" asp-route-id="@h.TrabajadorId">Ver ficha</a>
+        <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+    </div>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo-compacto">
+        Documento <strong>@h.NumeroDocumento</strong>. Los cuatro datos que este sistema
+        rastrea por rango de fechas se muestran completos, incluidos los tramos ya cerrados:
+        recalcular un periodo antiguo usa el valor que estaba vigente entonces, no el de hoy.
+    </p>
+</div>
+
+<div class="tarjeta">
+    <h2>Vínculo laboral: ingreso y cese</h2>
+
+    @if (h.PeriodosLaborales.Count == 0)
+    {
+        <div class="sin-resultados">
+            Esta ficha se creó antes de que existiera el historial de vínculos. El próximo
+            guardado abrirá el periodo vigente.
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Periodo</th>
+                        <th>Empresa</th>
+                        <th>Motivo del cese</th>
+                        <th>Observación</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in h.PeriodosLaborales)
+                    {
+                        <tr>
+                            <td>
+                                @Rango(p.FechaIngreso, p.FechaCese)
+                                @if (p.EstaAbierto)
+                                {
+                                    <br /><span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                            </td>
+                            <td>@p.Empresa</td>
+                            <td>@(p.MotivoCeseLegible ?? "—")</td>
+                            <td>@(p.ObservacionCese ?? "—")</td>
+                            <td>
+                                @(p.RegistradoPor ?? "—")
+                                <br /><small class="texto-suave">@p.RegistradoEn.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="tarjeta">
+    <h2>Sueldo básico</h2>
+
+    @if (h.Sueldos.Count == 0)
+    {
+        <div class="sin-resultados">Sin sueldo básico registrado.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Vigencia</th>
+                        <th>Sueldo básico mensual</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in h.Sueldos)
+                    {
+                        <tr>
+                            <td>
+                                @Rango(s.FechaInicio, s.FechaFin)
+                                @if (s.EstaVigente)
+                                {
+                                    <br /><span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                            </td>
+                            <td>S/ @s.SueldoBasicoMensual.ToString("N2")</td>
+                            <td>
+                                @(s.RegistradoPor ?? "—")
+                                <br /><small class="texto-suave">@s.RegistradoEn.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="tarjeta">
+    <h2>ID de marcador</h2>
+
+    @if (h.Marcadores.Count == 0)
+    {
+        <div class="sin-resultados">Sin ID de marcador asignado.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Vigencia</th>
+                        <th>ID</th>
+                        <th>Planta del marcador</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in h.Marcadores)
+                    {
+                        <tr>
+                            <td>
+                                @Rango(m.FechaInicio, m.FechaFin)
+                                @if (m.EstaVigente)
+                                {
+                                    <br /><span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                            </td>
+                            <td><code>@m.IdMarcador</code></td>
+                            <td>
+                                @if (m.Planta is null)
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Fuera de catálogo</span>
+                                }
+                                else
+                                {
+                                    @m.Planta
+                                }
+                            </td>
+                            <td>
+                                @(m.RegistradoPor ?? "—")
+                                <br /><small class="texto-suave">@m.RegistradoEn.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="tarjeta">
+    <h2>Turno</h2>
+
+    @if (h.Turnos.Count == 0)
+    {
+        <div class="sin-resultados">Sin turno asignado.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Vigencia</th>
+                        <th>Turno</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in h.Turnos)
+                    {
+                        <tr>
+                            <td>
+                                @Rango(t.FechaInicio, t.FechaFin)
+                                @if (t.EstaVigente)
+                                {
+                                    <br /><span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                            </td>
+                            <td>@t.Turno</td>
+                            <td>
+                                @(t.RegistradoPor ?? "—")
+                                <br /><small class="texto-suave">@t.RegistradoEn.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (Model.MuestraAuditoria)
+{
+    <div class="tarjeta">
+        <h2>Bitácora de cambios de la ficha</h2>
+
+        @if (Model.Auditoria.Count == 0)
+        {
+            <div class="sin-resultados">Sin movimientos registrados.</div>
+        }
+        else
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha y hora</th>
+                            <th>Usuario</th>
+                            <th>Operación</th>
+                            <th>Campos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var registro in Model.Auditoria)
+                        {
+                            <tr>
+                                <td>@registro.FechaHora.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                <td>@registro.Usuario</td>
+                                <td>@registro.OperacionLegible</td>
+                                <td>
+                                    @if (registro.Cambios.Count == 0)
+                                    {
+                                        <span class="texto-suave">—</span>
+                                    }
+                                    else
+                                    {
+                                        <details>
+                                            <summary>@registro.Cambios.Count campo(s)</summary>
+                                            <ul class="lista-detalle">
+                                                @foreach (var cambio in registro.Cambios)
+                                                {
+                                                    <li>
+                                                        <strong>@cambio.Campo</strong>:
+                                                        @if (registro.Operacion == OperacionAuditada.Insercion)
+                                                        {
+                                                            <text>@(cambio.Nuevo ?? "—")</text>
+                                                        }
+                                                        else
+                                                        {
+                                                            <text>@(cambio.Anterior ?? "—") → @(cambio.Nuevo ?? "—")</text>
+                                                        }
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </details>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="nota-pie">
+                Los datos personales protegidos por la Ley 29733 aparecen como
+                <code>(protegido)</code>: queda constancia de que el campo cambió, no de su
+                contenido.
+            </p>
+        }
+    </div>
+}

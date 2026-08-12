@@ -1,0 +1,204 @@
+@model ResumenTareoVm
+@{
+    ViewData["Title"] = "Resumen de tareo";
+
+    static string Horas(decimal h) => h == 0 ? "—" : h.ToString("N2");
+    static string Dias(int d) => d == 0 ? "—" : d.ToString();
+    static string Soles(decimal s) => s == 0 ? "—" : "S/ " + s.ToString("N2");
+}
+
+<div class="titulo-pagina">
+    <h1>Resumen mensual de tareo</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a reportes</a>
+</div>
+
+<div class="tarjeta">
+    <form method="get" asp-action="Resumen">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="PeriodoId">Periodo</label>
+                <select id="PeriodoId" name="PeriodoId" class="select-buscable" required>
+                    <option value="">Seleccione…</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PeriodoId == p.Id)">
+                            @p.Codigo — @p.Nombre
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="EmpresaId">Empresa</label>
+                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var e in Model.Empresas)
+                    {
+                        <option value="@e.Id" selected="@(Model.Filtro.EmpresaId == e.Id)">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var p in Model.Plantas)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PlantaId == p.Id)">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroId">Centro</label>
+                <select id="CentroId" name="CentroId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var c in Model.Centros)
+                    {
+                        <option value="@c.Id" selected="@(Model.Filtro.CentroId == c.Id)">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroCostoId">Centro de costo</label>
+                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var cc in Model.CentrosCosto)
+                    {
+                        <option value="@cc.Id" selected="@(Model.Filtro.CentroCostoId == cc.Id)">@cc.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Ver</button>
+            @if (Model.HayPeriodoSeleccionado)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="ExportarResumen"
+                   asp-all-route-data="@(new Dictionary<string, string?> {
+                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
+                   })">Exportar a Excel</a>
+                <a class="boton boton-primario"
+                   asp-action="ExportarTareoFinal"
+                   asp-all-route-data="@(new Dictionary<string, string?> {
+                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
+                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
+                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
+                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
+                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
+                   })">Descargar tareo final</a>
+            }
+        </div>
+    </form>
+</div>
+
+@if (!Model.HayPeriodoSeleccionado)
+{
+    <div class="tarjeta">
+        <div class="sin-resultados">Seleccione un periodo para ver el resumen.</div>
+    </div>
+}
+else
+{
+    <div class="tarjeta">
+        @if (Model.Filas.Count == 0)
+        {
+            <div class="sin-resultados">
+                No hay tareo calculado para este periodo y estos filtros. Recalcule el periodo
+                desde <a asp-controller="Asistencia" asp-action="Index">Tareo</a>.
+            </div>
+        }
+        else
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Trabajador</th>
+                            <th>ID</th>
+                            <th>Planta</th>
+                            <th>Centro</th>
+                            <th>Centro de costo</th>
+                            <th>Puntual</th>
+                            <th>Tardanza</th>
+                            <th>Falta</th>
+                            <th>Justificada</th>
+                            <th>Incompleto</th>
+                            <th>No laborable</th>
+                            <th>H. ordinarias</th>
+                            <th>H. extra 25%</th>
+                            <th>H. extra 35%</th>
+                            <th>H. nocturnas</th>
+                            <th>H. tardanza</th>
+                            <th>Bono nocturno</th>
+                            <th>Movilidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Filas)
+                        {
+                            <tr>
+                                <td>@r.Trabajador</td>
+                                <td><code>@(r.IdMarcador ?? "—")</code></td>
+                                <td>@r.Planta</td>
+                                <td>@(r.Centro ?? "—")</td>
+                                <td>@(r.CentroCosto ?? "—")</td>
+                                <td>@Dias(r.DiasPuntual)</td>
+                                <td>@Dias(r.DiasTardanza)</td>
+                                <td>@Dias(r.DiasFalta)</td>
+                                <td>@Dias(r.DiasAusenciaJustificada)</td>
+                                <td>@Dias(r.DiasIncompleto)</td>
+                                <td>@Dias(r.DiasNoLaborableTrabajado)</td>
+                                <td>@Horas(r.HorasOrdinarias)</td>
+                                <td>@Horas(r.HorasExtra25)</td>
+                                <td>@Horas(r.HorasExtra35)</td>
+                                <td>@Horas(r.HorasNocturnas)</td>
+                                <td>@Horas(r.HorasTardanza)</td>
+                                <td>@Soles(r.MontoBonoNocturno)</td>
+                                <td>@Soles(r.MontoMovilidad)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>TOTAL</th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th>@Model.Filas.Sum(r => r.DiasPuntual)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasTardanza)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasFalta)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasAusenciaJustificada)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasIncompleto)</th>
+                            <th>@Model.Filas.Sum(r => r.DiasNoLaborableTrabajado)</th>
+                            <th>@Model.Filas.Sum(r => r.HorasOrdinarias).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasExtra25).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasExtra35).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasNocturnas).ToString("N2")</th>
+                            <th>@Model.Filas.Sum(r => r.HorasTardanza).ToString("N2")</th>
+                            <th>S/ @Model.Filas.Sum(r => r.MontoBonoNocturno).ToString("N2")</th>
+                            <th>S/ @Model.Filas.Sum(r => r.MontoMovilidad).ToString("N2")</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="paginacion">
+                <span class="conteo">@Model.Filas.Count trabajador(es)</span>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/reporte-filtro.js" asp-append-version="true"></script>
+}

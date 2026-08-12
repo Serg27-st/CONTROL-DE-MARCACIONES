@@ -1,0 +1,205 @@
+@model ListaJustificacionesVm
+@{
+    ViewData["Title"] = "Justificaciones";
+
+    var r = Model.Resultado;
+
+    // Conserva los filtros al pasar de página. Aquí importa más que en otros listados:
+    // esta tabla crece una fila por trabajador y por día de ausencia.
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var valores = new Dictionary<string, string> { ["pagina"] = pagina.ToString() };
+
+        if (Model.PeriodoId is { } periodo)
+        {
+            valores["periodoId"] = periodo.ToString();
+        }
+
+        if (Model.TrabajadorId is { } trabajador)
+        {
+            valores["trabajadorId"] = trabajador.ToString();
+        }
+
+        if (Model.Origen is { } origenFiltro)
+        {
+            valores["origen"] = origenFiltro.ToString();
+        }
+
+        return valores;
+    }
+
+    static string NombreOrigen(OrigenJustificacion origen) => origen switch
+    {
+        OrigenJustificacion.Solicitud => "Solicitud",
+        OrigenJustificacion.Manual => "Manual",
+        _ => origen.ToString()
+    };
+
+    static string NombreTipo(TipoJustificacion tipo) => tipo switch
+    {
+        TipoJustificacion.Ausencia => "Ausencia",
+        TipoJustificacion.Tardanza => "Tardanza",
+        TipoJustificacion.MarcacionIncompleta => "Marcación incompleta",
+        TipoJustificacion.SalidaAnticipada => "Salida anticipada",
+        _ => tipo.ToString()
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>Justificaciones</h1>
+    <a class="boton boton-primario" asp-action="Crear">Justificación manual</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        <code>Marcador (inmutable) + Justificaciones (editable) = Tareo final</code>.
+        Cada fila de aquí es una corrección auditable: quién la registró, cuándo, y qué
+        decía el tareo antes de aplicarla. La mayoría nacen solas al aprobar una solicitud;
+        el alta manual cubre lo puntual que no amerita ese trámite.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="periodoId">Periodo</label>
+                <select id="periodoId" name="periodoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="trabajadorId">Trabajador</label>
+                <select id="trabajadorId" name="trabajadorId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var t in Model.Trabajadores)
+                    {
+                        <option value="@t.Id" selected="@(Model.TrabajadorId == t.Id)">@t.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="origen">Origen</label>
+                <select id="origen" name="origen">
+                    <option value="">Todos</option>
+                    @foreach (var o in Enum.GetValues<OrigenJustificacion>())
+                    {
+                        <option value="@((int)o)" selected="@(Model.Origen == o)">@NombreOrigen(o)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (r.TotalElementos == 0)
+    {
+        <div class="sin-resultados">No hay justificaciones registradas con estos filtros.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>Periodo</th>
+                        <th>Fecha</th>
+                        <th>Origen</th>
+                        <th>Tipo</th>
+                        <th>Tipo de ausencia</th>
+                        <th>Estado anterior</th>
+                        <th>Motivo</th>
+                        <th>Registrado por</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var j in r.Elementos)
+                    {
+                        <tr>
+                            <td>@j.Trabajador</td>
+                            <td>@j.PeriodoCodigo</td>
+                            <td>@j.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (j.Origen == OrigenJustificacion.Solicitud)
+                                {
+                                    <span class="etiqueta etiqueta-justificada">
+                                        Solicitud #@j.SolicitudAusenciaId
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Manual</span>
+                                }
+                            </td>
+                            <td>@NombreTipo(j.Tipo)</td>
+                            <td>@(j.TipoAusencia ?? "—")</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(j.EstadoAnterior))
+                                {
+                                    <span class="texto-suave">Sin calcular aún</span>
+                                }
+                                else
+                                {
+                                    @j.EstadoAnterior
+                                }
+                            </td>
+                            <td class="celda-larga">@j.Motivo</td>
+                            <td>
+                                @j.RegistradoPorUsuario
+                                <br /><small class="texto-suave">
+                                    @j.RegistradoEn.ToString("dd/MM/yyyy HH:mm")
+                                </small>
+                            </td>
+                            <td>
+                                @if (j.EsRetirableAqui)
+                                {
+                                    <form method="post" asp-action="Eliminar" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@j.Id" />
+                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                data-confirmar="@($"¿Retirar esta justificación de {j.Trabajador} del {j.Fecha:dd/MM/yyyy}? El día volverá a calcularse desde la marcación cruda en el próximo recálculo.")">
+                                            Retirar
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="texto-suave" title="Anule la solicitud para retirarla">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@r.TotalElementos justificación(es) · página @r.Pagina de @r.TotalPaginas</span>
+
+            @if (r.HayPaginaAnterior)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
+            }
+
+            @if (r.HayPaginaSiguiente)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

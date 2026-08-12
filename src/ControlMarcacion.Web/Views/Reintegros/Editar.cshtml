@@ -1,0 +1,160 @@
+@model EditarReintegroVm
+@{
+    ViewData["Title"] = "Reintegros y descuentos";
+    var soloLectura = !Model.PeriodoAbierto;
+}
+
+<div class="titulo-pagina">
+    <h1>Reintegros y descuentos</h1>
+    <a class="boton boton-secundario" asp-action="Index">Elegir otro trabajador/periodo</a>
+</div>
+
+<div class="tarjeta">
+    <p style="margin-top: 0;">
+        <strong>Trabajador:</strong> @Model.Trabajador &nbsp;·&nbsp;
+        <strong>Periodo:</strong> @Model.Periodo
+    </p>
+
+    @if (soloLectura)
+    {
+        <div class="aviso aviso-error" role="alert">
+            El periodo está <strong>cerrado</strong>: los valores se muestran solo para
+            consulta. Reábralo desde Periodos si necesita corregirlos.
+        </div>
+    }
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.TrabajadorId" />
+    <input type="hidden" asp-for="Datos.PeriodoId" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Horario diurno</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.HorasNormales">Horas normales</label>
+                <input asp-for="Datos.HorasNormales" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasNormales"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasExtra25">Horas extra 25%</label>
+                <input asp-for="Datos.HorasExtra25" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasExtra25"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasExtra35">Horas extra 35%</label>
+                <input asp-for="Datos.HorasExtra35" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasExtra35"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasNoLaborable">Horas no laborable (100%)</label>
+                <input asp-for="Datos.HorasNoLaborable" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasNoLaborable"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.MontoMovilidad">Movilidad (S/.)</label>
+                <input asp-for="Datos.MontoMovilidad" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.MontoMovilidad"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Horario nocturno</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.HorasNocturnas">Horas normales</label>
+                <input asp-for="Datos.HorasNocturnas" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasNocturnas"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasExtra25Nocturnas">Horas extra 25%</label>
+                <input asp-for="Datos.HorasExtra25Nocturnas" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasExtra25Nocturnas"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasExtra35Nocturnas">Horas extra 35%</label>
+                <input asp-for="Datos.HorasExtra35Nocturnas" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasExtra35Nocturnas"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.HorasNoLaborableNocturnas">Horas no laborable (100%)</label>
+                <input asp-for="Datos.HorasNoLaborableNocturnas" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.HorasNoLaborableNocturnas"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Otros conceptos</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Viatico">Viático (S/.)</label>
+                <input asp-for="Datos.Viatico" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.Viatico"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.DiasDescansoMedico">D.M. (días)</label>
+                <input asp-for="Datos.DiasDescansoMedico" type="number" step="1" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.DiasDescansoMedico"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.DiasSubsidioMaternidad">Sub. maternidad (días)</label>
+                <input asp-for="Datos.DiasSubsidioMaternidad" type="number" step="1" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.DiasSubsidioMaternidad"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.DiasSubsidioAccidente">Sub. x accidente (días)</label>
+                <input asp-for="Datos.DiasSubsidioAccidente" type="number" step="1" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.DiasSubsidioAccidente"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.DiasLicenciaPaternidad">Lic. patern. (días)</label>
+                <input asp-for="Datos.DiasLicenciaPaternidad" type="number" step="1" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.DiasLicenciaPaternidad"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.LicenciaConGoce">Licencia con goce (S/.)</label>
+                <input asp-for="Datos.LicenciaConGoce" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.LicenciaConGoce"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.ReintegroAsignacionFamiliar">Reint. asig. familiar (S/.)</label>
+                <input asp-for="Datos.ReintegroAsignacionFamiliar" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.ReintegroAsignacionFamiliar"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.ReintegroAfecto">Reint. afecto (S/.)</label>
+                <input asp-for="Datos.ReintegroAfecto" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.ReintegroAfecto"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.DescuentoPagoIndebido">Desc. pago indebido (S/.)</label>
+                <input asp-for="Datos.DescuentoPagoIndebido" type="number" step="0.01" min="0" readonly="@soloLectura" />
+                <span class="error-campo" asp-validation-for="Datos.DescuentoPagoIndebido"></span>
+            </div>
+        </div>
+    </div>
+
+    @if (!soloLectura)
+    {
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Guardar</button>
+            <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+        </div>
+    }
+</form>

@@ -1,0 +1,80 @@
+@model EditarCatalogoVm
+@{
+    ViewData["Title"] = Model.EsNuevo
+        ? Model.Definicion.RotuloNuevo
+        : $"Editar {Model.Definicion.ConArticulo}";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario"
+       asp-action="Lista"
+       asp-route-clave="@Model.Definicion.Clave">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Clave" />
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>@Model.Definicion.Titulo</h2>
+        <div class="rejilla">
+            @if (Model.Definicion.EsJerarquico)
+            {
+                <div class="campo">
+                    <label asp-for="Datos.PadreId">@Model.Definicion.EtiquetaPadre</label>
+                    <select asp-for="Datos.PadreId" class="select-buscable"
+                            asp-items="@(new SelectList(Model.OpcionesPadre, "Id", "Nombre"))">
+                        <option value="">Seleccione…</option>
+                    </select>
+                    <span class="error-campo" asp-validation-for="Datos.PadreId"></span>
+                </div>
+            }
+
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="20" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="120" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            El código se guarda en mayúsculas y debe ser único@(Model.Definicion.EsJerarquico
+                ? $" dentro de cada {Model.Definicion.EtiquetaPadre?.ToLowerInvariant()}" : " en todo el sistema").
+            Los catálogos no se eliminan: se desactivan, porque hay marcaciones y tareos
+            históricos que los referencian.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario"
+           asp-action="Lista"
+           asp-route-clave="@Model.Definicion.Clave">Cancelar</a>
+    </div>
+</form>

@@ -1,0 +1,274 @@
+/*
+  Panel flotante lateral de Personal.
+
+  Reusa las variables de sitio.css (--color-primario, --color-borde, etc.): no se
+  inventan colores nuevos para no desentonar con el resto del panel administrativo.
+*/
+
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.panel-overlay.abierto {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel-flotante {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 520px;
+  max-width: 100vw;
+  z-index: 1000;
+  background: var(--color-superficie);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-flotante.abierto {
+  transform: translateX(0);
+}
+
+.panel-flotante-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-borde);
+  flex-shrink: 0;
+}
+
+.panel-flotante-cabecera h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-primario);
+}
+
+.panel-flotante-cerrar {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-texto-suave);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.panel-flotante-cerrar:hover {
+  color: var(--color-texto);
+  background: #f1f5f9;
+}
+
+.panel-flotante-contenido {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.panel-cargando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-texto-suave);
+  font-size: 14px;
+  padding: 40px 0;
+  justify-content: center;
+}
+
+.panel-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-borde);
+  border-top-color: var(--color-acento);
+  border-radius: 50%;
+  animation: panel-girar 0.7s linear infinite;
+}
+
+@keyframes panel-girar {
+  to { transform: rotate(360deg); }
+}
+
+.panel-seccion { margin-bottom: 26px; }
+
+.panel-seccion h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-texto-suave);
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.panel-datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  margin: 0;
+}
+
+.panel-datos .panel-dato-ancho { grid-column: 1 / -1; }
+
+.panel-datos dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-texto-suave);
+  margin: 0 0 2px;
+}
+
+.panel-datos dd {
+  font-size: 14px;
+  color: var(--color-texto);
+  margin: 0;
+  word-break: break-word;
+}
+
+.panel-nota {
+  color: var(--color-texto-suave);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.panel-flotante form .rejilla { margin-bottom: 4px; }
+
+.oculto { display: none !important; }
+
+/* ---------- Búsqueda rápida (Trabajadores/Index) ---------- */
+
+.busqueda-rapida {
+  position: relative;
+  max-width: 480px;
+  margin-bottom: 20px;
+}
+
+.busqueda-rapida input[type="search"] {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.busqueda-rapida input[type="search"]:focus {
+  outline: none;
+  border-color: var(--color-acento);
+  box-shadow: 0 0 0 3px rgba(207, 115, 45, 0.15);
+}
+
+.busqueda-rapida-resultados {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.busqueda-rapida-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-borde);
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.busqueda-rapida-item:last-child { border-bottom: none; }
+.busqueda-rapida-item:hover { background: #f8fafc; }
+
+.busqueda-rapida-titulo {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+.busqueda-rapida-detalle {
+  font-size: 12.5px;
+  color: var(--color-texto-suave);
+}
+
+.busqueda-rapida-vacio {
+  cursor: default;
+  color: var(--color-texto-suave);
+}
+
+.busqueda-rapida-vacio:hover { background: none; }
+
+/* ---------- Toast de confirmación efímero ---------- */
+
+.panel-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--color-primario);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 1100;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.panel-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Botones de acción por fila (Ver / Editar) ---------- */
+
+.acciones-fila {
+  display: flex;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.enlace-accion {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primario);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.enlace-accion:hover {
+  color: var(--color-acento);
+  text-decoration: underline;
+}

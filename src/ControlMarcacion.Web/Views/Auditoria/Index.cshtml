@@ -1,0 +1,190 @@
+@using ControlMarcacion.Application.Auditoria.Dto
+@using ControlMarcacion.Domain.Auditoria
+@model ListaAuditoriaVm
+@{
+    ViewData["Title"] = "Auditoría";
+    var r = Model.Resultado;
+
+    static string Etiqueta(OperacionAuditada operacion) => operacion switch
+    {
+        OperacionAuditada.Insercion => "etiqueta-puntual",
+        OperacionAuditada.BajaLogica => "etiqueta-incompleto",
+        OperacionAuditada.Eliminacion => "etiqueta-incompleto",
+        _ => "etiqueta-justificada"
+    };
+
+    // Conserva los filtros al pasar de página: sin esto, "Siguiente" devolvería la
+    // bitácora completa y el usuario perdería la búsqueda que acababa de hacer.
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var valores = new Dictionary<string, string> { ["Pagina"] = pagina.ToString() };
+
+        void Agregar(string clave, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor))
+            {
+                valores[clave] = valor;
+            }
+        }
+
+        Agregar("Tabla", Model.Filtro.Tabla);
+        Agregar("Usuario", Model.Filtro.Usuario);
+        Agregar("ClaveRegistro", Model.Filtro.ClaveRegistro);
+        Agregar("Operacion", Model.Filtro.Operacion?.ToString());
+        Agregar("Desde", Model.Filtro.Desde?.ToString("yyyy-MM-dd"));
+        Agregar("Hasta", Model.Filtro.Hasta?.ToString("yyyy-MM-dd"));
+
+        return valores;
+    }
+}
+
+<div class="titulo-pagina">
+    <h1>Bitácora de auditoría</h1>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Toda alta, modificación y baja del sistema queda registrada aquí con su autor y su
+        fecha. La bitácora <strong>no se edita ni se borra</strong>.
+        <br />
+        Los datos personales protegidos por la Ley 29733 —documento, dirección, teléfono y
+        correo— se registran como <code>(protegido)</code>: queda constancia de que el campo
+        cambió y de quién lo cambió, no de su contenido.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="Tabla">Tabla</label>
+                <select id="Tabla" name="Tabla" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var tabla in Model.Tablas)
+                    {
+                        <option value="@tabla" selected="@(tabla == Model.Filtro.Tabla)">@tabla</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="Usuario">Usuario</label>
+                <input type="text" id="Usuario" name="Usuario" value="@Model.Filtro.Usuario" />
+            </div>
+
+            <div class="campo">
+                <label for="Operacion">Operación</label>
+                <select id="Operacion" name="Operacion">
+                    <option value="">Todas</option>
+                    @foreach (var operacion in Enum.GetValues<OperacionAuditada>())
+                    {
+                        <option value="@((int)operacion)" selected="@(Model.Filtro.Operacion == operacion)">
+                            @operacion
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="Desde">Desde</label>
+                <input type="date" id="Desde" name="Desde" value="@Model.Filtro.Desde?.ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="campo">
+                <label for="Hasta">Hasta</label>
+                <input type="date" id="Hasta" name="Hasta" value="@Model.Filtro.Hasta?.ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="campo">
+                <label for="ClaveRegistro">Clave del registro</label>
+                <input type="text" id="ClaveRegistro" name="ClaveRegistro" value="@Model.Filtro.ClaveRegistro"
+                       placeholder="Id de la fila afectada" />
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-action="Index">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (r.TotalElementos == 0)
+    {
+        <div class="sin-resultados">No hay movimientos que coincidan con el filtro.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Fecha y hora</th>
+                        <th>Usuario</th>
+                        <th>Tabla</th>
+                        <th>Registro</th>
+                        <th>Operación</th>
+                        <th>Cambios</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var registro in r.Elementos)
+                    {
+                        <tr>
+                            <td>@registro.FechaHora.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>@registro.Usuario</td>
+                            <td><code>@registro.Tabla</code></td>
+                            <td><code>@registro.ClaveRegistro</code></td>
+                            <td>
+                                <span class="etiqueta @Etiqueta(registro.Operacion)">
+                                    @registro.OperacionLegible
+                                </span>
+                            </td>
+                            <td>
+                                @if (registro.Cambios.Count == 0)
+                                {
+                                    <span class="texto-suave">—</span>
+                                }
+                                else
+                                {
+                                    <details>
+                                        <summary>@registro.Cambios.Count campo(s)</summary>
+                                        <ul class="lista-detalle">
+                                            @foreach (var cambio in registro.Cambios)
+                                            {
+                                                <li>
+                                                    <strong>@cambio.Campo</strong>:
+                                                    @if (registro.Operacion == OperacionAuditada.Insercion)
+                                                    {
+                                                        <text>@(cambio.Nuevo ?? "—")</text>
+                                                    }
+                                                    else
+                                                    {
+                                                        <text>@(cambio.Anterior ?? "—") → @(cambio.Nuevo ?? "—")</text>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@r.TotalElementos movimiento(s) · página @r.Pagina de @r.TotalPaginas</span>
+
+            @if (r.HayPaginaAnterior)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
+            }
+
+            @if (r.HayPaginaSiguiente)
+            {
+                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
+            }
+        </div>
+    }
+</div>

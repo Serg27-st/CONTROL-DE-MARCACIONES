@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capa de dominio: entidades, enums, value objects y las reglas de cálculo puras.
+
+    REGLA ARQUITECTÓNICA: este proyecto NO referencia a ningún otro proyecto de la
+    solución y NO tiene paquetes NuGet de infraestructura (nada de EF Core, ASP.NET
+    ni acceso a datos).
+
+    Es lo que permite probar el motor de cálculo del tareo en un test unitario, sin
+    base de datos. Si alguna vez necesitas agregar aquí una referencia a EF Core,
+    el diseño está mal: consulta al agente `arquitecto` antes de hacerlo.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ControlMarcacion.Domain</RootNamespace>
+  </PropertyGroup>
+
+</Project>

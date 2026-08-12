@@ -1,0 +1,484 @@
+@model CargaMarcacionesVm
+@using System.Globalization
+@{
+    ViewData["Title"] = "Marcaciones";
+
+    var cobertura = Model.Cobertura;
+    var hoy = Model.Hoy;
+    var cultura = CultureInfo.CurrentCulture;
+
+    string NombreMes(int mes) =>
+        cultura.DateTimeFormat.GetMonthName(mes) is { Length: > 0 } nombre
+            ? char.ToUpper(nombre[0], cultura) + nombre[1..]
+            : mes.ToString(cultura);
+
+    string MesCorto(int mes) =>
+        cultura.DateTimeFormat.GetAbbreviatedMonthName(mes) is { Length: > 0 } nombre
+            ? char.ToUpper(nombre[0], cultura) + nombre[1..].TrimEnd('.')
+            : mes.ToString(cultura);
+
+    // Lunes = 0. El calendario peruano empieza la semana en lunes, y DayOfWeek empieza
+    // en domingo: sin esta traslación el 1 de julio caería en la columna equivocada.
+    static int ColumnaDe(DateOnly fecha) => ((int)fecha.DayOfWeek + 6) % 7;
+
+    var diasDelMes = cobertura.Dias;
+    var huecos = cobertura.DiasSinMarcacion(hoy);
+    var primerDia = diasDelMes.Count > 0 ? diasDelMes[0].Fecha : new DateOnly(cobertura.Anio, cobertura.Mes, 1);
+    var maximoDelMes = diasDelMes.Count > 0 ? diasDelMes.Max(d => d.Marcaciones) : 0;
+
+    // Intensidad del sombreado de cada día, en cuatro escalones sobre el día más cargado
+    // del mes. Es una escala relativa a propósito: lo que interesa comparar es un día
+    // contra los otros del mismo mes, no contra un absoluto que depende de la planta.
+    string NivelDe(DiaConMarcaciones dia)
+    {
+        if (!dia.TieneMarcaciones)
+        {
+            return dia.Fecha > hoy ? "futuro" : "vacio";
+        }
+
+        var proporcion = maximoDelMes == 0 ? 0d : (double)dia.Marcaciones / maximoDelMes;
+
+        return proporcion switch
+        {
+            >= 0.75 => "n4",
+            >= 0.45 => "n3",
+            >= 0.20 => "n2",
+            _ => "n1"
+        };
+    }
+
+    // Los textos de los tooltips se arman aquí y no dentro del atributo title: una
+    // interpolación con comillas y ternarios anidados dentro de un atributo de Razor es
+    // ilegible y se rompe al primer retoque.
+    string TituloDia(DiaConMarcaciones dia)
+    {
+        var fecha = dia.Fecha.ToString("dddd dd/MM/yyyy", cultura);
+
+        if (dia.TieneMarcaciones)
+        {
+            return $"{fecha}: {dia.Marcaciones.ToString("N0", cultura)} marcación(es) " +
+                   $"de {dia.Trabajadores} trabajador(es)";
+        }
+
+        return dia.Fecha > hoy
+            ? $"{fecha}: todavía no ocurre"
+            : $"{fecha}: sin marcaciones cargadas";
+    }
+
+    // Rango de días que trae el archivo. Se formatea aquí y no en el DTO: la fecha con
+    // barras y en orden peruano es presentación, y Application no debe conocerla.
+    string PeriodoCubierto(ImportacionHistorialDto i)
+    {
+        if (i.PrimeraMarcacion is not { } desde || i.UltimaMarcacion is not { } hasta)
+        {
+            return "—";
+        }
+
+        return desde == hasta
+            ? desde.ToString("dd/MM/yyyy", cultura)
+            : $"{desde.ToString("dd/MM/yyyy", cultura)} – {hasta.ToString("dd/MM/yyyy", cultura)}";
+    }
+
+    string TituloMes(MesConMarcaciones m) => m.TieneMarcaciones
+        ? $"{NombreMes(m.Mes)} {m.Anio}: {m.Marcaciones.ToString("N0", cultura)} marcación(es) " +
+          $"en {m.DiasConMarcacion} día(s)"
+        : $"{NombreMes(m.Mes)} {m.Anio}: sin marcaciones cargadas";
+
+    // El historial se agrupa por el mes en que se SUBIÓ el archivo, no por el que
+    // contiene: son dos cosas distintas y la columna «Periodo cubierto» ya muestra la
+    // segunda. Agrupar por lo cargado partiría en dos un archivo que cruza fin de mes.
+    var gruposHistorial = Model.Historial
+        .GroupBy(i => new { i.FechaCarga.Year, i.FechaCarga.Month })
+        .OrderByDescending(g => g.Key.Year)
+        .ThenByDescending(g => g.Key.Month)
+        .ToList();
+}
+
+<div class="titulo-pagina">
+    <h1>Carga de marcaciones</h1>
+    @* El conteo se refiere a las cargas listadas abajo, que son las últimas 50: decir
+       "N cargas vigentes" a secas afirmaría un total que esta pantalla no consultó. *@
+    <span class="texto-suave">
+        Archivo TXT del ZKTeco G3 · últimas @Model.Historial.Count carga(s),
+        @Model.CargasVigentes vigente(s)
+    </span>
+</div>
+
+@if (Model.Previa is { } previa)
+{
+    <div class="aviso aviso-alerta" role="alert">
+        <strong>Este archivo ya se cargó antes.</strong>
+        <p class="nota-compacta">
+            «@previa.NombreArchivo» se procesó el
+            <strong>@previa.FechaCarga.ToString("dd/MM/yyyy HH:mm")</strong>
+            por @previa.CargadoPorUsuario, e insertó @previa.FilasInsertadas marcación(es).
+        </p>
+        <p class="nota-compacta">
+            Volver a cargarlo no duplica nada —la base lo impide—, pero probablemente
+            querías subir otro archivo. Si aun así deseas reprocesarlo, vuelve a
+            seleccionarlo y marca la casilla de confirmación.
+        </p>
+    </div>
+}
+
+@* ------------------------------------------------------------------ Carga ---- *@
+
+<div class="tarjeta">
+    <h2>Cargar archivo del marcador</h2>
+
+    <form method="post" asp-action="Cargar" enctype="multipart/form-data" id="formulario-carga">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="anio" value="@cobertura.Anio" />
+        <input type="hidden" name="mes" value="@cobertura.Mes" />
+
+        @*
+            El <input type="file"> real vive dentro del <label> y lo cubre entero,
+            transparente: eso hace que todo el recuadro abra el explorador y acepte un
+            archivo soltado encima sin una línea de JavaScript. El script solo agrega el
+            resaltado al arrastrar y el nombre del archivo elegido.
+
+            Sin atributo `for`: el input ya es descendiente del label, y declarar además
+            la asociación explícita hace que algunos navegadores abran el diálogo dos
+            veces sobre el mismo clic.
+        *@
+        <label class="zona-soltar" id="zona-soltar">
+            <input type="file" id="archivo" name="archivo"
+                   accept=".txt,.dat,text/plain" required class="zona-soltar-input" />
+
+            <span class="zona-soltar-icono" aria-hidden="true">&#8681;</span>
+
+            <span class="zona-soltar-titulo">
+                Arrastre aquí el archivo del marcador
+            </span>
+            <span class="zona-soltar-ayuda">
+                o haga clic para buscarlo en el equipo · <code>.txt</code> o <code>.dat</code>,
+                delimitado por tabuladores, hasta 20&nbsp;MB
+            </span>
+
+            <span class="zona-soltar-archivo" id="archivo-elegido" hidden></span>
+        </label>
+
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="confirmarRecarga" name="confirmarRecarga" value="true"
+                   checked="@(Model.Previa is not null)" />
+            <label for="confirmarRecarga">Procesar aunque el archivo ya se haya cargado antes</label>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario" id="boton-cargar">
+                Cargar y procesar
+            </button>
+        </div>
+    </form>
+
+    <p class="nota-pie">
+        Las marcaciones cargadas son <strong>inmutables</strong>: no se editan ni se borran.
+        Cualquier corrección se registra como justificación mientras el periodo esté abierto.
+        Recargar el mismo archivo es seguro: la base impide duplicados.
+    </p>
+</div>
+
+@* -------------------------------------------------------------- Cobertura ---- *@
+
+<div class="tarjeta">
+    <h2>Marcaciones cargadas por día</h2>
+
+    @if (!cobertura.HayDatos)
+    {
+        @* Sin marcaciones vigentes hay dos situaciones muy distintas, y decir siempre
+           "todavía no se ha cargado nada" mentiría en la segunda: puede que no se haya
+           cargado nunca, o que todo lo cargado esté anulado. *@
+        <div class="sin-resultados">
+            @if (Model.CargasAnuladas > 0 && Model.CargasVigentes == 0)
+            {
+                <text>
+                    Las @Model.CargasAnuladas carga(s) del historial están <strong>anuladas</strong>:
+                    sus marcaciones siguen en la base, pero el tareo no las cuenta y por eso
+                    el calendario está vacío. Reactive una carga o suba el archivo correcto.
+                </text>
+            }
+            else
+            {
+                <text>
+                    Todavía no hay ninguna marcación cargada. Suba el primer archivo del
+                    marcador y este calendario mostrará qué días quedaron cubiertos.
+                </text>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="subtitulo">
+            Solo se cuentan las cargas <strong>vigentes</strong>: las marcaciones de una
+            importación anulada siguen en la base, pero el tareo no las usa y por eso
+            tampoco aparecen aquí.
+        </p>
+
+        @* ---- Años ---- *@
+        <nav class="pestanas-anio" aria-label="Año">
+            @foreach (var anio in cobertura.Anios)
+            {
+                <a asp-action="Index" asp-route-anio="@anio" asp-route-mes="@cobertura.Mes"
+                   class="pestana-anio @(anio == cobertura.Anio ? "activa" : "")"
+                   aria-current="@(anio == cobertura.Anio ? "page" : null)">@anio</a>
+            }
+        </nav>
+
+        @* ---- Meses ---- *@
+        <div class="rejilla-meses">
+            @foreach (var m in cobertura.Meses)
+            {
+                var activo = m.Mes == cobertura.Mes;
+
+                <a asp-action="Index" asp-route-anio="@cobertura.Anio" asp-route-mes="@m.Mes"
+                   class="pastilla-mes @(activo ? "activa" : "") @(m.TieneMarcaciones ? "con-datos" : "vacia")"
+                   aria-current="@(activo ? "page" : null)"
+                   title="@TituloMes(m)">
+                    <span class="pastilla-mes-nombre">@MesCorto(m.Mes)</span>
+                    <span class="pastilla-mes-cifra">
+                        @(m.TieneMarcaciones ? m.Marcaciones.ToString("N0", cultura) : "—")
+                    </span>
+                    <span class="pastilla-mes-dias">
+                        @(m.TieneMarcaciones ? $"{m.DiasConMarcacion} día(s)" : "sin cargar")
+                    </span>
+                </a>
+            }
+        </div>
+
+        @* ---- Resumen del mes ---- *@
+        <div class="tira-indicadores">
+            <div class="indicador">
+                <span class="indicador-cifra">@cobertura.MarcacionesDelMes.ToString("N0", cultura)</span>
+                <span class="indicador-rotulo">Marcaciones en @NombreMes(cobertura.Mes)</span>
+            </div>
+            <div class="indicador">
+                <span class="indicador-cifra">@cobertura.DiasConMarcacion</span>
+                <span class="indicador-rotulo">Días con marcación</span>
+            </div>
+            <div class="indicador @(huecos > 0 ? "indicador-alerta" : "")">
+                <span class="indicador-cifra">@huecos</span>
+                <span class="indicador-rotulo">Días transcurridos sin ninguna</span>
+            </div>
+            <div class="indicador">
+                <span class="indicador-cifra">@cobertura.MarcacionesDelAnio.ToString("N0", cultura)</span>
+                <span class="indicador-rotulo">Total del año @cobertura.Anio</span>
+            </div>
+        </div>
+
+        @* ---- Días ---- *@
+        <div class="calendario" role="group" aria-label="Calendario de @NombreMes(cobertura.Mes) de @cobertura.Anio">
+            <div class="calendario-cabecera" aria-hidden="true">
+                <span>Lun</span><span>Mar</span><span>Mié</span>
+                <span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+            </div>
+
+            <div class="calendario-dias">
+                @* Celdas en blanco hasta el día de la semana en que arranca el mes. *@
+                @for (var relleno = 0; relleno < ColumnaDe(primerDia); relleno++)
+                {
+                    <span class="dia-relleno"></span>
+                }
+
+                @foreach (var dia in diasDelMes)
+                {
+                    var esDomingo = dia.Fecha.DayOfWeek == DayOfWeek.Sunday;
+                    var esHoy = dia.Fecha == hoy;
+
+                    <div class="dia dia-@NivelDe(dia) @(esDomingo ? "dia-domingo" : "") @(esHoy ? "dia-hoy" : "")"
+                         title="@TituloDia(dia)">
+                        <span class="dia-numero">@dia.Fecha.Day</span>
+                        <span class="dia-cifra">
+                            @(dia.TieneMarcaciones ? dia.Marcaciones.ToString("N0", cultura) : "")
+                        </span>
+                        <span class="dia-personas">
+                            @(dia.Trabajadores > 0 ? $"{dia.Trabajadores} pers." : "")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="calendario-leyenda">
+            <span class="leyenda-titulo">Volumen del día</span>
+            <span class="leyenda-muestra dia-vacio"></span><span class="leyenda-texto">sin marcaciones</span>
+            <span class="leyenda-muestra dia-n1"></span>
+            <span class="leyenda-muestra dia-n2"></span>
+            <span class="leyenda-muestra dia-n3"></span>
+            <span class="leyenda-muestra dia-n4"></span>
+            <span class="leyenda-texto">más marcaciones</span>
+            <span class="leyenda-muestra dia-futuro"></span><span class="leyenda-texto">aún no ocurre</span>
+        </div>
+
+        @if (huecos > 0)
+        {
+            <div class="aviso aviso-alerta" role="status">
+                <strong>@huecos día(s) de @NombreMes(cobertura.Mes) ya transcurrido(s) no tienen
+                ninguna marcación cargada.</strong>
+                <p class="nota-compacta">
+                    Puede ser correcto —un feriado, una planta parada— o puede faltar un
+                    archivo. El tareo los calculará como falta si nadie los justifica.
+                </p>
+            </div>
+        }
+    }
+</div>
+
+@* --------------------------------------------------------------- Historial ---- *@
+
+<div class="tarjeta">
+    <h2>Historial de cargas</h2>
+
+    @if (Model.Historial.Count == 0)
+    {
+        <div class="sin-resultados">Todavía no se ha cargado ningún archivo.</div>
+    }
+    else
+    {
+        <p class="subtitulo">
+            Agrupado por el mes en que se subió el archivo. La columna
+            <strong>Periodo cubierto</strong> dice qué días trae dentro, que es otra cosa:
+            un archivo subido en agosto puede contener julio entero.
+        </p>
+
+        @for (var indice = 0; indice < gruposHistorial.Count; indice++)
+        {
+            var grupo = gruposHistorial[indice];
+            var insertadas = grupo.Sum(i => i.FilasInsertadas);
+            var anuladasEnGrupo = grupo.Count(i => i.Anulada);
+
+            @* El grupo más reciente arranca abierto; los anteriores, plegados. Con doce
+               meses de historia, una tabla de 50 filas obliga a desplazarse por delante
+               de lo único que suele importar, que es la última carga. *@
+            <details class="grupo-historial" open="@(indice == 0)">
+                <summary class="grupo-historial-cabecera">
+                    <span class="grupo-historial-titulo">
+                        @NombreMes(grupo.Key.Month) @grupo.Key.Year
+                    </span>
+                    <span class="grupo-historial-detalle">
+                        @grupo.Count() carga(s) ·
+                        @insertadas.ToString("N0", cultura) marcación(es) insertada(s)
+                        @if (anuladasEnGrupo > 0)
+                        {
+                            <span class="etiqueta etiqueta-incompleto">@anuladasEnGrupo anulada(s)</span>
+                        }
+                    </span>
+                </summary>
+
+                <div class="tabla-contenedor">
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Archivo</th>
+                                <th>Periodo cubierto</th>
+                                <th>Cargado</th>
+                                <th>Leídas</th>
+                                <th>Insertadas</th>
+                                <th>Duplicadas</th>
+                                <th>Rechazadas</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var i in grupo)
+                            {
+                                <tr class="@(i.Anulada ? "fila-anulada" : "")">
+                                    <td class="celda-archivo">
+                                        <a asp-action="Resultado" asp-route-id="@i.Id">@i.NombreArchivo</a>
+                                    </td>
+                                    <td>
+                                        @if (i.TieneCobertura)
+                                        {
+                                            <span class="periodo-cubierto">@PeriodoCubierto(i)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="texto-suave">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @i.FechaCarga.ToString("dd/MM/yyyy HH:mm")
+                                        <br />
+                                        <small class="texto-suave">@i.CargadoPorUsuario</small>
+                                    </td>
+                                    <td>@i.FilasLeidas.ToString("N0", cultura)</td>
+                                    <td><strong>@i.FilasInsertadas.ToString("N0", cultura)</strong></td>
+                                    <td>@(i.FilasDuplicadas == 0 ? "—" : i.FilasDuplicadas.ToString("N0", cultura))</td>
+                                    <td>
+                                        @if (i.FilasRechazadas == 0)
+                                        {
+                                            <span>—</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="etiqueta etiqueta-tardanza">@i.FilasRechazadas.ToString("N0", cultura)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (i.Anulada)
+                                        {
+                                            <span class="etiqueta etiqueta-incompleto">Anulada</span>
+                                            <br />
+                                            <small class="texto-suave">
+                                                @i.AnuladaEn?.ToString("dd/MM/yyyy HH:mm") · @i.AnuladaPorUsuario
+                                                <br />@i.MotivoAnulacion
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <span class="etiqueta etiqueta-puntual">Vigente</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="acciones-fila">
+                                            <a asp-action="Resultado" asp-route-id="@i.Id">Ver detalle</a>
+
+                                            @* Anular y reactivar son del coordinador. Ocultar el botón no
+                                               es el control: el controlador exige el rol igual. *@
+                                            @if (User.IsInRole(RolesSistema.Coordinador))
+                                            {
+                                                if (i.Anulada)
+                                                {
+                                                    <form method="post" asp-action="Reactivar">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@i.Id" />
+                                                        <input type="hidden" name="anio" value="@cobertura.Anio" />
+                                                        <input type="hidden" name="mes" value="@cobertura.Mes" />
+                                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                                data-confirmar="¿Reactivar esta carga? Sus @i.FilasInsertadas marcación(es) volverán a contar para el tareo. Recuerde recalcular el periodo después.">
+                                                            Reactivar
+                                                        </button>
+                                                    </form>
+                                                }
+                                                else
+                                                {
+                                                    <form method="post" asp-action="Anular" class="formulario-anular">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@i.Id" />
+                                                        <input type="hidden" name="anio" value="@cobertura.Anio" />
+                                                        <input type="hidden" name="mes" value="@cobertura.Mes" />
+                                                        <input type="text" name="motivo" maxlength="300" required
+                                                               placeholder="Motivo de la anulación" class="motivo-anulacion" />
+                                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                                data-confirmar="¿Anular esta carga? Sus @i.FilasInsertadas marcación(es) NO se borran, pero dejarán de contar para el tareo. Recuerde recalcular el periodo después.">
+                                                            Anular
+                                                        </button>
+                                                    </form>
+                                                }
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        }
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/carga-marcaciones.js" asp-append-version="true"></script>
+}

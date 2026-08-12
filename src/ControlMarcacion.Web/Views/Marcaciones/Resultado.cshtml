@@ -1,0 +1,126 @@
+@model ResultadoImportacionVm
+@{
+    ViewData["Title"] = "Resultado de la carga";
+    var r = Model.Resultado;
+}
+
+<div class="titulo-pagina">
+    <h1>Resultado de la carga</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a marcaciones</a>
+</div>
+
+<div class="tarjeta">
+    <h2>@r.NombreArchivo</h2>
+
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Líneas leídas</th>
+                    <th>Insertadas</th>
+                    <th>Duplicadas</th>
+                    <th>Rechazadas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@r.FilasLeidas</td>
+                    <td><strong class="texto-exito">@r.FilasInsertadas</strong></td>
+                    <td>@r.FilasDuplicadas</td>
+                    <td>
+                        @if (r.FilasRechazadas == 0)
+                        {
+                            <span>0</span>
+                        }
+                        else
+                        {
+                            <strong class="texto-error">@r.FilasRechazadas</strong>
+                        }
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    @if (!r.HuboProblemas)
+    {
+        <div class="aviso aviso-exito" style="margin-top: 16px;" role="status">
+            El archivo se procesó sin incidencias.
+        </div>
+    }
+</div>
+
+@if (r.IdsSinAsignar.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Identificadores sin trabajador asignado</h2>
+
+        <div class="aviso aviso-error" role="alert">
+            <strong>Estos identificadores marcaron, pero no hay nadie registrado con ese ID
+            en esas fechas.</strong>
+            <p class="nota-compacta">
+                No es un error del archivo: son trabajadores que faltan dar de alta, o
+                asignaciones cuya vigencia no cubre el periodo. Sus marcaciones
+                <strong>no se cargaron</strong>. Regístralos en Personal y vuelve a subir
+                el mismo archivo: las ya cargadas no se duplicarán.
+            </p>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>ID de marcador</th>
+                        <th>Marcaciones</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var id in r.IdsSinAsignar)
+                    {
+                        <tr>
+                            <td><code>@id.IdMarcador</code></td>
+                            <td>@(id.Marcaciones == 0 ? "—" : id.Marcaciones.ToString())</td>
+                            <td>@(id.PrimeraFecha == default ? "—" : id.PrimeraFecha.ToString("dd/MM/yyyy"))</td>
+                            <td>@(id.UltimaFecha == default ? "—" : id.UltimaFecha.ToString("dd/MM/yyyy"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <p class="nota-pie">
+            @r.IdsSinAsignar.Count identificador(es) sin asignar.
+        </p>
+    </div>
+}
+
+@if (r.Rechazadas.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Líneas que no se pudieron leer</h2>
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Línea</th>
+                        <th>Contenido</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var linea in r.Rechazadas)
+                    {
+                        <tr>
+                            <td>@linea.NumeroLinea</td>
+                            <td><code style="font-size: 12px;">@linea.ContenidoLinea</code></td>
+                            <td>@linea.Motivo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

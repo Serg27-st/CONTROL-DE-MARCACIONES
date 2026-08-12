@@ -1,0 +1,133 @@
+@model EditarTipoAusenciaVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo tipo de ausencia" : "Editar tipo de ausencia";
+
+    var comportamientos = new (ComportamientoAusencia Valor, string Etiqueta, string Ayuda)[]
+    {
+        (ComportamientoAusencia.JustificadaRemunerada, "Justificada y remunerada",
+            "El día se paga completo. Vacaciones, licencia con goce, permiso autorizado."),
+        (ComportamientoAusencia.JustificadaNoRemunerada, "Justificada sin goce",
+            "La falta está justificada pero el día no se paga. Licencia sin goce de haber."),
+        (ComportamientoAusencia.Subsidiada, "Subsidiada (EsSalud)",
+            "Lo cubre la seguridad social. Descanso médico, maternidad."),
+        (ComportamientoAusencia.PermisoParcial, "Permiso parcial",
+            "Ausencia de horas dentro de un día trabajado, no del día completo.")
+    };
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Identificación</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="20" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="120" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Comportamiento en el cálculo</h2>
+
+        <div class="aviso aviso-info">
+            Esta es la decisión que importa: define <strong>cómo el motor trata el día</strong>.
+            Elegir mal no da error, da un tareo incorrecto en silencio.
+        </div>
+
+        <div class="campo">
+            <label asp-for="Datos.Comportamiento">Comportamiento</label>
+            <select asp-for="Datos.Comportamiento">
+                <option value="">Seleccione…</option>
+                @foreach (var c in comportamientos)
+                {
+                    <option value="@((int)c.Valor)">@c.Etiqueta</option>
+                }
+            </select>
+            <span class="error-campo" asp-validation-for="Datos.Comportamiento"></span>
+        </div>
+
+        <div class="tabla-contenedor" style="margin-top: 16px;">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Comportamiento</th>
+                        <th>Qué significa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in comportamientos)
+                    {
+                        <tr>
+                            <td><strong>@c.Etiqueta</strong></td>
+                            <td>@c.Ayuda</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Reglas del tipo</h2>
+        <div class="rejilla">
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.ComputaComoAsistencia" type="checkbox" />
+                <label asp-for="Datos.ComputaComoAsistencia">Cuenta como día asistido</label>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.RequiereSustento" type="checkbox" />
+                <label asp-for="Datos.RequiereSustento">Requiere documento de sustento</label>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.EsPorHoras" type="checkbox" />
+                <label asp-for="Datos.EsPorHoras">Se registra por horas, no por días</label>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            «Cuenta como día asistido» evita que el motor marque falta ese día.
+            «Requiere sustento» obliga a adjuntar el certificado o la resolución al aprobar
+            la solicitud.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>
