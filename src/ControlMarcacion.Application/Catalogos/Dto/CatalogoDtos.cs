@@ -14,6 +14,20 @@ public sealed record CatalogoItemDto(
     bool Activo,
     int Dependencias);
 
+/// <summary>Cuántos elementos tiene un catálogo, separando los dados de baja.</summary>
+public sealed record ConteoCatalogo(int Activos, int Inactivos)
+{
+    public static ConteoCatalogo Vacio { get; } = new(0, 0);
+
+    public int Total => Activos + Inactivos;
+
+    /// <summary>
+    /// El catálogo no tiene ni un elemento utilizable. Es un aviso, no un error: los
+    /// formularios que dependan de él saldrán con el desplegable vacío.
+    /// </summary>
+    public bool SinElementosUtilizables => Activos == 0;
+}
+
 /// <summary>
 /// Tipo de documento para el desplegable, con sus reglas de formato.
 /// </summary>

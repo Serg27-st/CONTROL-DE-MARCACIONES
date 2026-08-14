@@ -37,8 +37,11 @@
     }
     else
     {
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-turnos", IdConteo = "conteo-turnos", Sustantivo = "turno(s)", Filas = Model.Turnos.Count, Ejemplo = "Código, nombre o planta…" }' />
+
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla" id="tabla-turnos">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -125,11 +128,12 @@
         </div>
 
         <div class="paginacion">
-            <span class="conteo">@Model.Turnos.Count turno(s)</span>
+            <span class="conteo" id="conteo-turnos">@Model.Turnos.Count turno(s)</span>
         </div>
     }
 </div>
 
 @section Scripts {
     <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
 }

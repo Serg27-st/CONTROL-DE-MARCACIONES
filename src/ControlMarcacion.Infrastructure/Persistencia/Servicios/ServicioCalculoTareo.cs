@@ -1,9 +1,11 @@
 using ControlMarcacion.Application.Asistencia;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Domain.Asistencia;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Justificaciones;
 using ControlMarcacion.Domain.Normativa;
+using ControlMarcacion.Domain.Personal;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
@@ -223,60 +225,161 @@ internal sealed class ServicioCalculoTareo(MarcacionDbContext contexto) : IServi
             porEstado);
     }
 
-    public async Task<IReadOnlyList<TareoDiarioDto>> ListarAsync(
+    public async Task<ResultadoPaginado<TareoDiarioDto>> ListarAsync(
         FiltroTareo filtro,
         CancellationToken cancelacion = default)
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
-        var consulta = contexto.TareosDiarios.AsNoTracking();
+        var tamanio = Math.Clamp(filtro.TamanioPagina, 10, 500);
+        var pagina = Math.Max(filtro.Pagina, 1);
+
+        var consulta = Filtrar(filtro, aplicarEstado: true);
+
+        var total = await consulta.CountAsync(cancelacion).ConfigureAwait(false);
+
+        // Se ordena por el apellido del trabajador y no por su Id: el Id es el orden en
+        // que se dieron de alta, que para quien lee el tareo es orden arbitrario. La fecha
+        // desempata para que los días de una persona salgan seguidos y en orden.
+        var elementos = await consulta
+            .OrderBy(x => x.Trabajador.ApellidoPaterno)
+            .ThenBy(x => x.Trabajador.ApellidoMaterno)
+            .ThenBy(x => x.Trabajador.Nombres)
+            .ThenBy(x => x.Tareo.Fecha)
+            .Skip((pagina - 1) * tamanio)
+            .Take(tamanio)
+            .Select(x => new TareoDiarioDto(
+                x.Tareo.Id,
+                x.Tareo.TrabajadorId,
+                x.Trabajador.ApellidoPaterno + " " + x.Trabajador.ApellidoMaterno + ", " + x.Trabajador.Nombres,
+                contexto.AsignacionesMarcador
+                    .Where(a => a.TrabajadorId == x.Tareo.TrabajadorId && a.FechaFin == null)
+                    .Select(a => a.IdMarcador)
+                    .FirstOrDefault(),
+                x.Tareo.Fecha,
+                x.Tareo.TurnoId == null
+                    ? null
+                    : contexto.Turnos.Where(u => u.Id == x.Tareo.TurnoId).Select(u => u.Codigo).FirstOrDefault(),
+                x.Tareo.EntradaReal,
+                x.Tareo.SalidaReal,
+                x.Tareo.MinutosTrabajados,
+                x.Tareo.MinutosOrdinarios,
+                x.Tareo.MinutosExtra25,
+                x.Tareo.MinutosExtra35,
+                x.Tareo.MinutosNocturnos,
+                x.Tareo.MinutosTardanza,
+                x.Tareo.MinutosSalidaAnticipada,
+                x.Tareo.TipoDiaNoLaborable,
+                x.Tareo.Estado,
+                x.Tareo.Observacion))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        return new ResultadoPaginado<TareoDiarioDto>(elementos, total, pagina, tamanio);
+    }
+
+    public async Task<ResumenTareo> ResumirAsync(
+        FiltroTareo filtro,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(filtro);
+
+        // Sin el estado: el reparto por estado ES el resumen, y filtrarlo por el estado
+        // elegido dejaría una sola barra con el número que el usuario acaba de pedir.
+        var consulta = Filtrar(filtro, aplicarEstado: false);
+
+        var porEstado = await consulta
+            .GroupBy(x => x.Tareo.Estado)
+            .Select(g => new { Estado = g.Key, Conteo = g.Count() })
+            .ToDictionaryAsync(x => x.Estado, x => x.Conteo, cancelacion)
+            .ConfigureAwait(false);
+
+        if (porEstado.Count == 0)
+        {
+            return ResumenTareo.Vacio;
+        }
+
+        var totales = await consulta
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Dias = g.Count(),
+                Trabajadores = g.Select(x => x.Tareo.TrabajadorId).Distinct().Count(),
+                Ordinarios = g.Sum(x => x.Tareo.MinutosOrdinarios),
+                Extra25 = g.Sum(x => x.Tareo.MinutosExtra25),
+                Extra35 = g.Sum(x => x.Tareo.MinutosExtra35),
+                Nocturnos = g.Sum(x => x.Tareo.MinutosNocturnos),
+                Tardanza = g.Sum(x => x.Tareo.MinutosTardanza),
+                SalidaAnticipada = g.Sum(x => x.Tareo.MinutosSalidaAnticipada)
+            })
+            .FirstAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        return new ResumenTareo(
+            porEstado,
+            totales.Dias,
+            totales.Trabajadores,
+            totales.Ordinarios,
+            totales.Extra25,
+            totales.Extra35,
+            totales.Nocturnos,
+            totales.Tardanza,
+            totales.SalidaAnticipada);
+    }
+
+    /// <summary>
+    /// Tareos cruzados con su trabajador, ya filtrados. Base común del listado y el resumen.
+    /// </summary>
+    /// <remarks>
+    /// El cruce es explícito y no por subconsulta correlacionada porque hace falta para
+    /// dos cosas a la vez: buscar por apellidos o documento, y <b>ordenar</b> por ellos.
+    /// Una subconsulta en el ORDER BY se evalúa fila a fila.
+    ///
+    /// Que sea un <c>join</c> y no un <c>left join</c> es intencionado: un tareo sin
+    /// trabajador es un dato roto y debe notarse, no colarse con el nombre en blanco.
+    /// </remarks>
+    private IQueryable<TareoConTrabajador> Filtrar(FiltroTareo filtro, bool aplicarEstado)
+    {
+        var consulta =
+            from t in contexto.TareosDiarios.AsNoTracking()
+            join w in contexto.Trabajadores.AsNoTracking() on t.TrabajadorId equals w.Id
+            select new TareoConTrabajador { Tareo = t, Trabajador = w };
 
         if (filtro.PeriodoId is { } periodoId)
         {
-            consulta = consulta.Where(t => t.PeriodoId == periodoId);
+            consulta = consulta.Where(x => x.Tareo.PeriodoId == periodoId);
         }
 
         if (filtro.TrabajadorId is { } trabajadorId)
         {
-            consulta = consulta.Where(t => t.TrabajadorId == trabajadorId);
+            consulta = consulta.Where(x => x.Tareo.TrabajadorId == trabajadorId);
         }
 
-        if (filtro.Estado is { } estado)
+        if (aplicarEstado && filtro.Estado is { } estado)
         {
-            consulta = consulta.Where(t => t.Estado == estado);
+            consulta = consulta.Where(x => x.Tareo.Estado == estado);
         }
 
-        return await consulta
-            .OrderBy(t => t.TrabajadorId).ThenBy(t => t.Fecha)
-            .Select(t => new TareoDiarioDto(
-                t.Id,
-                t.TrabajadorId,
-                contexto.Trabajadores
-                    .Where(w => w.Id == t.TrabajadorId)
-                    .Select(w => w.ApellidoPaterno + " " + w.ApellidoMaterno + ", " + w.Nombres)
-                    .FirstOrDefault() ?? "-",
-                contexto.AsignacionesMarcador
-                    .Where(a => a.TrabajadorId == t.TrabajadorId && a.FechaFin == null)
-                    .Select(a => a.IdMarcador)
-                    .FirstOrDefault(),
-                t.Fecha,
-                t.TurnoId == null
-                    ? null
-                    : contexto.Turnos.Where(x => x.Id == t.TurnoId).Select(x => x.Codigo).FirstOrDefault(),
-                t.EntradaReal,
-                t.SalidaReal,
-                t.MinutosTrabajados,
-                t.MinutosOrdinarios,
-                t.MinutosExtra25,
-                t.MinutosExtra35,
-                t.MinutosNocturnos,
-                t.MinutosTardanza,
-                t.MinutosSalidaAnticipada,
-                t.TipoDiaNoLaborable,
-                t.Estado,
-                t.Observacion))
-            .ToListAsync(cancelacion)
-            .ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(filtro.Busqueda))
+        {
+            var texto = filtro.Busqueda.Trim();
+
+            consulta = consulta.Where(x =>
+                x.Trabajador.ApellidoPaterno.Contains(texto)
+                || x.Trabajador.ApellidoMaterno.Contains(texto)
+                || x.Trabajador.Nombres.Contains(texto)
+                || x.Trabajador.NumeroDocumento.Contains(texto));
+        }
+
+        return consulta;
+    }
+
+    /// <summary>Par tareo-trabajador del cruce interno. No sale de esta clase.</summary>
+    private sealed class TareoConTrabajador
+    {
+        public required TareoDiario Tareo { get; init; }
+
+        public required Trabajador Trabajador { get; init; }
     }
 
     public async Task<LiquidacionPeriodo?> LiquidarPeriodoAsync(

@@ -196,6 +196,59 @@ internal sealed class ServicioImportacion(
             : i);
     }
 
+    public async Task<CoberturaDeRango> CoberturaDeRangoAsync(
+        DateOnly desde,
+        DateOnly hasta,
+        CancellationToken cancelacion = default)
+    {
+        if (hasta < desde)
+        {
+            return CoberturaDeRango.Vacia(desde, hasta);
+        }
+
+        // Mismo criterio que el calendario y que el motor: una carga anulada conserva sus
+        // filas pero no cuenta para nada que alimente el tareo.
+        var anuladas = contexto.Importaciones.Where(i => i.Anulada).Select(i => i.Id);
+
+        // El rango se compara con DateTime porque MarcacionCruda guarda fecha y hora: el
+        // límite superior es el día siguiente EXCLUSIVO, no "hasta las 00:00 del último
+        // día", que dejaría fuera la jornada entera de la fecha final.
+        var inicio = desde.ToDateTime(TimeOnly.MinValue);
+        var fin = hasta.AddDays(1).ToDateTime(TimeOnly.MinValue);
+
+        var porDia = await contexto.MarcacionesCrudas
+            .AsNoTracking()
+            .Where(m => !anuladas.Contains(m.ImportacionId)
+                        && m.FechaHora >= inicio && m.FechaHora < fin)
+            .GroupBy(m => new { m.FechaHora.Year, m.FechaHora.Month, m.FechaHora.Day })
+            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Marcaciones = g.Count() })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        // Los días futuros no son huecos: en un periodo en curso, media tabla está por
+        // ocurrir. El corte se hace aquí y no en la vista porque decidir qué cuenta como
+        // faltante es una regla, no presentación.
+        var hoy = DateOnly.FromDateTime(DateTime.Now);
+        var ultimoTranscurrido = hasta < hoy ? hasta : hoy;
+
+        var transcurridos = ultimoTranscurrido < desde
+            ? 0
+            : ultimoTranscurrido.DayNumber - desde.DayNumber + 1;
+
+        // Los días con marcación se cuentan solo dentro del tramo ya transcurrido, que es
+        // contra el que se restan. Mezclar los dos alcances haría que una marcación con
+        // fecha futura —reloj del equipo mal puesto— tapara un hueco real del pasado.
+        var conMarcacionTranscurridos = porDia
+            .Count(d => new DateOnly(d.Year, d.Month, d.Day) <= ultimoTranscurrido);
+
+        return new CoberturaDeRango(
+            desde,
+            hasta,
+            porDia.Sum(d => d.Marcaciones),
+            conMarcacionTranscurridos,
+            transcurridos);
+    }
+
     public async Task<CoberturaMarcaciones> CoberturaAsync(
         int anio,
         int mes,

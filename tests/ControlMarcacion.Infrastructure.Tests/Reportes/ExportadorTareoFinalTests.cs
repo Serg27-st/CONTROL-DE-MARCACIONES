@@ -22,9 +22,20 @@ public class ExportadorTareoFinalTests
     private static readonly DateOnly Inicio = new(2024, 11, 1);
     private static readonly DateOnly Fin = new(2024, 11, 30);
 
-    private static MetadatosReporte Metadatos() => new(
-        "2024-11", "Noviembre 2024", Inicio, Fin, PeriodoAbierto: false,
-        "Todos los trabajadores", new DateTime(2024, 12, 2, 9, 0, 0), "rrhh");
+    private static MetadatosReporte Metadatos(EstadoCalculoTareo? calculo = null) => new(
+        Alcance: "Periodo 2024-11 · 01/11/2024 al 30/11/2024",
+        FechaInicio: Inicio,
+        FechaFin: Fin,
+        PeriodoCodigo: "2024-11",
+        PeriodoNombre: "Noviembre 2024",
+        PeriodoAbierto: false,
+        FiltrosDescripcion: "Todos los trabajadores",
+        GeneradoEn: new DateTime(2024, 12, 2, 9, 0, 0),
+        GeneradoPor: "rrhh",
+        Calculo: calculo ?? new EstadoCalculoTareo(
+            CalculadoMasReciente: new DateTime(2024, 12, 1, 22, 0, 0),
+            UltimoCambioRelevante: new DateTime(2024, 11, 30, 20, 0, 0),
+            MotivoUltimoCambio: "una carga de marcaciones"));
 
     private static FilaTareoFinalDto Fila() => new()
     {
@@ -59,21 +70,73 @@ public class ExportadorTareoFinalTests
         new("CA OUTSOURCING SAC", "NOVIEMBRE", Inicio, Fin,
             filas ?? [Fila()], descansos ?? [], vacaciones ?? [], licencias ?? []);
 
-    private static XLWorkbook Exportar(TareoFinalDto tareo)
+    private static XLWorkbook Exportar(TareoFinalDto tareo, MetadatosReporte? metadatos = null)
     {
-        var bytes = new ExportadorReportesExcel().ExportarTareoFinal(Metadatos(), tareo);
+        var bytes = new ExportadorReportesExcel().ExportarTareoFinal(metadatos ?? Metadatos(), tareo);
         return new XLWorkbook(new MemoryStream(bytes));
     }
 
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// Las tres hojas del modelo van primero y en su orden; la de trazabilidad, después.
+    /// </summary>
+    /// <remarks>
+    /// El orden importa de verdad: planilla copia las tres primeras a su plantilla. Por eso
+    /// "Trazabilidad" se agregó al final y no al principio — es aditiva y no corre nada.
+    /// </remarks>
     [Fact]
     public void El_libro_trae_las_tres_hojas_del_modelo_y_en_ese_orden()
     {
         using var libro = Exportar(Tareo());
 
         libro.Worksheets.Select(h => h.Name).ShouldBe(
-            ["Tareo", "Descanso Medico", "Vacaciones-Licencias"]);
+            ["Tareo", "Descanso Medico", "Vacaciones-Licencias", "Trazabilidad"]);
+    }
+
+    [Fact]
+    public void La_hoja_de_trazabilidad_dice_de_donde_salio_el_libro()
+    {
+        using var libro = Exportar(Tareo());
+        var hoja = libro.Worksheet("Trazabilidad");
+
+        var etiquetas = Enumerable.Range(3, 10).Select(f => hoja.Cell(f, 1).GetString()).ToList();
+
+        etiquetas.ShouldContain("Alcance");
+        etiquetas.ShouldContain("Generado por");
+        etiquetas.ShouldContain("Estado del periodo");
+
+        hoja.Cell(4, 2).GetString().ShouldBe("Periodo 2024-11 · 01/11/2024 al 30/11/2024");
+        hoja.Cell(12, 2).GetString().ShouldBe("rrhh");
+    }
+
+    /// <summary>
+    /// Un tareo calculado antes del último cambio se declara desactualizado en el archivo.
+    /// </summary>
+    /// <remarks>
+    /// Es la única señal: un Excel con cifras viejas se ve idéntico a uno al día, y una vez
+    /// enviado por correo ya no hay pantalla que lo avise.
+    /// </remarks>
+    [Fact]
+    public void Un_tareo_desactualizado_se_advierte_dentro_del_propio_archivo()
+    {
+        var desactualizado = new EstadoCalculoTareo(
+            CalculadoMasReciente: new DateTime(2024, 11, 20, 10, 0, 0),
+            UltimoCambioRelevante: new DateTime(2024, 11, 29, 18, 30, 0),
+            MotivoUltimoCambio: "una carga de marcaciones");
+
+        desactualizado.Desactualizado.ShouldBeTrue();
+
+        using var libro = Exportar(Tareo(), Metadatos(desactualizado));
+        var hoja = libro.Worksheet("Trazabilidad");
+
+        var texto = Enumerable.Range(13, 6)
+            .Select(f => hoja.Cell(f, 1).GetString())
+            .First(t => t.Contains("Tareo desactualizado", StringComparison.Ordinal));
+
+        texto.ShouldContain("20/11/2024 10:00");
+        texto.ShouldContain("una carga de marcaciones");
+        texto.ShouldContain("Recalcule el periodo");
     }
 
     [Fact]
@@ -396,7 +459,7 @@ public class ExportadorTareoFinalTests
     {
         using var libro = Exportar(Tareo(filas: []));
 
-        libro.Worksheets.Count.ShouldBe(3);
+        libro.Worksheets.Count.ShouldBe(4);
         libro.Worksheet("Tareo").Cell("L6").GetString().ShouldBe("FALTAS");
     }
 }

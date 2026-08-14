@@ -1,10 +1,12 @@
 using System.Globalization;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Reportes;
 using ControlMarcacion.Application.Reportes.Dto;
 using ControlMarcacion.Domain.Asistencia;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Normativa;
+using ControlMarcacion.Domain.Reportes;
 using ControlMarcacion.Domain.Solicitudes;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,13 +38,9 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
-        var periodo = await contexto.Periodos
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == filtro.PeriodoId, cancelacion)
-            .ConfigureAwait(false)
-            ?? throw new RecursoNoEncontradoException("el periodo", filtro.PeriodoId);
+        var rango = await ResolverRangoAsync(filtro, cancelacion).ConfigureAwait(false);
 
-        var trabajadores = await ResolverTrabajadoresAsync(filtro, cancelacion).ConfigureAwait(false);
+        var trabajadores = await ResolverTrabajadoresAsync(filtro, rango, cancelacion).ConfigureAwait(false);
 
         if (trabajadores.Count == 0)
         {
@@ -53,7 +51,8 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
         var tareos = await contexto.TareosDiarios
             .AsNoTracking()
-            .Where(t => t.PeriodoId == filtro.PeriodoId && ids.Contains(t.TrabajadorId))
+            .Where(t => t.Fecha >= rango.Desde && t.Fecha <= rango.Hasta
+                        && ids.Contains(t.TrabajadorId))
             .Select(t => new
             {
                 t.TrabajadorId,
@@ -88,11 +87,11 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         // Movilidad: mismo criterio que el tareo final (ArmarFilasTareoAsync) — días
         // asistidos (marcación real de entrada Y salida, Puntual o Tardanza; NO
         // MinutosTrabajados > 0, que también se rellena en vacaciones justificadas) por la
-        // tarifa vigente al cierre del periodo.
+        // tarifa vigente al último día del alcance.
         var valorMovilidadDiaria = ResolverVigente(
             await ObtenerParametroLegalAsync(TipoParametroLegal.ValorMovilidadDiaria, cancelacion)
                 .ConfigureAwait(false),
-            periodo.FechaFin,
+            rango.Hasta,
             "el valor de movilidad diaria");
 
         return
@@ -137,17 +136,82 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         ];
     }
 
+    public async Task<ResumenTareoPagina> ResumenTareoPaginadoAsync(
+        FiltroReporte filtro,
+        int pagina,
+        int tamanioPagina,
+        CancellationToken cancelacion = default)
+    {
+        var tamanio = Math.Clamp(tamanioPagina, 10, 500);
+        var numero = Math.Max(pagina, 1);
+
+        // Se calcula el alcance completo y se recorta después. Los totales tienen que
+        // salir de TODAS las filas —es la fila que planilla suma—, y calcularlas ya
+        // obliga a recorrer el alcance entero: el bono nocturno se resuelve día por día
+        // con la RMV vigente en cada fecha. Ver IServicioReportes.
+        var todas = await ResumenTareoAsync(filtro, cancelacion).ConfigureAwait(false);
+
+        var recorte = todas
+            .Skip((numero - 1) * tamanio)
+            .Take(tamanio)
+            .ToList();
+
+        return new ResumenTareoPagina(
+            new ResultadoPaginado<ResumenTareoDto>(recorte, todas.Count, numero, tamanio),
+            TotalesResumenTareo.De(todas));
+    }
+
     public async Task<IReadOnlyList<ExcepcionDto>> ExcepcionesAsync(
         FiltroReporte filtro,
         CancellationToken cancelacion = default)
     {
+        var pagina = await ExcepcionesInternoAsync(filtro, pagina: null, tamanioPagina: 0, cancelacion)
+            .ConfigureAwait(false);
+
+        return pagina.Elementos;
+    }
+
+    public async Task<ResultadoPaginado<ExcepcionDto>> ExcepcionesPaginadasAsync(
+        FiltroReporte filtro,
+        int pagina,
+        int tamanioPagina,
+        CancellationToken cancelacion = default) =>
+        await ExcepcionesInternoAsync(
+                filtro,
+                Math.Max(pagina, 1),
+                Math.Clamp(tamanioPagina, 10, 500),
+                cancelacion)
+            .ConfigureAwait(false);
+
+    /// <summary>
+    /// Excepciones del alcance, con o sin recorte de página.
+    /// </summary>
+    /// <remarks>
+    /// Una sola implementación para la pantalla y para el Excel: si fueran dos consultas
+    /// separadas, un filtro corregido en una y no en la otra haría que el archivo que se
+    /// envía a planilla no coincidiera con lo que se vio antes de exportarlo.
+    ///
+    /// Con <paramref name="pagina"/> nulo devuelve todas las filas, que es lo que necesita
+    /// la exportación.
+    /// </remarks>
+    private async Task<ResultadoPaginado<ExcepcionDto>> ExcepcionesInternoAsync(
+        FiltroReporte filtro,
+        int? pagina,
+        int tamanioPagina,
+        CancellationToken cancelacion)
+    {
         ArgumentNullException.ThrowIfNull(filtro);
 
-        var trabajadores = await ResolverTrabajadoresAsync(filtro, cancelacion).ConfigureAwait(false);
+        // Resolver el rango primero también valida que el periodo exista: antes, un
+        // PeriodoId inventado devolvía lista vacía y la pantalla decía "no hay excepciones"
+        // cuando lo que no había era el periodo.
+        var rango = await ResolverRangoAsync(filtro, cancelacion).ConfigureAwait(false);
+
+        var trabajadores = await ResolverTrabajadoresAsync(filtro, rango, cancelacion).ConfigureAwait(false);
 
         if (trabajadores.Count == 0)
         {
-            return [];
+            return new ResultadoPaginado<ExcepcionDto>([], 0, pagina ?? 1, tamanioPagina);
         }
 
         var ids = trabajadores.Select(t => t.Id).ToList();
@@ -158,12 +222,23 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             .ToDictionaryAsync(t => t.Id, t => t.Codigo, cancelacion)
             .ConfigureAwait(false);
 
-        var excepciones = await contexto.TareosDiarios
+        var consulta = contexto.TareosDiarios
             .AsNoTracking()
-            .Where(t => t.PeriodoId == filtro.PeriodoId
+            .Where(t => t.Fecha >= rango.Desde && t.Fecha <= rango.Hasta
                         && ids.Contains(t.TrabajadorId)
-                        && EstadosDeExcepcion.Contains(t.Estado))
-            .OrderBy(t => t.Fecha).ThenBy(t => t.TrabajadorId)
+                        && EstadosDeExcepcion.Contains(t.Estado));
+
+        var total = await consulta.CountAsync(cancelacion).ConfigureAwait(false);
+
+        var ordenada = consulta.OrderBy(t => t.Fecha).ThenBy(t => t.TrabajadorId);
+
+        // El recorte baja a SQL. Sin paginación el Skip/Take no se aplica y la consulta
+        // queda exactamente como estaba, que es lo que exporta el Excel.
+        var recortada = pagina is { } numero
+            ? ordenada.Skip((numero - 1) * tamanioPagina).Take(tamanioPagina)
+            : (IQueryable<TareoDiario>)ordenada;
+
+        var excepciones = await recortada
             .Select(t => new
             {
                 t.TrabajadorId,
@@ -179,21 +254,21 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-        return
-        [
-            .. excepciones.Select(e => new ExcepcionDto(
-                e.TrabajadorId,
-                porId[e.TrabajadorId].Nombre,
-                porId[e.TrabajadorId].IdMarcador,
-                e.Fecha,
-                e.TurnoId is { } turnoId ? turnos.GetValueOrDefault(turnoId) : null,
-                e.EntradaReal,
-                e.SalidaReal,
-                e.Estado,
-                e.MinutosTardanza,
-                e.MinutosSalidaAnticipada,
-                e.Observacion))
-        ];
+        var filas = excepciones.ConvertAll(e => new ExcepcionDto(
+            e.TrabajadorId,
+            porId[e.TrabajadorId].Nombre,
+            porId[e.TrabajadorId].IdMarcador,
+            e.Fecha,
+            e.TurnoId is { } turnoId ? turnos.GetValueOrDefault(turnoId) : null,
+            e.EntradaReal,
+            e.SalidaReal,
+            e.Estado,
+            e.MinutosTardanza,
+            e.MinutosSalidaAnticipada,
+            e.Observacion));
+
+        return new ResultadoPaginado<ExcepcionDto>(
+            filas, total, pagina ?? 1, pagina is null ? Math.Max(total, 1) : tamanioPagina);
     }
 
     public async Task<TareoFinalDto> TareoFinalAsync(
@@ -202,13 +277,26 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
+        // El libro de planilla es por periodo y solo por periodo: sus reintegros se cargan
+        // por trabajador y periodo, y el encabezado declara si está abierto o cerrado.
+        // Sobre medio mes saldría sin reintegros y sin estado — un entregable incompleto que
+        // parece completo.
+        if (filtro.Alcance != AlcanceReporte.Periodo)
+        {
+            throw new ReglaNegocioException(
+                "El tareo final se emite por periodo de planilla, no por mes, día ni rango " +
+                "libre: sus reintegros y su estado de cierre son del periodo. Elija el " +
+                "alcance \"Periodo\" para descargarlo.");
+        }
+
+        var rango = await ResolverRangoAsync(filtro, cancelacion).ConfigureAwait(false);
+
         var periodo = await contexto.Periodos
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == filtro.PeriodoId, cancelacion)
-            .ConfigureAwait(false)
-            ?? throw new RecursoNoEncontradoException("el periodo", filtro.PeriodoId);
+            .FirstAsync(p => p.Id == rango.PeriodoId, cancelacion)
+            .ConfigureAwait(false);
 
-        var trabajadores = await ResolverTrabajadoresAsync(filtro, cancelacion).ConfigureAwait(false);
+        var trabajadores = await ResolverTrabajadoresAsync(filtro, rango, cancelacion).ConfigureAwait(false);
 
         var razonSocial = filtro.EmpresaId is { } empresaId
             ? await contexto.Empresas.AsNoTracking()
@@ -229,7 +317,7 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
 
         var ids = trabajadores.Select(t => t.Id).ToList();
 
-        var filasTareo = await ArmarFilasTareoAsync(filtro, periodo, trabajadores, ids, cancelacion)
+        var filasTareo = await ArmarFilasTareoAsync(periodo, trabajadores, ids, cancelacion)
             .ConfigureAwait(false);
 
         var (descansos, vacaciones, licencias) =
@@ -248,11 +336,12 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
-        var periodo = await contexto.Periodos
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == filtro.PeriodoId, cancelacion)
-            .ConfigureAwait(false)
-            ?? throw new RecursoNoEncontradoException("el periodo", filtro.PeriodoId);
+        var rango = await ResolverRangoAsync(filtro, cancelacion).ConfigureAwait(false);
+
+        var periodo = rango.PeriodoId is { } periodoId
+            ? await contexto.Periodos.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == periodoId, cancelacion).ConfigureAwait(false)
+            : null;
 
         var partesFiltro = new List<string>();
 
@@ -288,15 +377,149 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
             partesFiltro.Add($"Centro de costo: {codigo}");
         }
 
+        var calculo = await EvaluarVigenciaDelCalculoAsync(rango, cancelacion).ConfigureAwait(false);
+
         return new MetadatosReporte(
-            periodo.Codigo,
-            periodo.Nombre,
-            periodo.FechaInicio,
-            periodo.FechaFin,
-            periodo.EstaAbierto,
+            rango.Etiqueta,
+            rango.Desde,
+            rango.Hasta,
+            periodo?.Codigo,
+            periodo?.Nombre,
+            periodo?.EstaAbierto,
             partesFiltro.Count == 0 ? "Todos los trabajadores" : string.Join(" · ", partesFiltro),
             DateTime.Now,
-            usuario);
+            usuario,
+            calculo);
+    }
+
+    // ------------------------------------------------------------------
+    // Alcance temporal
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Convierte la elección del filtro en un rango de fechas válido.
+    /// </summary>
+    /// <remarks>
+    /// La validación de cada alcance vive en <see cref="ResolutorRangoReporte"/>, que es
+    /// puro y está probado con fechas literales. Lo único que aporta este método es la
+    /// consulta del periodo, que sí necesita base de datos.
+    /// </remarks>
+    private async Task<RangoReporte> ResolverRangoAsync(
+        FiltroReporte filtro,
+        CancellationToken cancelacion)
+    {
+        if (filtro.Alcance != AlcanceReporte.Periodo)
+        {
+            return filtro.Alcance switch
+            {
+                AlcanceReporte.Mes => ResolutorRangoReporte.DeMes(filtro.Anio, filtro.Mes),
+                AlcanceReporte.Dia => ResolutorRangoReporte.DeDia(filtro.Desde),
+                AlcanceReporte.Rango => ResolutorRangoReporte.DeRango(filtro.Desde, filtro.Hasta),
+                _ => throw new ReglaNegocioException(
+                    $"El alcance de reporte «{filtro.Alcance}» no está contemplado.")
+            };
+        }
+
+        if (filtro.PeriodoId is not { } periodoId)
+        {
+            throw new ReglaNegocioException("Elija el periodo que quiere reportar.");
+        }
+
+        var periodo = await contexto.Periodos
+            .AsNoTracking()
+            .Where(p => p.Id == periodoId)
+            .Select(p => new { p.Id, p.Codigo, p.FechaInicio, p.FechaFin })
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false)
+            ?? throw new RecursoNoEncontradoException("el periodo", periodoId);
+
+        return ResolutorRangoReporte.DePeriodo(
+            periodo.Id, periodo.Codigo, periodo.FechaInicio, periodo.FechaFin);
+    }
+
+    // ------------------------------------------------------------------
+    // Vigencia del cálculo
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Compara cuándo se calculó el tareo del alcance contra lo último que pudo cambiarlo.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Este módulo consulta el tareo que dejó el motor y no lo recalcula: por eso un reporte
+    /// puede salir con cifras viejas sin verse distinto. Las tres cosas que mueven el
+    /// resultado de un día ya calculado son una <b>marcación</b> nueva sobre ese día, la
+    /// <b>anulación o reactivación</b> de la carga que la trajo, y una <b>justificación</b>
+    /// creada o modificada. Si alguna es posterior al último <c>CalculadoEn</c> del rango,
+    /// el reporte está desactualizado y hay que decirlo.
+    /// </para>
+    /// <para>
+    /// Son cuatro agregados escalares sobre índices ya existentes, y solo se pagan al pedir
+    /// los metadatos —es decir, una vez por pantalla o por exportación—, no por fila.
+    /// </para>
+    /// <para>
+    /// ⚠️ Deliberadamente <b>no</b> se filtra por los trabajadores del filtro de organización:
+    /// la pregunta que responde es "¿el tareo de estas fechas está al día?", que es del
+    /// periodo y no de a quién se esté mirando. Filtrarlo haría que el mismo periodo
+    /// apareciera al día en una planta y desactualizado en otra.
+    /// </para>
+    /// </remarks>
+    private async Task<EstadoCalculoTareo> EvaluarVigenciaDelCalculoAsync(
+        RangoReporte rango,
+        CancellationToken cancelacion)
+    {
+        var calculadoMasReciente = await contexto.TareosDiarios
+            .AsNoTracking()
+            .Where(t => t.Fecha >= rango.Desde && t.Fecha <= rango.Hasta)
+            .MaxAsync(t => (DateTime?)t.CalculadoEn, cancelacion)
+            .ConfigureAwait(false);
+
+        if (calculadoMasReciente is null)
+        {
+            return EstadoCalculoTareo.NuncaCalculado;
+        }
+
+        var desde = rango.Desde.ToDateTime(TimeOnly.MinValue);
+        var hasta = rango.Hasta.ToDateTime(TimeOnly.MaxValue);
+
+        // Marcaciones del rango: se mira CreadoEn (cuándo entró la fila al sistema), no
+        // FechaHora (cuándo marcó la persona). Un archivo de julio cargado en agosto cambia
+        // el tareo de julio en agosto.
+        var ultimaMarcacion = await contexto.MarcacionesCrudas
+            .AsNoTracking()
+            .Where(m => m.FechaHora >= desde && m.FechaHora <= hasta)
+            .MaxAsync(m => (DateTime?)m.CreadoEn, cancelacion)
+            .ConfigureAwait(false);
+
+        // Anular o reactivar una carga no borra ni inserta ninguna marcación, pero cambia
+        // cuáles cuenta el motor: sin esto, "subí el archivo equivocado y lo anulé" dejaría
+        // el reporte viejo pasando por vigente.
+        var ultimaAnulacion = await contexto.Importaciones
+            .AsNoTracking()
+            .Where(i => contexto.MarcacionesCrudas
+                .Any(m => m.ImportacionId == i.Id && m.FechaHora >= desde && m.FechaHora <= hasta))
+            .MaxAsync(i => i.ModificadoEn, cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimaJustificacion = await contexto.Justificaciones
+            .AsNoTracking()
+            .Where(j => j.Fecha >= rango.Desde && j.Fecha <= rango.Hasta)
+            .MaxAsync(j => (DateTime?)(j.ModificadoEn ?? j.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var cambios = new (DateTime? Momento, string Motivo)[]
+        {
+            (ultimaMarcacion, "una carga de marcaciones"),
+            (ultimaAnulacion, "un cambio en el estado de una carga de marcaciones"),
+            (ultimaJustificacion, "una justificación nueva o modificada")
+        };
+
+        var ultimo = cambios
+            .Where(c => c.Momento is not null)
+            .OrderByDescending(c => c.Momento)
+            .FirstOrDefault();
+
+        return new EstadoCalculoTareo(calculadoMasReciente, ultimo.Momento, ultimo.Motivo);
     }
 
     // ------------------------------------------------------------------
@@ -321,11 +544,43 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         string? CentroCostoCodigo,
         string? CentroCostoDescripcion);
 
+    /// <summary>
+    /// Los trabajadores que el reporte debe listar: los que tuvieron vínculo laboral
+    /// <b>dentro del rango</b>, no todo el padrón activo.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// El solapamiento (<c>ingresó antes de que terminara</c> y <c>no había cesado cuando
+    /// empezó</c>) es <b>el mismo filtro que aplica el motor</b> al calcular el periodo
+    /// —<c>ServicioCalculoTareo</c>, al armar la lista de trabajadores—. Que sea el mismo no
+    /// es coincidencia: si el reporte listara a alguien que el motor no calcula, esa fila
+    /// saldría en cero, y en el tareo final saldría además con su fecha de cese y la
+    /// observación «CESE», como si hubiera cesado este mes.
+    /// </para>
+    /// <para>
+    /// Sin esto, alguien cesado en marzo aparecía en el tareo de julio y alguien contratado
+    /// en agosto también: <c>Activo</c> es la baja lógica de la ficha, que a propósito
+    /// <b>no</b> se apaga al registrar un cese (<c>Trabajador.DarDeBaja</c> solo escribe
+    /// <c>FechaCese</c>), porque la ficha tiene que seguir consultable. Filtrar por
+    /// <c>Activo</c> a secas confundía "existe" con "trabajaba en estas fechas".
+    /// </para>
+    /// <para>
+    /// Se usan los campos planos <c>FechaIngreso</c>/<c>FechaCese</c> y no
+    /// <c>PeriodoLaboral</c>, otra vez para coincidir con el motor: la historia de vínculos
+    /// existe para no perder los reingresos, pero mientras el motor calcule contra los
+    /// campos planos, el reporte tiene que leer lo mismo o los dos dirán cosas distintas.
+    /// </para>
+    /// </remarks>
     private async Task<List<TrabajadorResuelto>> ResolverTrabajadoresAsync(
         FiltroReporte filtro,
+        RangoReporte rango,
         CancellationToken cancelacion)
     {
-        var consulta = contexto.Trabajadores.AsNoTracking().Where(t => t.Activo);
+        var consulta = contexto.Trabajadores
+            .AsNoTracking()
+            .Where(t => t.Activo
+                        && t.FechaIngreso <= rango.Hasta
+                        && (t.FechaCese == null || t.FechaCese >= rango.Desde));
 
         if (filtro.EmpresaId is { } empresaId)
         {
@@ -556,7 +811,6 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
     };
 
     private async Task<List<FilaTareoFinalDto>> ArmarFilasTareoAsync(
-        FiltroReporte filtro,
         Periodo periodo,
         List<TrabajadorResuelto> trabajadores,
         List<long> ids,
@@ -566,7 +820,8 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         // en las columnas DM / VACACI. / LIC. ... sin una consulta por columna.
         var dias = await contexto.TareosDiarios
             .AsNoTracking()
-            .Where(t => t.PeriodoId == filtro.PeriodoId && ids.Contains(t.TrabajadorId))
+            .Where(t => t.Fecha >= periodo.FechaInicio && t.Fecha <= periodo.FechaFin
+                        && ids.Contains(t.TrabajadorId))
             .Select(t => new
             {
                 t.TrabajadorId,
@@ -599,7 +854,7 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         // no hace falta traer Id/auditoría/lo que no se muestra.
         var reintegros = await contexto.ReintegrosTareo
             .AsNoTracking()
-            .Where(r => r.PeriodoId == filtro.PeriodoId && ids.Contains(r.TrabajadorId))
+            .Where(r => r.PeriodoId == periodo.Id && ids.Contains(r.TrabajadorId))
             .Select(r => new
             {
                 r.TrabajadorId,

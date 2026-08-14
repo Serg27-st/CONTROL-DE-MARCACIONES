@@ -45,6 +45,24 @@ public interface IServicioImportacion
         int mes,
         CancellationToken cancelacion = default);
 
+    /// <summary>
+    /// La misma pregunta que <see cref="CoberturaAsync"/>, pero sobre un rango arbitrario
+    /// y resumida en tres cifras.
+    /// </summary>
+    /// <remarks>
+    /// Existe aparte porque el calendario recorre el <b>año entero</b> para poder pintar
+    /// las doce pastillas de mes, y quien solo necesita "¿cuántos días del periodo me
+    /// faltan?" no tiene por qué pagar ese barrido. Además un periodo de planilla no tiene
+    /// por qué caber en un mes calendario.
+    ///
+    /// Cuenta <b>solo cargas vigentes</b>, igual que el calendario y que el motor: las
+    /// marcaciones de una importación anulada existen pero no alimentan ningún tareo.
+    /// </remarks>
+    Task<CoberturaDeRango> CoberturaDeRangoAsync(
+        DateOnly desde,
+        DateOnly hasta,
+        CancellationToken cancelacion = default);
+
     Task<ResultadoImportacion?> ObtenerResultadoAsync(
         long importacionId,
         CancellationToken cancelacion = default);

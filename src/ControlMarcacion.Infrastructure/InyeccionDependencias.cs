@@ -1,6 +1,7 @@
 using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Auditoria;
 using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Inicio;
 using ControlMarcacion.Application.Marcaciones;
 using ControlMarcacion.Application.Justificaciones;
 using ControlMarcacion.Application.Personal;
@@ -88,6 +89,10 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         // que una futura conexión directa al equipo no obligue a tocar el servicio.
         servicios.AddScoped<IFuenteDeMarcaciones, LectorTxtZkteco>();
         servicios.AddScoped<IServicioImportacion, ServicioImportacion>();
+
+        // Orquestador de la portada: vive en Application porque solo compone servicios de
+        // caso de uso, sin tocar el DbContext.
+        servicios.AddScoped<IServicioPanelInicio, ServicioPanelInicio>();
 
         servicios.AddScoped<ServicioTrabajadores>();
         servicios.AddScoped<ICargaMasivaTrabajadores, CargaMasivaTrabajadores>();

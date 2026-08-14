@@ -1,3 +1,4 @@
+using System.Globalization;
 using ControlMarcacion.Application.Auditoria.Dto;
 using ControlMarcacion.Application.Catalogos.Dto;
 using ControlMarcacion.Application.Comun;
@@ -23,6 +24,25 @@ public sealed class ListadoTrabajadoresVm
     public IReadOnlyList<OpcionDto> Centros { get; init; } = [];
 
     public IReadOnlyList<OpcionDto> CentrosCosto { get; init; } = [];
+
+    /// <summary>Filtros activos, para conservarlos al cambiar de página.</summary>
+    /// <remarks>
+    /// La vista lo armaba dos veces —una por cada enlace de paginación— y a las dos les
+    /// faltaba <c>TipoPlanilla</c>: pasar de página descartaba en silencio el filtro de
+    /// obrero/empleado. Al haber una sola copia, un filtro nuevo se agrega aquí y ya.
+    /// </remarks>
+    public Dictionary<string, string?> RutaFiltros() => new()
+    {
+        ["Busqueda"] = Filtro.Busqueda,
+        ["EmpresaId"] = Filtro.EmpresaId?.ToString(CultureInfo.InvariantCulture),
+        ["PlantaId"] = Filtro.PlantaId?.ToString(CultureInfo.InvariantCulture),
+        ["CentroId"] = Filtro.CentroId?.ToString(CultureInfo.InvariantCulture),
+        ["CentroCostoId"] = Filtro.CentroCostoId?.ToString(CultureInfo.InvariantCulture),
+        ["TipoPlanilla"] = Filtro.TipoPlanilla is null
+            ? null
+            : ((int)Filtro.TipoPlanilla).ToString(CultureInfo.InvariantCulture),
+        ["SoloActivos"] = Filtro.SoloActivos?.ToString()
+    };
 }
 
 /// <summary>

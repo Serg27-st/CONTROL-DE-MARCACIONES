@@ -101,11 +101,13 @@ public sealed class GeneracionTareoFinalEndToEndTests : IDisposable
         {
             var hoja = libro.Worksheets.First();
 
-            // Fila 8 es la primera de datos (encabezado de trazabilidad ocupa 1-6, títulos 7).
+            // Fila 9 es la primera de datos: el encabezado de trazabilidad ocupa 1-7 (la 6
+            // es el estado del cálculo, que se agregó al detectar el tareo desactualizado)
+            // y los títulos de columna van en la 8.
             var bonoNocturnoEsperado = CalculadoraBonoNocturno.BonoDiario(1130m, 35m, 1200m, 31);
             bonoNocturnoEsperado.ShouldBeGreaterThan(0m); // el sueldo (1200) está bajo el piso (1525.50)
 
-            hoja.Cell(8, 19).GetDouble().ShouldBe((double)bonoNocturnoEsperado);
+            hoja.Cell(9, 19).GetDouble().ShouldBe((double)bonoNocturnoEsperado);
         }
     }
 

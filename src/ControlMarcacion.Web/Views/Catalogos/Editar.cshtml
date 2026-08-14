@@ -1,15 +1,21 @@
 @model EditarCatalogoVm
+@using System.Globalization
 @{
+    var definicion = Model.Definicion;
+    var cultura = CultureInfo.CurrentCulture;
+
     ViewData["Title"] = Model.EsNuevo
-        ? Model.Definicion.RotuloNuevo
-        : $"Editar {Model.Definicion.ConArticulo}";
+        ? definicion.RotuloNuevo
+        : $"Editar {definicion.ConArticulo}";
+
+    var ambitoCodigo = definicion.EsJerarquico
+        ? $"dentro de cada {definicion.EtiquetaPadre?.ToLower(cultura)}"
+        : "en todo el sistema";
 }
 
 <div class="titulo-pagina">
     <h1>@ViewData["Title"]</h1>
-    <a class="boton boton-secundario"
-       asp-action="Lista"
-       asp-route-clave="@Model.Definicion.Clave">Volver al listado</a>
+    <span class="texto-suave">@definicion.Titulo</span>
 </div>
 
 <form method="post" asp-action="Guardar">
@@ -17,6 +23,12 @@
     <input type="hidden" asp-for="Clave" />
     <input type="hidden" asp-for="Datos.Id" />
 
+    @*
+        Los errores de regla de negocio llegan sin nombre de campo (ModelState con clave
+        vacía): «ya existe ese código», «indique a qué planta pertenece». Sin este bloque
+        el formulario se recargaría idéntico y en silencio, y el usuario volvería a pulsar
+        Guardar esperando otro resultado.
+    *@
     @if (!ViewData.ModelState.IsValid)
     {
         <div class="aviso aviso-error" role="alert">
@@ -31,30 +43,47 @@
     }
 
     <div class="tarjeta">
-        <h2>@Model.Definicion.Titulo</h2>
+        <h2>Datos</h2>
+
         <div class="rejilla">
-            @if (Model.Definicion.EsJerarquico)
+            @if (definicion.EsJerarquico)
             {
                 <div class="campo">
-                    <label asp-for="Datos.PadreId">@Model.Definicion.EtiquetaPadre</label>
+                    <label asp-for="Datos.PadreId">
+                        @definicion.EtiquetaPadre <span class="obligatorio">*</span>
+                    </label>
                     <select asp-for="Datos.PadreId" class="select-buscable"
                             asp-items="@(new SelectList(Model.OpcionesPadre, "Id", "Nombre"))">
                         <option value="">Seleccione…</option>
                     </select>
                     <span class="error-campo" asp-validation-for="Datos.PadreId"></span>
+
+                    @if (Model.OpcionesPadre.Count == 0)
+                    {
+                        <small class="nota-limite">
+                            No hay ninguna opción activa. Cargue primero
+                            @definicion.EtiquetaPadre?.ToLower(cultura) antes de crear
+                            @definicion.ConArticulo.
+                        </small>
+                    }
                 </div>
             }
 
             <div class="campo">
-                <label asp-for="Datos.Codigo">Código</label>
-                <input asp-for="Datos.Codigo" type="text" maxlength="20" />
+                <label asp-for="Datos.Codigo">Código <span class="obligatorio">*</span></label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="20"
+                       autocomplete="off" spellcheck="false" class="campo-codigo" />
                 <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+                <small class="nota-limite">
+                    Se guarda en mayúsculas. Único @ambitoCodigo. Hasta 20 caracteres.
+                </small>
             </div>
 
             <div class="campo">
-                <label asp-for="Datos.Nombre">Nombre</label>
-                <input asp-for="Datos.Nombre" type="text" maxlength="120" />
+                <label asp-for="Datos.Nombre">Nombre <span class="obligatorio">*</span></label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="120" autocomplete="off" />
                 <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+                <small class="nota-limite">Es lo que se verá en los desplegables del sistema.</small>
             </div>
 
             <div class="campo campo-casilla">
@@ -64,10 +93,17 @@
         </div>
 
         <p class="nota-pie">
-            El código se guarda en mayúsculas y debe ser único@(Model.Definicion.EsJerarquico
-                ? $" dentro de cada {Model.Definicion.EtiquetaPadre?.ToLowerInvariant()}" : " en todo el sistema").
-            Los catálogos no se eliminan: se desactivan, porque hay marcaciones y tareos
-            históricos que los referencian.
+            Los catálogos <strong>no se eliminan</strong>: se desactivan. Hay marcaciones y
+            tareos históricos que los referencian, y borrarlos dejaría esos registros
+            apuntando a la nada.
+            @if (!Model.EsNuevo)
+            {
+                <br />
+                <text>
+                    Cambiar el <strong>nombre</strong> se refleja en todas partes, incluidos
+                    los tareos ya calculados: es la misma fila, solo que rotulada distinto.
+                </text>
+            }
         </p>
     </div>
 
@@ -75,6 +111,6 @@
         <button type="submit" class="boton boton-primario">Guardar</button>
         <a class="boton boton-secundario"
            asp-action="Lista"
-           asp-route-clave="@Model.Definicion.Clave">Cancelar</a>
+           asp-route-clave="@definicion.Clave">Cancelar</a>
     </div>
 </form>

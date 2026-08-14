@@ -5,6 +5,26 @@ using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ControlMarcacion.Web.Models;
 
+/// <summary>Modelo de la portada de catálogos.</summary>
+public sealed class PortadaCatalogosVm
+{
+    public IReadOnlyList<DefinicionCatalogo> Definiciones { get; init; } = [];
+
+    /// <summary>Cuántos elementos tiene cada catálogo, por clave.</summary>
+    public IReadOnlyDictionary<string, ConteoCatalogo> Conteos { get; init; } =
+        new Dictionary<string, ConteoCatalogo>();
+
+    public ConteoCatalogo Conteo(string clave) =>
+        Conteos.TryGetValue(clave, out var conteo) ? conteo : ConteoCatalogo.Vacio;
+
+    /// <summary>
+    /// Catálogos sin ningún elemento activo. Son los que dejan un desplegable vacío en
+    /// los formularios que dependen de ellos, así que la portada los señala arriba.
+    /// </summary>
+    public IReadOnlyList<DefinicionCatalogo> SinElementos =>
+        [.. Definiciones.Where(d => Conteo(d.Clave).SinElementosUtilizables)];
+}
+
 /// <summary>Modelo del listado de un catálogo.</summary>
 public sealed class ListaCatalogoVm
 {

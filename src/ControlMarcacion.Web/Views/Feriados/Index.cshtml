@@ -1,73 +1,123 @@
 @model ListaFeriadosVm
+@using System.Globalization
 @{
     ViewData["Title"] = "Feriados";
+    var cultura = CultureInfo.CurrentCulture;
+    var hoy = DateOnly.FromDateTime(DateTime.Now);
 }
 
 <div class="titulo-pagina">
-    <h1>Feriados</h1>
+    <h1>Feriados @Model.Anio</h1>
+    <a class="boton boton-primario"
+       asp-action="Editar" asp-route-anio="@Model.Anio">Nuevo feriado</a>
 </div>
 
 <div class="tarjeta">
     <p class="subtitulo">
-        Sincronización manual contra un proveedor externo (Nager.Date, cubre Perú): trae los
-        feriados nacionales del año elegido y agrega <strong>solo los que falten</strong>.
-        Nunca borra ni reemplaza un feriado ya cargado, sea de una sincronización anterior o
-        de un feriado local de planta cargado a mano. El cálculo del tareo siempre lee esta
-        misma tabla — nunca llama a internet al calcular.
+        Hay <strong>dos formas</strong> de cargar un feriado y ninguna reemplaza a la otra.
+        <strong>Sincronizar</strong> trae los <em>nacionales</em> del año desde una fuente
+        pública (Nager.Date, cubre Perú) y agrega solo los que falten — nunca borra ni pisa
+        uno ya cargado. El <strong>alta manual</strong> cubre lo que esa fuente no sabe: el
+        aniversario de una planta, un feriado regional, o un nacional decretado que todavía
+        no publicó.
+        <br />
+        El cálculo del tareo siempre lee esta tabla; nunca llama a internet al calcular.
     </p>
 
-    <form method="get" asp-action="Index" id="form-ver-anio">
-        <div class="rejilla">
+    <div class="rejilla">
+        <form method="get" asp-action="Index">
             <div class="campo">
-                <label for="anio">Año</label>
+                <label for="anio">Ver otro año</label>
                 <input type="number" id="anio" name="anio" value="@Model.Anio" min="2000" max="2100" />
             </div>
-        </div>
+            <div class="acciones">
+                <button type="submit" class="boton boton-secundario">Ver</button>
+            </div>
+        </form>
 
-        <div class="acciones">
-            <button type="submit" class="boton boton-secundario">Ver</button>
-        </div>
-    </form>
-
-    @* Formulario aparte: un <form> no puede anidar otro <form>, y este además necesita su
-       propio antiforgery token porque hace un POST distinto. *@
-    <form method="post" asp-action="Sincronizar" class="acciones">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="anio" value="@Model.Anio" />
-        <button type="submit" class="boton boton-primario"
-                data-confirmar="¿Sincronizar los feriados de @Model.Anio contra el servicio externo? Requiere conexión a internet.">
-            Sincronizar @Model.Anio
-        </button>
-    </form>
+        @* Formulario aparte: un <form> no puede anidar otro, y este además necesita su
+           propio antiforgery token porque hace un POST distinto. *@
+        <form method="post" asp-action="Sincronizar">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="anio" value="@Model.Anio" />
+            <div class="campo">
+                <label>Feriados nacionales</label>
+                <small class="nota-limite">Requiere conexión a internet.</small>
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton boton-primario"
+                        data-confirmar="¿Sincronizar los feriados nacionales de @Model.Anio contra el servicio externo? Solo agrega los que falten; no borra ni modifica los ya cargados.">
+                    Sincronizar @Model.Anio
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="tarjeta">
     @if (Model.Feriados.Count == 0)
     {
         <div class="sin-resultados">
-            No hay feriados cargados para @Model.Anio. Use "Sincronizar" para traer los
-            nacionales, o cárguelos a mano desde el módulo de catálogos si son locales de planta.
+            No hay feriados cargados para @Model.Anio.
+            <br />
+            Use <strong>«Sincronizar @Model.Anio»</strong> para traer los nacionales, o
+            <a asp-action="Editar" asp-route-anio="@Model.Anio">cárguelos a mano</a>
+            si son locales de una planta.
         </div>
     }
     else
     {
+        <div class="tira-indicadores">
+            <div class="indicador">
+                <span class="indicador-cifra">@Model.Nacionales</span>
+                <span class="indicador-rotulo">Nacionales activos</span>
+            </div>
+            <div class="indicador">
+                <span class="indicador-cifra">@Model.DePlanta</span>
+                <span class="indicador-rotulo">De planta activos</span>
+            </div>
+            @if (Model.Inactivos > 0)
+            {
+                <div class="indicador">
+                    <span class="indicador-cifra">@Model.Inactivos</span>
+                    <span class="indicador-rotulo">Desactivados</span>
+                </div>
+            }
+        </div>
+
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-feriados", IdConteo = "conteo-feriados", Sustantivo = "feriado(s)", Filas = Model.Feriados.Count, Ejemplo = "Descripción o planta…" }' />
+
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla" id="tabla-feriados">
                 <thead>
                     <tr>
                         <th>Fecha</th>
                         <th>Descripción</th>
                         <th>Alcance</th>
                         <th>Estado</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var f in Model.Feriados)
                     {
-                        <tr>
-                            <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
-                            <td>@f.Descripcion</td>
-                            <td>@(f.PlantaNombre ?? "Todas las plantas")</td>
+                        <tr class="@(f.Activo ? "" : "fila-inactiva")">
+                            <td class="celda-fecha">
+                                @f.Fecha.ToString("dd/MM/yyyy", cultura)
+                                <small class="texto-suave">@f.Fecha.ToString("ddd", cultura)</small>
+                            </td>
+                            <td><strong>@f.Descripcion</strong></td>
+                            <td>
+                                @if (f.EsNacional)
+                                {
+                                    <span class="etiqueta etiqueta-justificada">Todas las plantas</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">@f.PlantaNombre</span>
+                                }
+                            </td>
                             <td>
                                 @if (f.Activo)
                                 {
@@ -78,6 +128,25 @@
                                     <span class="etiqueta etiqueta-incompleto">Inactivo</span>
                                 }
                             </td>
+                            <td>
+                                <div class="acciones-fila">
+                                    <a class="enlace-accion"
+                                       asp-action="Editar" asp-route-id="@f.Id">Editar</a>
+
+                                    <form method="post" asp-action="CambiarEstado" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@f.Id" />
+                                        <input type="hidden" name="anio" value="@Model.Anio" />
+                                        <input type="hidden" name="activo" value="@((!f.Activo).ToString().ToLowerInvariant())" />
+                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                data-confirmar="@(f.Activo
+                                                    ? $"¿Desactivar «{f.Descripcion}» del {f.Fecha:dd/MM/yyyy}? Ese día dejará de contar como feriado en el próximo recálculo."
+                                                    : $"¿Reactivar «{f.Descripcion}» del {f.Fecha:dd/MM/yyyy}?")">
+                                            @(f.Activo ? "Desactivar" : "Activar")
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -85,11 +154,26 @@
         </div>
 
         <div class="paginacion">
-            <span class="conteo">@Model.Feriados.Count feriado(s)</span>
+            <span class="conteo" id="conteo-feriados">@Model.Feriados.Count feriado(s)</span>
         </div>
+
+        <p class="nota-pie">
+            Un feriado <strong>no reescribe tareos ya calculados</strong>: entra en el
+            cálculo en el próximo recálculo del periodo. Los feriados no se eliminan, se
+            desactivan.
+            @if (Model.Anio < hoy.Year)
+            {
+                <br />
+                <text>
+                    Está viendo un año ya pasado: cambiar algo aquí solo tendrá efecto si se
+                    reabre y recalcula el periodo correspondiente.
+                </text>
+            }
+        </p>
     }
 </div>
 
 @section Scripts {
     <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
 }

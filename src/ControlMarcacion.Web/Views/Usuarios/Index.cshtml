@@ -24,8 +24,11 @@
     }
     else
     {
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-usuarios", IdConteo = "conteo-usuarios", Sustantivo = "usuario(s)", Filas = Model.Usuarios.Count, Ejemplo = "Correo, nombre, documento o rol…" }' />
+
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla" id="tabla-usuarios">
                 <thead>
                     <tr>
                         <th>Correo</th>
@@ -76,11 +79,12 @@
         </div>
 
         <div class="paginacion">
-            <span class="conteo">@Model.Usuarios.Count usuario(s)</span>
+            <span class="conteo" id="conteo-usuarios">@Model.Usuarios.Count usuario(s)</span>
         </div>
     }
 </div>
 
 @section Scripts {
     <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
 }

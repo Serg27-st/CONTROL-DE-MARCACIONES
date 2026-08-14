@@ -17,10 +17,20 @@ public sealed class AsistenciaController(
     IServicioCalculoTareo servicio,
     IServicioPeriodos periodos) : Controller
 {
+    /// <summary>Filas por página del listado del tareo.</summary>
+    /// <remarks>
+    /// Un periodo mensual son decenas de miles de filas (trabajadores × días). La pantalla
+    /// las volcaba todas en una sola tabla; con 200 trabajadores eso son 6 000 filas de 13
+    /// columnas en un HTML que el navegador de la planta no termina de pintar.
+    /// </remarks>
+    private const int FilasPorPagina = 50;
+
     [HttpGet]
     public async Task<IActionResult> Index(
         long? periodoId,
         EstadoTareo? estado,
+        string? busqueda,
+        int pagina,
         CancellationToken cancelacion)
     {
         var lista = await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false);
@@ -30,19 +40,31 @@ public sealed class AsistenciaController(
         // La lista viene ordenada por fecha de inicio descendente.
         var seleccionado = periodoId ?? (lista.Count > 0 ? lista[0].Id : null);
 
+        if (seleccionado is null)
+        {
+            return View(new TareoVm { Periodos = lista, Estado = estado, Busqueda = busqueda });
+        }
+
+        var filtro = new FiltroTareo
+        {
+            PeriodoId = seleccionado,
+            Estado = estado,
+            Busqueda = busqueda,
+            Pagina = Math.Max(pagina, 1),
+            TamanioPagina = FilasPorPagina
+        };
+
         var modelo = new TareoVm
         {
             Periodos = lista,
             PeriodoId = seleccionado,
             Estado = estado,
-            Tareos = seleccionado is null
-                ? []
-                : await servicio
-                    .ListarAsync(new FiltroTareo { PeriodoId = seleccionado, Estado = estado }, cancelacion)
-                    .ConfigureAwait(false),
-            Liquidacion = seleccionado is null
-                ? null
-                : await servicio.LiquidarPeriodoAsync(seleccionado.Value, cancelacion).ConfigureAwait(false)
+            Busqueda = busqueda,
+            Resultado = await servicio.ListarAsync(filtro, cancelacion).ConfigureAwait(false),
+            Resumen = await servicio.ResumirAsync(filtro, cancelacion).ConfigureAwait(false),
+            Liquidacion = await servicio
+                .LiquidarPeriodoAsync(seleccionado.Value, cancelacion)
+                .ConfigureAwait(false)
         };
 
         return View(modelo);

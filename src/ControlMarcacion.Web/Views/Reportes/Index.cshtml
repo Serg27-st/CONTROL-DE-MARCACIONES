@@ -20,10 +20,17 @@
         y asignación familiar ya se calculan. Si un trabajador todavía no tiene centro de costo
         asignado en <a asp-controller="Trabajadores" asp-action="Index">Personal</a>, esas tres
         columnas salen vacías a propósito: rellenarlas con Área/Sección daría un código que no
-        existe en SAP. Siguen sin dato los <strong>reintegros</strong> (bloque AN-BE, de carga
-        manual en <a asp-controller="Reintegros" asp-action="Index">su propia pantalla</a> por
-        trabajador y periodo) y el detalle clínico del descanso médico (contingencia,
-        diagnóstico y centro de atención), que todavía no existe en el sistema.
+        existe en SAP. Los <strong>reintegros</strong> (bloque AN-BE) se cargan a mano en
+        <a asp-controller="Reintegros" asp-action="Index">su propia pantalla</a>, por trabajador
+        y periodo. La columna <strong>SUSPENSION</strong> sale siempre vacía: el sistema todavía
+        no tiene ese concepto.
+    </div>
+
+    <div class="aviso">
+        Cada reporte declara <strong>de qué momento son sus cifras</strong>: si entró una carga
+        de marcaciones o una justificación después del último cálculo del tareo, la pantalla y
+        el propio Excel lo avisan. Los reportes no recalculan — eso se hace en
+        <a asp-controller="Asistencia" asp-action="Index">Tareo</a>.
     </div>
 
     <div class="tabla-contenedor">
@@ -40,19 +47,29 @@
                     <td><strong>Tareo final</strong></td>
                     <td>
                         El libro que se entrega a planilla, con las tres hojas del formato de
-                        GCA: <strong>Tareo</strong> (un trabajador por fila, con días de
+                        GCA —<strong>Tareo</strong> (un trabajador por fila, con días de
                         ausencia por tipo y el resumen de horas diurnas y nocturnas por
                         tramo), <strong>Descanso Medico</strong> y
-                        <strong>Vacaciones-Licencias</strong>.
+                        <strong>Vacaciones-Licencias</strong>— más una hoja de
+                        <strong>Trazabilidad</strong> con su procedencia.
+                        <br />
+                        <span class="ayuda">
+                            Solo por <strong>periodo</strong>: sus reintegros y su estado de
+                            cierre son del periodo. Se descarga desde el resumen.
+                        </span>
                     </td>
-                    <td><a asp-action="Resumen">Ver</a></td>
+                    <td><a asp-action="Resumen">Descargar</a></td>
                 </tr>
                 <tr>
-                    <td><strong>Resumen mensual</strong></td>
+                    <td><strong>Resumen de tareo</strong></td>
                     <td>
                         Un trabajador por fila: días puntuales, tardanzas, faltas, ausencias
                         justificadas, y horas ordinarias, extras al 25 %/35 %, nocturnas y de
                         tardanza acumuladas. Es el insumo para planilla.
+                        <br />
+                        <span class="ayuda">
+                            Por periodo, mes, día o rango de fechas.
+                        </span>
                     </td>
                     <td><a asp-action="Resumen">Ver</a></td>
                 </tr>
@@ -62,6 +79,10 @@
                         Un día por fila, solo los que necesitan revisión: faltas, tardanzas,
                         ausencias justificadas y marcaciones incompletas. Los días de descanso,
                         feriado o fuera de vínculo no aparecen: son lo esperado, no una excepción.
+                        <br />
+                        <span class="ayuda">
+                            Por periodo, mes, día o rango de fechas.
+                        </span>
                     </td>
                     <td><a asp-action="Excepciones">Ver</a></td>
                 </tr>

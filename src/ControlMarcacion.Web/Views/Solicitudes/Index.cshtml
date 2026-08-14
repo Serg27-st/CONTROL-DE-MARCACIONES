@@ -4,25 +4,6 @@
 
     var r = Model.Resultado;
 
-    // Conserva los filtros al pasar de página: sin esto, "Siguiente" devolvería el listado
-    // completo y el usuario perdería la búsqueda que acababa de hacer.
-    Dictionary<string, string> RutaPagina(int pagina)
-    {
-        var valores = new Dictionary<string, string> { ["pagina"] = pagina.ToString() };
-
-        if (Model.TrabajadorId is { } trabajador)
-        {
-            valores["trabajadorId"] = trabajador.ToString();
-        }
-
-        if (Model.Estado is { } estadoFiltro)
-        {
-            valores["estado"] = estadoFiltro.ToString();
-        }
-
-        return valores;
-    }
-
     static string ClaseEstado(EstadoSolicitud estado) => estado switch
     {
         EstadoSolicitud.Pendiente => "etiqueta-tardanza",
@@ -135,16 +116,39 @@
                             <td>@s.FechaInicio.ToString("dd/MM/yyyy")</td>
                             <td>@s.FechaFin.ToString("dd/MM/yyyy")</td>
                             <td>@s.Dias</td>
+                            @*
+                                El sustento que falta es lo único accionable de la fila:
+                                bloquea la aprobación. Iba como texto plano «Falta», con el
+                                mismo peso visual que «Sí», así que la única fila de la
+                                tabla que exige hacer algo era la que menos se veía.
+
+                                No se muestra el TEXTO del sustento, solo si está: es campo
+                                libre y en un descanso médico acaba conteniendo el motivo
+                                clínico. Este listado se abre en planta, con gente alrededor
+                                — es la misma razón por la que DetalleClinico deja fuera el
+                                diagnóstico.
+                            *@
                             <td>
-                                @if (s.RequiereSustento)
+                                @if (!s.RequiereSustento)
                                 {
-                                    @(string.IsNullOrWhiteSpace(s.Sustento)
-                                        ? "Falta"
-                                        : "Sí")
+                                    <span class="texto-suave">No exigido</span>
+                                }
+                                else if (s.FaltaSustento)
+                                {
+                                    <span class="etiqueta etiqueta-falta">Falta</span>
+                                    @if (s.AdmiteDecision)
+                                    {
+                                        <br />
+                                        <small class="texto-suave">Impide aprobarla</small>
+                                    }
+                                    else
+                                    {
+                                        @* Ya resuelta: la carencia es historia, no una tarea. *@
+                                    }
                                 }
                                 else
                                 {
-                                    <span class="texto-suave">No exigido</span>
+                                    <span class="etiqueta etiqueta-puntual">Registrado</span>
                                 }
                             </td>
                             <td>@(s.JustificacionesGeneradas == 0 ? "—" : s.JustificacionesGeneradas.ToString())</td>
@@ -160,26 +164,44 @@
                                 }
                             </td>
                             <td>
-                                @if (s.AdmiteDecision)
-                                {
-                                    <form method="post" asp-action="Aprobar" class="en-linea">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@s.Id" />
-                                        <button type="submit" class="boton boton-primario boton-chico"
-                                                data-confirmar="@($"¿Aprobar la solicitud de {s.Trabajador}? Se generará una justificación por cada día del {s.FechaInicio:dd/MM/yyyy} al {s.FechaFin:dd/MM/yyyy}.")">
-                                            Aprobar
-                                        </button>
-                                    </form>
-                                    <a asp-action="Rechazar" asp-route-id="@s.Id">Rechazar</a>
-                                }
-                                @if (s.AdmiteAnulacion)
-                                {
-                                    <a asp-action="Anular" asp-route-id="@s.Id">Anular</a>
-                                }
-                                @if (!s.AdmiteDecision && !s.AdmiteAnulacion)
-                                {
-                                    <span class="texto-suave">—</span>
-                                }
+                                <div class="acciones-fila">
+                                    @if (s.PuedeAprobarse)
+                                    {
+                                        <form method="post" asp-action="Aprobar" class="en-linea">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@s.Id" />
+                                            <button type="submit" class="boton boton-primario boton-chico"
+                                                    data-confirmar="@($"¿Aprobar la solicitud de {s.Trabajador}? Se generará una justificación por cada día del {s.FechaInicio:dd/MM/yyyy} al {s.FechaFin:dd/MM/yyyy}.")">
+                                                Aprobar
+                                            </button>
+                                        </form>
+                                    }
+                                    else if (s.AdmiteDecision)
+                                    {
+                                        @* Aprobar aquí solo produciría el rechazo del servidor.
+                                           En su lugar se ofrece lo que SÍ desbloquea la
+                                           solicitud, que es registrar el sustento que falta. *@
+                                        <a class="enlace-accion enlace-accion-destacado"
+                                           asp-action="RegistrarSustento" asp-route-id="@s.Id">
+                                            Registrar sustento
+                                        </a>
+                                    }
+
+                                    @if (s.AdmiteDecision)
+                                    {
+                                        <a class="enlace-accion" asp-action="Rechazar" asp-route-id="@s.Id">Rechazar</a>
+                                    }
+
+                                    @if (s.AdmiteAnulacion)
+                                    {
+                                        <a class="enlace-accion" asp-action="Anular" asp-route-id="@s.Id">Anular</a>
+                                    }
+
+                                    @if (!s.AdmiteDecision && !s.AdmiteAnulacion)
+                                    {
+                                        <span class="texto-suave">—</span>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -187,19 +209,8 @@
             </table>
         </div>
 
-        <div class="paginacion">
-            <span class="conteo">@r.TotalElementos solicitud(es) · página @r.Pagina de @r.TotalPaginas</span>
-
-            @if (r.HayPaginaAnterior)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
-            }
-
-            @if (r.HayPaginaSiguiente)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
-            }
-        </div>
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(r, "Index", "solicitud(es)", Model.RutaFiltros())' />
     }
 </div>
 

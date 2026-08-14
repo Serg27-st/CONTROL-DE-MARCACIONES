@@ -19,7 +19,10 @@ namespace ControlMarcacion.Infrastructure.Reportes;
 /// </remarks>
 internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 {
-    private const int FilaEncabezadoDatos = 7;
+    /// <summary>
+    /// Fila de los títulos de columna: justo debajo de las 7 del bloque de trazabilidad.
+    /// </summary>
+    private const int FilaEncabezadoDatos = 8;
 
     public byte[] ExportarResumenTareo(MetadatosReporte metadatos, IReadOnlyList<ResumenTareoDto> filas)
     {
@@ -82,8 +85,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             EscribirTotales(hoja, fila, filas);
         }
 
-        hoja.SheetView.FreezeRows(FilaEncabezadoDatos);
-        hoja.Columns().AdjustToContents();
+        TerminarHojaDeDatos(hoja, columnas.Length, filas.Count);
 
         return Guardar(libro);
     }
@@ -148,11 +150,32 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             fila++;
         }
 
-        hoja.SheetView.FreezeRows(FilaEncabezadoDatos);
-        hoja.Columns().AdjustToContents();
+        TerminarHojaDeDatos(hoja, columnas.Length, filas.Count);
         hoja.Column(10).Width = Math.Min(hoja.Column(10).Width, 80);
 
         return Guardar(libro);
+    }
+
+    /// <summary>
+    /// Deja una hoja de datos lista para trabajarla: autofiltro, títulos congelados y anchos.
+    /// </summary>
+    /// <remarks>
+    /// El autofiltro cubre los títulos y las filas de datos, pero <b>no</b> la de totales:
+    /// incluirla haría que Excel la tratara como un registro más y la escondiera al filtrar,
+    /// o peor, la sumara al ordenar. Con esto quien recibe el archivo puede filtrar por
+    /// planta o por estado sin rehacer la tabla a mano, que es lo primero que termina
+    /// haciendo con cualquier exportación.
+    /// </remarks>
+    private static void TerminarHojaDeDatos(IXLWorksheet hoja, int columnas, int filasDeDatos)
+    {
+        if (filasDeDatos > 0)
+        {
+            hoja.Range(FilaEncabezadoDatos, 1, FilaEncabezadoDatos + filasDeDatos, columnas)
+                .SetAutoFilter();
+        }
+
+        hoja.SheetView.FreezeRows(FilaEncabezadoDatos);
+        hoja.Columns().AdjustToContents();
     }
 
     // ------------------------------------------------------------------
@@ -169,8 +192,74 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         EscribirHojaTareo(libro.Worksheets.Add("Tareo"), tareo);
         EscribirHojaDescansoMedico(libro.Worksheets.Add("Descanso Medico"), tareo);
         EscribirHojaVacacionesLicencias(libro.Worksheets.Add("Vacaciones-Licencias"), tareo);
+        EscribirHojaTrazabilidad(libro.Worksheets.Add("Trazabilidad"), metadatos, tareo);
 
         return Guardar(libro);
+    }
+
+    /// <summary>
+    /// Cuarta hoja del libro: de dónde salió este tareo.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Va en hoja aparte y <b>al final</b> por una razón concreta: las tres primeras
+    /// reproducen el archivo modelo de GCA celda por celda y se pegan en la plantilla que
+    /// planilla ya tiene armada. Meter dos filas de procedencia arriba de <c>Tareo</c>
+    /// correría todo el bloque y rompería esa plantilla; dejarlas fuera del archivo, en
+    /// cambio, dejaba el entregable más importante del sistema sin decir quién lo generó,
+    /// cuándo, con qué recorte ni sobre un tareo calculado en qué momento.
+    /// </para>
+    /// <para>
+    /// Una hoja añadida al final es aditiva: quien copia las tres de siempre no se entera,
+    /// y quien tiene que auditar el archivo seis meses después encuentra la respuesta dentro
+    /// del propio archivo en vez de tener que reconstruirla.
+    /// </para>
+    /// </remarks>
+    private static void EscribirHojaTrazabilidad(
+        IXLWorksheet hoja, MetadatosReporte metadatos, TareoFinalDto tareo)
+    {
+        hoja.Cell("A1").Value = "Procedencia de este tareo";
+        hoja.Cell("A1").Style.Font.Bold = true;
+        hoja.Cell("A1").Style.Font.FontSize = 14;
+
+        (string Etiqueta, string Valor)[] datos =
+        [
+            ("Razón social", tareo.RazonSocial),
+            ("Alcance", metadatos.Alcance),
+            ("Desde", metadatos.FechaInicio.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+            ("Hasta", metadatos.FechaFin.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+            ("Periodo", metadatos.PeriodoCodigo is null
+                ? "—"
+                : $"{metadatos.PeriodoCodigo} — {metadatos.PeriodoNombre}"),
+            ("Estado del periodo", metadatos.PeriodoAbierto switch
+            {
+                true => "ABIERTO — el tareo puede volver a recalcularse",
+                false => "CERRADO — el tareo está congelado",
+                null => "—"
+            }),
+            ("Filtros aplicados", metadatos.FiltrosDescripcion),
+            ("Trabajadores en el libro", tareo.Tareo.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Generado el", metadatos.GeneradoEn.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)),
+            ("Generado por", metadatos.GeneradoPor)
+        ];
+
+        var fila = 3;
+
+        foreach (var (etiqueta, valor) in datos)
+        {
+            hoja.Cell(fila, 1).Value = etiqueta;
+            hoja.Cell(fila, 1).Style.Font.Bold = true;
+            hoja.Cell(fila, 2).Value = valor;
+            fila++;
+        }
+
+        fila++;
+        hoja.Cell(fila, 1).Value = "Estado del cálculo";
+        hoja.Cell(fila, 1).Style.Font.Bold = true;
+        EscribirEstadoDelCalculo(hoja.Cell(fila + 1, 1), metadatos.Calculo);
+
+        hoja.Columns(1, 2).AdjustToContents();
+        hoja.Column(2).Width = Math.Min(hoja.Column(2).Width, 90);
     }
 
     /// <summary>Fila donde arrancan los datos en la hoja <c>Tareo</c>, como en el modelo.</summary>
@@ -689,6 +778,19 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// El bloque de trazabilidad que encabeza toda exportación.
+    /// </summary>
+    /// <remarks>
+    /// Seis filas fijas, siempre las mismas y en el mismo orden, porque el archivo circula
+    /// fuera del sistema: quien lo abre tres meses después tiene que poder responder de qué
+    /// fechas es, con qué recorte salió, quién lo sacó y —lo que faltaba— <b>si el tareo
+    /// del que salió estaba al día</b>. Ese aviso va aquí y no solo en pantalla justamente
+    /// porque el Excel se reenvía por correo, donde ya no hay pantalla.
+    ///
+    /// Cuando el alcance no es un periodo (un mes, un día, un rango libre) la fila de estado
+    /// dice eso mismo en vez de inventar un abierto/cerrado que no aplica.
+    /// </remarks>
     private static void EscribirEncabezado(
         IXLWorksheet hoja,
         MetadatosReporte metadatos,
@@ -699,22 +801,53 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         hoja.Cell(1, 1).Style.Font.Bold = true;
         hoja.Cell(1, 1).Style.Font.FontSize = 14;
 
-        hoja.Cell(2, 1).Value = $"Periodo: {metadatos.PeriodoCodigo} — {metadatos.PeriodoNombre} " +
-                                 $"({metadatos.FechaInicio:dd/MM/yyyy} al {metadatos.FechaFin:dd/MM/yyyy})";
+        hoja.Cell(2, 1).Value = $"Alcance: {metadatos.Alcance} " +
+                                $"({metadatos.FechaInicio:dd/MM/yyyy} al {metadatos.FechaFin:dd/MM/yyyy})";
 
-        hoja.Cell(3, 1).Value = metadatos.PeriodoAbierto
-            ? "Estado del periodo: ABIERTO — el tareo puede volver a recalcularse."
-            : "Estado del periodo: CERRADO — el tareo está congelado.";
+        hoja.Cell(3, 1).Value = metadatos.PeriodoAbierto switch
+        {
+            true => $"Periodo {metadatos.PeriodoCodigo} ABIERTO — el tareo puede volver a recalcularse.",
+            false => $"Periodo {metadatos.PeriodoCodigo} CERRADO — el tareo está congelado.",
+            null => "Alcance por fechas: no corresponde a un periodo de planilla, "
+                    + "así que no tiene estado de apertura."
+        };
 
         hoja.Cell(4, 1).Value = $"Filtros: {metadatos.FiltrosDescripcion}";
         hoja.Cell(5, 1).Value = $"Generado el {metadatos.GeneradoEn:dd/MM/yyyy HH:mm} por {metadatos.GeneradoPor}";
 
+        EscribirEstadoDelCalculo(hoja.Cell(6, 1), metadatos.Calculo);
+
         // El sistema no calcula la remuneración completa: lo dice en el propio Excel, para
         // que quien lo abra en planilla no asuma que las horas equivalentes ya son un monto.
         // El Resumen mensual pasa una nota distinta porque ahí sí hay una columna en soles.
-        hoja.Cell(6, 1).Value = notaDinero;
-        hoja.Cell(6, 1).Style.Font.Italic = true;
-        hoja.Cell(6, 1).Style.Font.FontColor = XLColor.FromHtml("#64748b");
+        hoja.Cell(7, 1).Value = notaDinero;
+        hoja.Cell(7, 1).Style.Font.Italic = true;
+        hoja.Cell(7, 1).Style.Font.FontColor = XLColor.FromHtml("#64748b");
+    }
+
+    /// <summary>
+    /// La fila que dice de qué momento son las cifras.
+    /// </summary>
+    /// <remarks>
+    /// Un tareo desactualizado se ve idéntico a uno al día: mismos encabezados, mismas
+    /// columnas, cifras viejas. Por eso el aviso se pinta en rojo y en negrita en vez de
+    /// quedarse en el gris del resto del encabezado — es la única señal de que el archivo no
+    /// se puede entregar todavía.
+    /// </remarks>
+    private static void EscribirEstadoDelCalculo(IXLCell celda, EstadoCalculoTareo calculo)
+    {
+        if (calculo.Advertencia is { } advertencia)
+        {
+            celda.Value = advertencia;
+            celda.Style.Font.Bold = true;
+            celda.Style.Font.FontColor = XLColor.FromHtml("#c0392b");
+
+            return;
+        }
+
+        celda.Value = $"Tareo al día: calculado el {calculo.CalculadoMasReciente:dd/MM/yyyy HH:mm}, "
+                      + "sin cargas ni justificaciones posteriores.";
+        celda.Style.Font.FontColor = XLColor.FromHtml("#64748b");
     }
 
     private static void EscribirTitulosColumna(IXLWorksheet hoja, string[] columnas)

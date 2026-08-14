@@ -1,0 +1,24 @@
+@model FiltroTablaVm
+
+@*
+    Filtro en vivo sobre las filas ya cargadas. Se usa así, justo encima de la tabla:
+
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-usuarios", IdConteo = "conteo-usuarios",
+                                            Filas = Model.Usuarios.Count, Ejemplo = "Correo, nombre o rol…" }' />
+
+    No se dibuja nada por debajo del umbral: ver FiltroTablaVm.MinimoFilas. El id que se
+    le pasa tiene que existir en el <table>, y el del conteo en el pie, si se quiere que
+    escriba «N de M».
+*@
+@if (Model.MerecePena)
+{
+    <div class="campo filtro-vivo">
+        <label for="@(Model.IdTabla)-filtro">Filtrar lo que ya está en pantalla</label>
+        <input type="search" id="@(Model.IdTabla)-filtro" autocomplete="off"
+               data-filtro-tabla="@Model.IdTabla"
+               data-filtro-conteo="@Model.IdConteo"
+               data-filtro-sustantivo="@Model.Sustantivo"
+               placeholder="@Model.Ejemplo" />
+    </div>
+}

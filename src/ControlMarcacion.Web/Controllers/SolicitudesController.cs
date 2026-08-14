@@ -152,6 +152,88 @@ public sealed class SolicitudesController(IServicioSolicitudes servicio) : Contr
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// Agrega el sustento que faltaba, para poder aprobar.
+    /// </summary>
+    /// <remarks>
+    /// No es una edición de la solicitud: solo el documento que llegó después. Ver
+    /// <c>IServicioSolicitudes.RegistrarSustentoAsync</c>.
+    /// </remarks>
+    [HttpGet]
+    public async Task<IActionResult> RegistrarSustento(long id, CancellationToken cancelacion)
+    {
+        var solicitud = await servicio.ObtenerAsync(id, cancelacion).ConfigureAwait(false);
+
+        if (solicitud is null)
+        {
+            return NotFound();
+        }
+
+        return View(new RegistrarSustentoVm
+        {
+            Id = solicitud.Id,
+            Trabajador = solicitud.Trabajador,
+            TipoAusencia = solicitud.TipoAusencia,
+            FechaInicio = solicitud.FechaInicio,
+            FechaFin = solicitud.FechaFin,
+            Sustento = solicitud.Sustento ?? string.Empty
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RegistrarSustento(
+        RegistrarSustentoVm modelo,
+        CancellationToken cancelacion)
+    {
+        ArgumentNullException.ThrowIfNull(modelo);
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                await servicio
+                    .RegistrarSustentoAsync(
+                        modelo.Id,
+                        modelo.Sustento,
+                        modelo.RutaDocumentoSustento,
+                        User.Identity?.Name ?? "sistema",
+                        cancelacion)
+                    .ConfigureAwait(false);
+
+                TempData["Mensaje"] =
+                    "Sustento registrado. La solicitud ya se puede aprobar.";
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (ReglaNegocioException excepcion)
+            {
+                ModelState.AddModelError(string.Empty, excepcion.Message);
+            }
+            catch (RecursoNoEncontradoException)
+            {
+                return NotFound();
+            }
+        }
+
+        // Al volver por validación fallida se repuebla el encabezado: no viaja en el POST
+        // porque no es dato que el usuario edite, y sin él la pantalla saldría sin decir
+        // de quién es la solicitud que se está sustentando.
+        var actual = await servicio.ObtenerAsync(modelo.Id, cancelacion).ConfigureAwait(false);
+
+        if (actual is null)
+        {
+            return NotFound();
+        }
+
+        modelo.Trabajador = actual.Trabajador;
+        modelo.TipoAusencia = actual.TipoAusencia;
+        modelo.FechaInicio = actual.FechaInicio;
+        modelo.FechaFin = actual.FechaFin;
+
+        return View("RegistrarSustento", modelo);
+    }
+
     [HttpGet]
     public async Task<IActionResult> Rechazar(long id, CancellationToken cancelacion)
     {

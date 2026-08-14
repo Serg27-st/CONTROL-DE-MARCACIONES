@@ -38,4 +38,12 @@ public interface IServicioCatalogos
 
     /// <summary>Opciones del catálogo padre, para el desplegable del formulario.</summary>
     Task<IReadOnlyList<OpcionDto>> OpcionesPadreAsync(string clave, CancellationToken cancelacion = default);
+
+    /// <summary>Cuántos elementos activos e inactivos tiene cada catálogo.</summary>
+    /// <remarks>
+    /// Es lo que convierte la portada de catálogos en información en vez de un menú: sin
+    /// los conteos hay que entrar a cada uno para descubrir cuál está vacío, que es
+    /// justamente lo primero que se quiere saber al configurar el sistema.
+    /// </remarks>
+    Task<IReadOnlyDictionary<string, ConteoCatalogo>> ConteosAsync(CancellationToken cancelacion = default);
 }

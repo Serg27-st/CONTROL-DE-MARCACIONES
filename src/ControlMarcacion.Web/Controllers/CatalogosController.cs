@@ -19,9 +19,14 @@ namespace ControlMarcacion.Web.Controllers;
 [Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
 public sealed class CatalogosController(IServicioCatalogos servicio) : Controller
 {
-    /// <summary>Portada con todos los catálogos disponibles.</summary>
+    /// <summary>Portada con todos los catálogos disponibles y cuántos elementos tiene cada uno.</summary>
     [HttpGet]
-    public IActionResult Index() => View(CatalogosDisponibles.Todos);
+    public async Task<IActionResult> Index(CancellationToken cancelacion) =>
+        View(new PortadaCatalogosVm
+        {
+            Definiciones = CatalogosDisponibles.Todos,
+            Conteos = await servicio.ConteosAsync(cancelacion).ConfigureAwait(false)
+        });
 
     [HttpGet]
     public async Task<IActionResult> Lista(

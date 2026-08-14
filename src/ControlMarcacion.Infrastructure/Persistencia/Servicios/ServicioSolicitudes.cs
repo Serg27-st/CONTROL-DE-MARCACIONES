@@ -174,7 +174,12 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         entidad.Diagnostico = diagnostico;
         entidad.CentroAtencion = centroAtencion;
 
-        entidad.Sustento = solicitud.Sustento.Trim();
+        // Cadena vacía y null son lo mismo aquí: "todavía no hay sustento". Guardar "" haría
+        // que FaltaSustento y AprobarAsync tuvieran que comprobar dos formas del mismo
+        // estado, y basta con que una se olvide para aprobar algo sin respaldo.
+        entidad.Sustento = string.IsNullOrWhiteSpace(solicitud.Sustento)
+            ? null
+            : solicitud.Sustento.Trim();
         entidad.RutaDocumentoSustento = solicitud.RutaDocumentoSustento?.Trim();
         entidad.Observacion = solicitud.Observacion?.Trim();
 
@@ -204,12 +209,14 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
             ?? throw new RecursoNoEncontradoException("el tipo de ausencia", solicitud.TipoAusenciaId);
 
         // Si el tipo exige sustento, exigirlo al aprobar y no al registrar: quien pide el
-        // permiso muchas veces todavía no tiene el certificado en la mano.
+        // permiso muchas veces todavía no tiene el certificado en la mano. La contraparte
+        // de esta regla es RegistrarSustentoAsync, que permite agregarlo cuando llega —
+        // antes el mensaje pedía algo que el sistema no dejaba hacer.
         if (tipo.RequiereSustento && string.IsNullOrWhiteSpace(solicitud.Sustento))
         {
             throw new ReglaNegocioException(
                 $"El tipo '{tipo.Nombre}' exige sustento documentado y la solicitud no lo tiene. " +
-                "Regístrelo antes de aprobar.");
+                "Use «Registrar sustento» en el listado para agregarlo, y apruebe después.");
         }
 
         var periodos = await contexto.Periodos
@@ -293,6 +300,51 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
 
         return new ResultadoAprobacion(solicitud.Id, creadas, enCerrado, sinPeriodo, conJustificacionExistente);
+    }
+
+    public async Task RegistrarSustentoAsync(
+        long id,
+        string sustento,
+        string? rutaDocumentoSustento,
+        string usuario,
+        CancellationToken cancelacion = default)
+    {
+        var texto = sustento?.Trim() ?? string.Empty;
+
+        if (texto.Length < 5)
+        {
+            throw new ReglaNegocioException(
+                "Describa el sustento: es lo que explicará, ante una inspección, por qué " +
+                "ese día no quedó como falta.");
+        }
+
+        if (texto.Length > 500)
+        {
+            throw new ReglaNegocioException("El sustento no puede superar los 500 caracteres.");
+        }
+
+        var solicitud = await BuscarAsync(id, cancelacion).ConfigureAwait(false);
+
+        // Solo pendientes. Una solicitud aprobada ya generó justificaciones que heredaron
+        // el texto del sustento; cambiarlo después las dejaría explicando una cosa distinta
+        // de la solicitud que las originó, que es justo lo que una auditoría busca.
+        if (solicitud.Estado != EstadoSolicitud.Pendiente)
+        {
+            throw new ReglaNegocioException(
+                "Solo se puede registrar el sustento de una solicitud pendiente. Esta está " +
+                $"{solicitud.Estado.ToString().ToLowerInvariant()}.");
+        }
+
+        solicitud.Sustento = texto;
+
+        if (!string.IsNullOrWhiteSpace(rutaDocumentoSustento))
+        {
+            solicitud.RutaDocumentoSustento = rutaDocumentoSustento.Trim();
+        }
+
+        solicitud.ModificadoPor = usuario;
+
+        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
     }
 
     public async Task RechazarAsync(

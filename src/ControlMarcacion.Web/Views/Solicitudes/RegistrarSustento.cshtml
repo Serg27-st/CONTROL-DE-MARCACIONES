@@ -1,0 +1,80 @@
+@model RegistrarSustentoVm
+@using System.Globalization
+@{
+    ViewData["Title"] = "Registrar sustento";
+    var cultura = CultureInfo.CurrentCulture;
+}
+
+<div class="titulo-pagina">
+    <h1>Registrar sustento</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a solicitudes</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo-compacto">
+        <strong>@Model.Trabajador</strong> · @Model.TipoAusencia ·
+        del @Model.FechaInicio.ToString("dd/MM/yyyy", cultura)
+        al @Model.FechaFin.ToString("dd/MM/yyyy", cultura)
+    </p>
+</div>
+
+<form method="post" asp-action="RegistrarSustento">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo registrar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Sustento</h2>
+
+        <div class="campo">
+            <label asp-for="Sustento">
+                Descripción del sustento <span class="obligatorio">*</span>
+            </label>
+            <textarea asp-for="Sustento" maxlength="500" rows="4"
+                      placeholder="Certificado médico N.° 4471 emitido por EsSalud el 03/07/2026"></textarea>
+            <span class="error-campo" asp-validation-for="Sustento"></span>
+            <small class="nota-limite">
+                Es lo que explicará, meses después y ante una inspección, por qué ese día no
+                quedó como falta. La justificación que se genere al aprobar hereda este texto.
+            </small>
+        </div>
+
+        <div class="campo">
+            <label asp-for="RutaDocumentoSustento">Ruta del documento</label>
+            <input asp-for="RutaDocumentoSustento" type="text" maxlength="400" autocomplete="off"
+                   placeholder="\\servidor\rrhh\certificados\2026-07\..." />
+            <span class="error-campo" asp-validation-for="RutaDocumentoSustento"></span>
+            <small class="nota-limite">
+                Opcional: dónde está archivado el papel. El sistema no guarda el archivo,
+                solo su ubicación.
+            </small>
+        </div>
+
+        <p class="nota-pie">
+            Esto <strong>no modifica la solicitud</strong>: no cambia trabajador, tipo ni
+            fechas, que son lo que ya se evaluó. Solo agrega el documento que faltaba, para
+            que la solicitud se pueda aprobar.
+            <br />
+            Solo se puede hacer mientras esté <strong>pendiente</strong>: una vez aprobada,
+            las justificaciones que generó ya heredaron este texto y cambiarlo las dejaría
+            diciendo otra cosa.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Registrar sustento</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

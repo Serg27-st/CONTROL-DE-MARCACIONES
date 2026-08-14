@@ -76,8 +76,11 @@
     }
     else
     {
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-periodos", IdConteo = "conteo-periodos", Sustantivo = "periodo(s)", Filas = Model.Periodos.Count, Ejemplo = "Código, nombre o estado…" }' />
+
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla" id="tabla-periodos">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -170,11 +173,12 @@
         </div>
 
         <div class="paginacion">
-            <span class="conteo">@Model.Periodos.Count periodo(s)</span>
+            <span class="conteo" id="conteo-periodos">@Model.Periodos.Count periodo(s)</span>
         </div>
     }
 </div>
 
 @section Scripts {
     <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
 }

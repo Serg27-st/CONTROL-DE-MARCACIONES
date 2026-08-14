@@ -251,9 +251,14 @@
 
 /* ---------- Botones de acción por fila (Ver / Editar) ---------- */
 
+/* La usan el listado de personal, el historial de cargas y los catálogos: enlaces y
+   formularios de una sola acción dentro de la misma celda. Se alinean por el centro
+   porque conviven enlaces de texto con botones, que son más altos. */
 .acciones-fila {
   display: flex;
+  align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
   white-space: nowrap;
 }
 
@@ -272,3 +277,8 @@
   color: var(--color-acento);
   text-decoration: underline;
 }
+
+/* El enlace que desbloquea una fila detenida —registrar el sustento que falta— ocupa el
+   sitio donde estaría el botón de la acción principal, así que se pinta con el naranja
+   de acción para que se lea como tal y no como un enlace secundario más. */
+.enlace-accion-destacado { color: var(--color-acento); }

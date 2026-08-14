@@ -1,93 +1,126 @@
-@model IReadOnlyList<DefinicionCatalogo>
+@model PortadaCatalogosVm
+@using System.Globalization
 @{
     ViewData["Title"] = "Catálogos";
+
+    var cultura = CultureInfo.CurrentCulture;
+
+    // Los catálogos con pantalla propia se describen aquí y no en CatalogosDisponibles a
+    // propósito: esa lista es la de los que administra ESTE controlador, y meterlos
+    // dentro haría que el despacho por clave tuviera que excluirlos uno a uno.
+    var dedicados = new List<(string Controlador, string Titulo, string Porque)>
+    {
+        ("Turnos", "Turnos", "Horarios, refrigerio, tolerancia, ventanas de anticipación, días aplicables y plantas habilitadas."),
+        ("Periodos", "Periodos", "Rango de fechas y ciclo de apertura y cierre, que congela el tareo."),
+        ("TiposAusencia", "Tipos de ausencia", "El comportamiento decide cómo los trata el cálculo; crear uno sin elegirlo produciría tareos incorrectos en silencio."),
+        ("Marcadores", "Marcadores", "Cada ID pertenece a una planta, y su código es único en todo el sistema porque el TXT del marcador no dice de qué planta salió cada marcación.")
+    };
+
+    // Feriados es del coordinador; esta pantalla también la ve un administrador. El
+    // enlace se omite para no ofrecerle una tarjeta que solo le devolvería un 403. El
+    // control real sigue siendo el [Authorize] de FeriadosController.
+    if (User.IsInRole(RolesSistema.Coordinador))
+    {
+        dedicados.Add(("Feriados", "Feriados",
+            "Se sincronizan desde la fuente oficial en vez de cargarse a mano. El cálculo siempre lee la tabla local."));
+    }
 }
 
 <div class="titulo-pagina">
     <h1>Catálogos</h1>
+    <span class="texto-suave">Estructura organizativa de la que cuelga toda la planilla</span>
 </div>
+
+@if (Model.SinElementos.Count > 0)
+{
+    <div class="aviso aviso-alerta" role="status">
+        <strong>Hay @Model.SinElementos.Count catálogo(s) sin ningún elemento activo:</strong>
+        @string.Join(", ", Model.SinElementos.Select(d => d.Titulo)).
+        <p class="nota-compacta">
+            Los formularios que dependen de ellos mostrarán un desplegable vacío. Si esto
+            es un sistema recién instalado, es el primer sitio por donde empezar.
+        </p>
+    </div>
+}
 
 <div class="tarjeta">
     <h2>Mantenimiento</h2>
-    <div class="tabla-contenedor">
-        <table class="tabla">
-            <thead>
-                <tr>
-                    <th>Catálogo</th>
-                    <th>Depende de</th>
-                    <th>Descripción</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var definicion in Model)
+
+    <p class="subtitulo">
+        Código más nombre, con baja lógica. <strong>Nada se elimina</strong>: hay tareos y
+        marcaciones históricas que los referencian y tienen que seguir siendo consultables.
+    </p>
+
+    <div class="rejilla-catalogos">
+        @foreach (var definicion in Model.Definiciones)
+        {
+            var conteo = Model.Conteo(definicion.Clave);
+
+            <a class="tarjeta-catalogo @(conteo.SinElementosUtilizables ? "vacio" : "")"
+               asp-action="Lista" asp-route-clave="@definicion.Clave">
+                <span class="tarjeta-catalogo-cabecera">
+                    <span class="tarjeta-catalogo-titulo">@definicion.Titulo</span>
+
+                    @* El conteo va a la derecha y en pequeño: es metadato del cajón —cuánto
+                       tiene dentro—, no un indicador que haya que atender. *@
+                    <span class="tarjeta-catalogo-cuenta">
+                        @if (conteo.SinElementosUtilizables)
+                        {
+                            <text>Sin elementos</text>
+                        }
+                        else
+                        {
+                            <text>@conteo.Activos.ToString("N0", cultura) activo(s)</text>
+                        }
+                    </span>
+                </span>
+
+                @if (definicion.EsJerarquico)
                 {
-                    <tr>
-                        <td><strong>@definicion.Titulo</strong></td>
-                        <td>@(definicion.EtiquetaPadre ?? "—")</td>
-                        <td>@definicion.Descripcion</td>
-                        <td>
-                            <a asp-action="Lista" asp-route-clave="@definicion.Clave">Administrar</a>
-                        </td>
-                    </tr>
+                    <span class="tarjeta-catalogo-jerarquia">
+                        Dentro de @definicion.EtiquetaPadre?.ToLower(cultura)
+                    </span>
                 }
-            </tbody>
-        </table>
+
+                @if (conteo.Inactivos > 0)
+                {
+                    <span class="tarjeta-catalogo-jerarquia">
+                        @conteo.Inactivos inactivo(s) sin contar
+                    </span>
+                }
+
+                <span class="tarjeta-catalogo-descripcion">@definicion.Descripcion</span>
+
+                <span class="tarjeta-catalogo-accion">Administrar</span>
+            </a>
+        }
     </div>
 </div>
 
 <div class="tarjeta">
     <h2>Con pantalla propia</h2>
-    <p class="texto-suave">
-        Estos catálogos no son código más nombre: tienen reglas que una pantalla genérica
-        dejaría mal cargadas, así que se administran aparte.
+
+    <p class="subtitulo">
+        Estos no son código más nombre: tienen reglas que una pantalla genérica dejaría
+        mal cargadas, así que se administran aparte.
     </p>
-    <div class="tabla-contenedor">
-        <table class="tabla">
-            <thead>
-                <tr>
-                    <th>Catálogo</th>
-                    <th>Estado</th>
-                    <th>Por qué va aparte</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Turnos</strong></td>
-                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                    <td>
-                        Horarios, refrigerio, tolerancia, <strong>ventanas de anticipación</strong>,
-                        días aplicables y plantas habilitadas
-                    </td>
-                    <td><a asp-controller="Turnos" asp-action="Index">Administrar</a></td>
-                </tr>
-<tr>
-                    <td><strong>Periodos</strong></td>
-                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                    <td>Rango de fechas y ciclo de apertura y cierre, que congela el tareo</td>
-                    <td><a asp-controller="Periodos" asp-action="Index">Administrar</a></td>
-                </tr>
-                <tr>
-                    <td><strong>Tipos de ausencia</strong></td>
-                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                    <td>
-                        El comportamiento decide cómo los trata el cálculo; crear uno sin
-                        elegirlo produciría tareos incorrectos en silencio
-                    </td>
-                    <td><a asp-controller="TiposAusencia" asp-action="Index">Administrar</a></td>
-                </tr>
-                <tr>
-                    <td><strong>Marcadores</strong></td>
-                    <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                    <td>
-                        Cada ID pertenece a una <strong>planta</strong>, y su código es único en
-                        todo el sistema porque el TXT del marcador no dice de qué planta salió
-                        cada marcación
-                    </td>
-                    <td><a asp-controller="Marcadores" asp-action="Index">Administrar</a></td>
-                </tr>
-            </tbody>
-        </table>
+
+    <div class="rejilla-catalogos">
+        @foreach (var (controlador, titulo, porque) in dedicados)
+        {
+            @* Sin conteo: estos catálogos no los administra este controlador, así que no
+               se sabe cuántos elementos tienen sin consultarlos uno a uno. La pastilla
+               dice qué son, no cuántos hay — inventar un número sería peor que omitirlo. *@
+            <a class="tarjeta-catalogo" asp-controller="@controlador" asp-action="Index">
+                <span class="tarjeta-catalogo-cabecera">
+                    <span class="tarjeta-catalogo-titulo">@titulo</span>
+                    <span class="tarjeta-catalogo-cuenta">Pantalla propia</span>
+                </span>
+
+                <span class="tarjeta-catalogo-descripcion">@porque</span>
+
+                <span class="tarjeta-catalogo-accion">Administrar</span>
+            </a>
+        }
     </div>
 </div>

@@ -1,8 +1,59 @@
-// Encadena los filtros de organización de las pantallas de reportes:
-//   empresa → planta → centro → centro de costo
+// Filtros de las pantallas de reportes. Dos cosas independientes:
 //
-// Reutiliza los mismos endpoints de catálogo que el formulario de personal
-// (no hay nada específico de reportes en ellos), pero sin el turno: aquí no aplica.
+//   1. El alcance temporal (periodo / mes / día / rango): muestra los campos del alcance
+//      elegido y DESHABILITA los del resto.
+//   2. La cascada de organización: empresa → planta → centro → centro de costo.
+//
+// Deshabilitar y no solo ocultar es lo que hace que esto funcione: los bloques de "Día" y
+// "Rango" tienen los dos un input llamado "Desde", y si ambos viajan en la query string el
+// binding recibe dos valores para el mismo campo. Un input deshabilitado no se envía, así
+// que el servidor recibe exactamente los campos del alcance elegido y nada más.
+//
+// Sin JS el formulario sigue siendo usable: se ven los cuatro bloques a la vez y el
+// servidor lee los que correspondan al radio marcado.
+
+(function () {
+    "use strict";
+
+    var formulario = document.getElementById("filtro-reporte");
+
+    if (!formulario) {
+        return;
+    }
+
+    var bloques = formulario.querySelectorAll("[data-alcance]");
+    var radios = formulario.querySelectorAll("input[name='Alcance']");
+
+    function alcanceElegido() {
+        for (var i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                return radios[i].value;
+            }
+        }
+
+        return "Periodo";
+    }
+
+    function aplicarAlcance() {
+        var elegido = alcanceElegido();
+
+        bloques.forEach(function (bloque) {
+            var aplica = bloque.getAttribute("data-alcance") === elegido;
+
+            bloque.hidden = !aplica;
+
+            bloque.querySelectorAll("input, select").forEach(function (campo) {
+                campo.disabled = !aplica;
+            });
+        });
+    }
+
+    radios.forEach(function (radio) {
+        radio.addEventListener("change", aplicarAlcance);
+    });
+
+    aplicarAlcance();
+})();
 
 (function () {
     "use strict";

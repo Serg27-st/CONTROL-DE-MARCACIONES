@@ -13,29 +13,6 @@
         _ => "etiqueta-justificada"
     };
 
-    // Conserva los filtros al pasar de página: sin esto, "Siguiente" devolvería la
-    // bitácora completa y el usuario perdería la búsqueda que acababa de hacer.
-    Dictionary<string, string> RutaPagina(int pagina)
-    {
-        var valores = new Dictionary<string, string> { ["Pagina"] = pagina.ToString() };
-
-        void Agregar(string clave, string? valor)
-        {
-            if (!string.IsNullOrWhiteSpace(valor))
-            {
-                valores[clave] = valor;
-            }
-        }
-
-        Agregar("Tabla", Model.Filtro.Tabla);
-        Agregar("Usuario", Model.Filtro.Usuario);
-        Agregar("ClaveRegistro", Model.Filtro.ClaveRegistro);
-        Agregar("Operacion", Model.Filtro.Operacion?.ToString());
-        Agregar("Desde", Model.Filtro.Desde?.ToString("yyyy-MM-dd"));
-        Agregar("Hasta", Model.Filtro.Hasta?.ToString("yyyy-MM-dd"));
-
-        return valores;
-    }
 }
 
 <div class="titulo-pagina">
@@ -173,18 +150,7 @@
             </table>
         </div>
 
-        <div class="paginacion">
-            <span class="conteo">@r.TotalElementos movimiento(s) · página @r.Pagina de @r.TotalPaginas</span>
-
-            @if (r.HayPaginaAnterior)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
-            }
-
-            @if (r.HayPaginaSiguiente)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
-            }
-        </div>
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(r, "Index", "movimiento(s)", Model.RutaFiltros())' />
     }
 </div>

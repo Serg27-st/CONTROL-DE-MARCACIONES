@@ -51,47 +51,92 @@ body {
 
 /* ---------- Encabezado y Navegación ---------- */
 
+/*
+  La cabecera son DOS niveles apilados, no una fila que se parte sola:
+
+    ┌ marca ──────────────────────────────── usuario · cerrar sesión ┐  identidad
+    ├ Inicio  Personal  Marcaciones  …                               ┤  navegación
+    └────────────────────────────────────────────────────────────────┘
+
+  Antes era un único contenedor flex con `flex-wrap` y doce enlaces dentro. A cualquier
+  ancho realista no cabían en una línea, así que cada bloque se iba a su propio renglón —
+  la marca sola con medio metro de vacío a la derecha, el menú debajo y el botón de cerrar
+  sesión flotando en un tercero— y el subrayado del apartado activo quedaba a media altura
+  en vez de apoyarse en el borde inferior de la barra, que es lo que lo hace legible como
+  pestaña.
+*/
 .encabezado {
   background: var(--color-primario);
   color: #fff;
-  padding: 0 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Nivel 1: quién eres y dónde estás. Los dos extremos, nada en medio. */
+.encabezado-superior {
   display: flex;
   align-items: center;
-  gap: 32px;
-  flex-wrap: wrap;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 24px;
+  min-height: 52px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .encabezado .marca {
   font-weight: 700;
   font-size: 17px;
-  padding: 14px 0;
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
 
-.encabezado nav { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Nivel 2: a dónde puedes ir. Los enlaces se apoyan en el borde inferior de la barra,
+   que es lo que convierte el subrayado del activo en una pestaña y no en una raya suelta. */
+/*
+  El menú NUNCA se parte en dos filas: cuando no cabe, se desplaza en horizontal. Es una
+  sola conducta a cualquier ancho, y no tres tramos separados por cortes que hay que
+  acertar — entre 768 y 1024 px los doce enlaces se apilaban en dos renglones y el
+  subrayado del apartado activo volvía a quedar a media altura, que es justo lo que este
+  rediseño venía a arreglar.
 
-.encabezado nav a {
-  color: #cbd5e1;
-  text-decoration: none;
-  padding: 16px 14px;
-  font-size: 14px;
-  font-weight: 500;
-  border-bottom: 3px solid transparent;
-  transition: all 0.2s ease;
+  A pantalla ancha no se nota: el contenido cabe y no aparece ninguna barra.
+*/
+.encabezado-nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 16px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  max-width: 100%;
+  min-width: 0;
 }
 
-.encabezado nav a:hover { 
-  color: #fff; 
-  background: rgba(255, 255, 255, 0.05); 
+.encabezado-nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 11px 13px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.encabezado-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* Indicador activo con toque Naranja de acento */
-.encabezado nav a.activo { 
-  color: #fff; 
-  border-bottom-color: var(--color-acento); 
+.encabezado-nav a.activo {
+  color: #fff;
+  border-bottom-color: var(--color-acento);
   font-weight: 600;
+}
+
+.encabezado-nav a:focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: -2px;
 }
 
 /* ---------- Estructura ---------- */
@@ -401,14 +446,24 @@ table.tabla a:hover {
 
 /* ---------- Sesión en la cabecera ---------- */
 
+/* Sin margin-left:auto — quien la manda al extremo derecho es el space-between de
+   .encabezado-superior. Dejarlo sumaría dos mecanismos para lo mismo. */
 .encabezado .sesion {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
-.encabezado .sesion-usuario { color: #cbd5e1; font-size: 13.5px; }
+/* El correo se recorta antes que empujar el botón fuera de la vista: el que tiene que
+   seguir alcanzable es «Cerrar sesión», no el texto que ya sabes quién eres. */
+.encabezado .sesion-usuario {
+  color: #cbd5e1;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .boton-cabecera { padding: 6px 14px; font-size: 13px; }
 
@@ -802,9 +857,417 @@ table.tabla a:hover {
 
 .periodo-cubierto { font-weight: 600; white-space: nowrap; }
 
-.acciones-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* .acciones-fila se define en panel-flotante.css, donde nació con el listado de
+   personal. No se duplica aquí para que no haya dos reglas peleando por el mismo gap. */
 
 .formulario-anular { display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Tareo ---------- */
+
+/*
+  El tareo es la pantalla con más números por metro cuadrado del sistema: catorce
+  columnas donde once son minutos. Lo que se corrige aquí es la lectura — alinear las
+  cifras, agruparlas por lo que significan y separar visualmente a un trabajador del
+  siguiente— y sacar la observación del atributo title, porque un resultado que solo se
+  explica al pasar el ratón no se explica en papel ni en una tablet.
+*/
+
+/* Una columna de cifras se lee comparando magnitudes: alineada a la derecha y con dígitos
+   de ancho fijo, un 1 250 y un 980 se ven distintos de un vistazo. */
+.col-numero { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.cifra-alerta { color: var(--estado-tardanza); font-weight: 700; }
+
+/* Cabecera de grupo sobre la de columnas. */
+table.tabla tr.fila-grupos th {
+  padding: 8px 14px 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--color-borde);
+  text-align: center;
+  background: #f1f5f9;
+}
+
+table.tabla tr.fila-grupos th.grupo-marca { border-left: 2px solid var(--color-borde); }
+table.tabla tr.fila-grupos th.grupo-tiempo { border-left: 2px solid var(--color-borde); }
+table.tabla tr.fila-grupos th.grupo-desvio { border-left: 2px solid var(--color-borde); }
+
+/* Línea que marca dónde empieza otro trabajador. Sin ella, 31 filas de una persona y las
+   31 de la siguiente son un solo bloque de 62. */
+.tabla-tareo tr.inicio-trabajador td { border-top: 2px solid #cbd5e1; }
+
+.celda-trabajador { min-width: 190px; }
+
+.celda-fecha { white-space: nowrap; }
+.celda-fecha small { margin-left: 4px; text-transform: capitalize; }
+
+/* Domingo, feriado o descanso: la fila entera se tiñe, porque el sobretiempo de esos
+   días se paga al 100 % y confundirlo con un día común es un error caro. */
+.tabla-tareo tr.fila-no-laborable > td { background: #fbf7f2; }
+
+/*
+  La observación, en su propia fila bajo el día que explica. La regla NO se acota a
+  .tabla-tareo: Excepciones usa la misma fila con la misma clase sobre una tabla normal,
+  y ahí la observación llevaba desde siempre el aspecto de una fila de datos con una
+  celda gigante. Es la misma información y tiene que verse igual en las dos pantallas.
+*/
+tr.fila-observacion > td {
+  padding-top: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-borde);
+  font-size: 12.5px;
+  color: var(--color-texto-suave);
+  white-space: normal;
+}
+
+.marca-observacion { margin-right: 6px; color: #cbd5e1; }
+
+table.tabla tbody tr:hover + tr.fila-observacion { background: #f1f5f9; }
+
+/* Nota al pie de una celda: base legal, aclaración. */
+.celda-nota { font-size: 12.5px; color: var(--color-texto-suave); white-space: normal; }
+
+/* La fila TOTAL del resumen: es lo que planilla suma, y tiene que despegarse del cuerpo
+   de la tabla lo suficiente como para no confundirla con un trabajador más. */
+table.tabla tfoot th {
+  background: #f1f5f9;
+  border-top: 2px solid var(--color-primario);
+  border-bottom: none;
+  color: var(--color-texto);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+/* Dieciocho columnas: se desplaza dentro de su contenedor en vez de comprimir las cifras
+   hasta partirlas en dos líneas. */
+.tabla-resumen { min-width: 1500px; }
+
+/* ---- Pastillas de estado, que además filtran ---- */
+
+.pastillas-estado {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.pastilla-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 92px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  background: var(--color-superficie);
+  text-decoration: none;
+  color: var(--color-texto);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pastilla-estado:hover { border-color: var(--color-acento); }
+
+/* La pastilla activa es la que está filtrando ahora mismo. */
+.pastilla-estado.activa {
+  border-color: var(--color-primario);
+  box-shadow: inset 0 -3px 0 var(--color-primario);
+}
+
+/* En cero sigue siendo pulsable —el resultado es una lista vacía, que también informa—
+   pero atenuada: no compite por la atención con las que sí tienen filas. */
+.pastilla-estado.en-cero { opacity: 0.5; }
+
+.pastilla-estado-cifra { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.pastilla-estado-nombre {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-texto-suave);
+}
+
+/* Cada estado hereda su color de la etiqueta homónima: el verde de "puntual" es el mismo
+   en la pastilla que filtra y en la celda de la tabla. */
+.pastilla-estado.etiqueta-puntual .pastilla-estado-cifra { color: var(--estado-puntual); }
+.pastilla-estado.etiqueta-tardanza .pastilla-estado-cifra { color: var(--estado-tardanza); }
+.pastilla-estado.etiqueta-falta .pastilla-estado-cifra { color: var(--estado-falta); }
+.pastilla-estado.etiqueta-justificada .pastilla-estado-cifra { color: var(--estado-justificada); }
+.pastilla-estado.etiqueta-incompleto .pastilla-estado-cifra { color: var(--estado-incompleto); }
+.pastilla-estado.etiqueta-sin-horario .pastilla-estado-cifra { color: var(--estado-sin-horario); }
+
+/* Las pastillas son <a> con la clase de etiqueta puesta para heredar el color; hay que
+   deshacer el fondo y el radio de píldora que esa clase trae. */
+.pastilla-estado.etiqueta { border-radius: 6px; background: var(--color-superficie); }
+
+/* ---- Bloque plegable (liquidación) ---- */
+
+/*
+  La liquidación es una tabla de referencia que se consulta al cerrar el mes, no en cada
+  visita. Plegada deja de empujar el detalle del tareo —lo que se viene a ver— por debajo
+  del pliegue, y sigue a un clic.
+*/
+.bloque-plegable { padding: 0; }
+
+.bloque-plegable-cabecera {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 24px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.bloque-plegable-cabecera::-webkit-details-marker { display: none; }
+
+.bloque-plegable-cabecera::before {
+  content: "\25B8";
+  color: var(--color-texto-suave);
+  transition: transform 0.15s ease;
+}
+
+.bloque-plegable[open] > .bloque-plegable-cabecera::before { transform: rotate(90deg); }
+
+.bloque-plegable[open] > .bloque-plegable-cabecera { border-bottom: 1px solid var(--color-borde); }
+
+.bloque-plegable-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-texto-suave);
+}
+
+.bloque-plegable-detalle { font-size: 13px; color: var(--color-texto-suave); }
+
+.bloque-plegable-cuerpo { padding: 18px 24px 24px; }
+
+/* ---------- Catálogos ---------- */
+
+/*
+  La portada era dos tablas de enlaces: para saber si el catálogo de secciones estaba
+  vacío había que entrar. Con tarjetas y conteos, el estado de la configuración se lee
+  desde fuera, que es lo que se viene a averiguar.
+*/
+
+/*
+  ⚠️ Las tarjetas de catálogo NO llevan la barra lateral de color: esa es la firma de las
+  del panel de inicio (.tarjeta-panel) y son dos objetos distintos.
+
+    · Panel    = una MEDICIÓN del mes que puede exigir acción ("16 días sin marcaciones").
+                 Cifra enorme, rótulo en versalitas, barra de color a la izquierda que se
+                 pone naranja cuando hay algo que hacer. Se levanta al pasar el ratón,
+                 porque es una baldosa.
+    · Catálogo = una ENTRADA DE DIRECTORIO por la que se navega ("Puestos"). Manda el
+                 nombre, que es por lo que se busca; el conteo es metadato —nadie actúa
+                 sobre "13 puestos"— y va como pastilla discreta. Se ilumina al pasar el
+                 ratón y la flecha avanza, porque es un enlace.
+
+  Antes compartían barra, radio, levantamiento y número grande en negrita: se leían como
+  la misma cosa, y en la portada de catálogos parecía que cada tarjeta reportaba un
+  indicador que había que atender.
+*/
+
+.rejilla-catalogos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 12px;
+}
+
+.tarjeta-catalogo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 15px 17px;
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  text-decoration: none;
+  color: var(--color-texto);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+/* Se ilumina en vez de levantarse: es un enlace dentro de una lista, no una baldosa
+   suelta. Sin sombra ni desplazamiento, que es el lenguaje del panel. */
+.tarjeta-catalogo:hover { border-color: var(--color-acento); background: #fdfaf7; }
+
+.tarjeta-catalogo:focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 2px;
+}
+
+.tarjeta-catalogo-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* El nombre manda: es por lo que se navega. */
+.tarjeta-catalogo-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primario);
+  line-height: 1.25;
+}
+
+/* El conteo es metadato, no un indicador: pastilla discreta, alineada a la derecha. */
+.tarjeta-catalogo-cuenta {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-texto-suave);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+  Sin elementos activos: se marca la PASTILLA, no la tarjeta entera. Teñir el fondo de
+  naranja imitaría el estado .atencion del panel, que significa otra cosa —"hay trabajo
+  del mes por hacer"— y aquí solo quiere decir "este catálogo está por cargar".
+*/
+.tarjeta-catalogo.vacio .tarjeta-catalogo-cuenta {
+  background: #fdf1e6;
+  color: var(--estado-tardanza);
+}
+
+/* De qué cuelga el catálogo, cuando es jerárquico. Va en texto pequeño y no en una
+   etiqueta de color: una pastilla más competiría con la del conteo. */
+.tarjeta-catalogo-jerarquia {
+  font-size: 12px;
+  color: var(--color-texto-suave);
+}
+
+.tarjeta-catalogo-descripcion {
+  font-size: 13px;
+  color: var(--color-texto-suave);
+  line-height: 1.45;
+  margin-top: 6px;
+  flex: 1;
+}
+
+/* La invitación a entrar, explícita: una tarjeta que navega tiene que decirlo. */
+.tarjeta-catalogo-accion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-borde);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-acento);
+}
+
+.tarjeta-catalogo-accion::after {
+  content: "\2192";
+  transition: transform 0.15s ease;
+}
+
+.tarjeta-catalogo:hover .tarjeta-catalogo-accion::after { transform: translateX(3px); }
+
+/* Fila de un elemento dado de baja: sigue listada —para poder reactivarla— pero apagada. */
+.fila-inactiva > td { background: #fcfcfd; color: var(--color-texto-suave); }
+.fila-inactiva code { opacity: 0.7; }
+
+/* Filtro que actúa sobre las filas ya cargadas. */
+.filtro-vivo { max-width: 340px; margin-bottom: 16px; }
+
+/* Botones junto al título de la pantalla. */
+.acciones-titulo { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* El código de un catálogo se escribe en mayúsculas y sin acentos: monoespaciado deja
+   ver de inmediato un cero contra una O. */
+.campo-codigo { font-family: "Consolas", "Courier New", monospace; text-transform: uppercase; }
+
+/* ---------- Panel de inicio ---------- */
+
+/*
+  La portada era una tabla de enlaces con una columna "Estado" que ponía "Disponible" en
+  todas las filas: decía qué módulos existen, no cómo va el mes. Estas tarjetas responden
+  lo que se viene a mirar —cuántos días faltan por cargar, si el tareo está al día,
+  cuántas solicitudes esperan— y cada una lleva a la pantalla donde se resuelve.
+*/
+
+.rejilla-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.tarjeta-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-borde);
+  border-left: 3px solid var(--color-primario);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+  color: var(--color-texto);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tarjeta-panel:hover {
+  border-left-color: var(--color-acento);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
+}
+
+/*
+  La tarjeta que pide acción se marca en naranja, no en rojo: días sin cargar a mitad de
+  mes o solicitudes esperando son el estado normal de un periodo en curso, no un fallo.
+  El rojo queda para lo que está mal de verdad.
+*/
+.tarjeta-panel.atencion { border-left-color: var(--estado-tardanza); background: #fefaf6; }
+
+.tarjeta-panel-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-texto-suave);
+}
+
+.tarjeta-panel-cifra {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-primario);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Variante para cuando el dato destacado es un código y no un número. */
+.tarjeta-panel-cifra-texto {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-primario);
+}
+
+.tarjeta-panel.atencion .tarjeta-panel-cifra,
+.tarjeta-panel.atencion .tarjeta-panel-cifra-texto { color: var(--estado-tardanza); }
+
+.tarjeta-panel-rotulo { font-size: 13.5px; color: var(--color-texto); }
+
+/* Pie: el dato secundario y la invitación a entrar. */
+.tarjeta-panel-pie {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-borde);
+  font-size: 12.5px;
+  color: var(--color-texto-suave);
+}
 
 /* ---------- Adaptación a pantallas angostas ---------- */
 
@@ -818,45 +1281,19 @@ table.tabla a:hover {
 @media (max-width: 1024px) {
   .contenido { padding: 20px 16px; }
 
-  .encabezado { gap: 16px; padding: 0 16px; }
-  .encabezado nav a { padding: 12px 10px; font-size: 13.5px; }
+  .encabezado-superior { padding: 0 16px; min-height: 48px; }
+  .encabezado-nav { padding: 0 8px; }
+  .encabezado-nav a { padding: 10px 10px; font-size: 13.5px; }
 }
 
 @media (max-width: 768px) {
   body { font-size: 14.5px; }
 
-  /* La marca ocupa su propia línea y el menú pasa a ser una tira desplazable en
-     horizontal: es preferible a que once enlaces se apilen en cinco filas y empujen
-     el contenido debajo del pliegue. */
-  .encabezado { flex-direction: column; align-items: stretch; gap: 0; max-width: 100%; }
-  .encabezado .marca { padding: 12px 0 8px; }
-
-  .encabezado nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
-
-    /*
-      Estas dos líneas son las que hacen que el menú se desplace en vez de estirar
-      la página. El nav es a la vez elemento flex de la cabecera y contenedor flex
-      de los enlaces: con flex-wrap:nowrap su ancho de contenido son los doce
-      enlaces en una sola línea (~1024 px), y el align-items:stretch del padre no
-      alcanza a acotarlo. Sin el max-width el overflow-x nunca llega a actuar y la
-      cabecera arrastra a toda la página a un scroll horizontal de 1040 px sobre
-      una pantalla de 375.
-    */
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .encabezado nav a { white-space: nowrap; padding: 10px 12px; }
-
-  /* El formulario de sesión deja de empujarse a la derecha: en columna, margin-left:auto
-     no tiene efecto y quedaría pegado al menú. */
-  .encabezado form {
-    margin: 0 0 10px !important;
-    justify-content: flex-end;
-  }
+  /* La tira desplazable ya es la conducta base; aquí solo se aprieta la caja. La marca y
+     la sesión siguen enfrentadas arriba, que a este ancho todavía caben. */
+  .encabezado-superior { min-height: 46px; gap: 12px; }
+  .encabezado .marca { font-size: 15px; }
+  .encabezado-nav a { padding: 10px 12px; }
 
   /* Una sola columna: a este ancho, dos campos de 220 px no entran sin comprimirse. */
   .rejilla { grid-template-columns: 1fr; gap: 14px; }
@@ -884,4 +1321,93 @@ table.tabla a:hover {
      quedaba un campo de 60 px donde no cabe ni una palabra. */
   .formulario-anular { flex-wrap: wrap; }
   .motivo-anulacion { width: 100%; }
+
+  /* Las tarjetas de catálogo pasan a una sola columna: a 272 px mínimos, dos no entran. */
+  .rejilla-catalogos { grid-template-columns: 1fr; }
+
+  /* El nombre y el conteo se apilan: en 375 px, «Tipos de documento» junto a la pastilla
+     dejaba el título partido en tres líneas contra el borde. */
+  .tarjeta-catalogo-cabecera { flex-direction: column; align-items: flex-start; gap: 4px; }
+
+  /* Las pastillas de estado se reparten en filas de tres en vez de estirarse: diez
+     pastillas de 92 px en una tira desplazable esconden justamente las que importan,
+     que son las primeras (faltas y tardanzas). */
+  .pastillas-estado { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .pastilla-estado { min-width: 0; }
+
+  .bloque-plegable-cabecera { padding: 16px; }
+  .bloque-plegable-cuerpo { padding: 16px; }
+
+  .filtro-vivo { max-width: none; }
+
+  /* El tareo conserva sus catorce columnas y se desplaza en horizontal: comprimirlas
+     partiría las cifras en dos líneas, que es peor que desplazar. */
+  .tabla-tareo { min-width: 1100px; }
 }
+/* ------------------------------------------------------------------
+   Reportes: selector de alcance y encabezado de trazabilidad
+   ------------------------------------------------------------------ */
+
+/*
+  El alcance es la primera decisión de la pantalla —de qué fechas hablamos— y por eso
+  va arriba, separado del resto de filtros por una línea: los demás recortan el
+  resultado, este lo define.
+*/
+.campo-alcance {
+  display: block;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.opciones-alcance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.opcion-alcance {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.opcion-alcance:hover { border-color: var(--color-acento); }
+
+/* El radio se conserva en el DOM (accesible por teclado y lector) aunque no se pinte. */
+.opcion-alcance input { margin: 0; accent-color: var(--color-acento); }
+
+.opcion-alcance:has(input:checked) {
+  border-color: var(--color-acento);
+  background: #fdf3ea;
+  color: var(--color-primario);
+  font-weight: 600;
+}
+
+.opcion-alcance:focus-within { outline: 2px solid var(--color-acento); outline-offset: 2px; }
+
+/* Texto de apoyo bajo un campo: menor y en gris, nunca compitiendo con la etiqueta. */
+.ayuda {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+
+/* Franja que resume qué se está viendo y si el tareo está al día. */
+.tarjeta-alcance { padding-top: 16px; padding-bottom: 16px; }
+
+.tarjeta-alcance .subtitulo { margin: 0 0 8px; }
+
+.tarjeta-alcance .aviso { margin-bottom: 0; }
+
+.etiqueta-abierto { background: #e7f6ec; color: var(--estado-puntual); }
+.etiqueta-cerrado { background: #eef1f6; color: var(--color-primario); }

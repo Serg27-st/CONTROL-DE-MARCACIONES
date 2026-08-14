@@ -2,8 +2,6 @@
 @{
     ViewData["Title"] = "Personal";
     var r = Model.Resultado;
-    var desde = r.TotalElementos == 0 ? 0 : ((r.Pagina - 1) * r.TamanioPagina) + 1;
-    var hasta = Math.Min(r.Pagina * r.TamanioPagina, r.TotalElementos);
 }
 
 <div class="titulo-pagina">
@@ -166,43 +164,8 @@
             </table>
         </div>
 
-        <div class="paginacion">
-            <span class="conteo">Mostrando @desde–@hasta de @r.TotalElementos trabajadores</span>
-
-            @if (r.HayPaginaAnterior)
-            {
-                <a class="boton boton-secundario"
-                   asp-action="Index"
-                   asp-all-route-data="@(new Dictionary<string, string?>
-                   {
-                       ["Busqueda"] = Model.Filtro.Busqueda,
-                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
-                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
-                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString(),
-                       ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
-                       ["Pagina"] = (r.Pagina - 1).ToString()
-                   })">Anterior</a>
-            }
-
-            <span class="conteo">Página @r.Pagina de @r.TotalPaginas</span>
-
-            @if (r.HayPaginaSiguiente)
-            {
-                <a class="boton boton-secundario"
-                   asp-action="Index"
-                   asp-all-route-data="@(new Dictionary<string, string?>
-                   {
-                       ["Busqueda"] = Model.Filtro.Busqueda,
-                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
-                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
-                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString(),
-                       ["SoloActivos"] = Model.Filtro.SoloActivos?.ToString(),
-                       ["Pagina"] = (r.Pagina + 1).ToString()
-                   })">Siguiente</a>
-            }
-        </div>
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(r, "Index", "trabajador(es)", Model.RutaFiltros())' />
     }
 </div>
 

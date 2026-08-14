@@ -76,6 +76,20 @@ public sealed record SolicitudListaDto(
 
     /// <summary>Una solicitud aprobada puede anularse; una anulada o rechazada, no.</summary>
     public bool AdmiteAnulacion => Estado == EstadoSolicitud.Aprobada;
+
+    /// <summary>El tipo exige sustento documentado y la solicitud no lo tiene.</summary>
+    /// <remarks>
+    /// Es el mismo criterio que aplica <c>ServicioSolicitudes.AprobarAsync</c>, que se
+    /// niega a aprobar en ese caso. Vive aquí para que el listado pueda <b>decirlo antes</b>
+    /// en vez de dejar que el usuario pulse Aprobar y reciba el rechazo después.
+    ///
+    /// Esto <b>no</b> sustituye a la comprobación del servicio: ocultar un botón nunca es
+    /// el control. Solo evita ofrecer una acción que ya se sabe que va a fallar.
+    /// </remarks>
+    public bool FaltaSustento => RequiereSustento && string.IsNullOrWhiteSpace(Sustento);
+
+    /// <summary>Está pendiente y tiene todo lo que su tipo exige para poder aprobarse.</summary>
+    public bool PuedeAprobarse => AdmiteDecision && !FaltaSustento;
 }
 
 /// <summary>Alta y edición de una solicitud de ausencia.</summary>
@@ -123,16 +137,32 @@ public sealed record GuardarSolicitudRequest
     public string? PeriodoVacacional { get; init; }
 
     /// <summary>
-    /// Descripción de por qué se pide la ausencia. Es obligatoria.
+    /// Descripción de por qué se pide la ausencia. Obligatoria <b>al aprobar</b>, no al
+    /// registrar, y solo en los tipos que la exigen.
     /// </summary>
     /// <remarks>
     /// Una solicitud sin sustento escrito no se puede defender ante una inspección: la
     /// justificación que genera al aprobarse hereda este texto y es lo que explica, meses
-    /// después, por qué ese día no quedó como falta.
+    /// después, por qué ese día no quedó como falta. Por eso <c>AprobarAsync</c> se niega a
+    /// aprobar sin él cuando el tipo lo marca con <c>RequiereSustento</c>.
+    ///
+    /// Pero <b>no lleva <c>[Required]</c></b>, por el mismo motivo que
+    /// <see cref="SubtipoVacaciones"/>: solo lo exigen cinco tipos de nueve, y pedirlo aquí
+    /// bloquearía las vacaciones y los permisos, que no lo necesitan nunca. La
+    /// obligatoriedad condicional la resuelve quien sabe de qué tipo se trata.
+    ///
+    /// Además, exigirlo al registrar rompe el caso real para el que se diseñó la regla:
+    /// quien pide un descanso médico avisa el mismo día y trae el certificado de EsSalud
+    /// tres días después. Con el campo obligatorio, RRHH solo tenía dos salidas —no
+    /// registrar la ausencia, y que el día salga como falta, o escribir "pendiente" para
+    /// pasar la validación—, y esa segunda es peor: ese texto es el que acaba heredando la
+    /// justificación como explicación ante una inspección.
+    ///
+    /// El sustento que falta se registra después con
+    /// <c>IServicioSolicitudes.RegistrarSustentoAsync</c>.
     /// </remarks>
-    [Required(ErrorMessage = "La descripción del sustento es obligatoria.")]
-    [StringLength(500, MinimumLength = 5, ErrorMessage = "El sustento debe tener entre 5 y 500 caracteres.")]
-    public string Sustento { get; init; } = string.Empty;
+    [StringLength(500, ErrorMessage = "El sustento no puede superar los 500 caracteres.")]
+    public string? Sustento { get; init; }
 
     [StringLength(400)]
     public string? RutaDocumentoSustento { get; init; }

@@ -150,6 +150,30 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
             _ => []
         };
 
+    public async Task<IReadOnlyDictionary<string, ConteoCatalogo>> ConteosAsync(
+        CancellationToken cancelacion = default)
+    {
+        // Cinco pares de COUNT sobre tablas de catálogo, que son las más pequeñas del
+        // sistema. Se cuenta en la base y no trayendo las filas: la portada no necesita
+        // ningún dato de los elementos, solo cuántos hay.
+        async Task<ConteoCatalogo> ContarAsync<T>(IQueryable<T> conjunto) where T : EntidadBase
+        {
+            var activos = await conjunto.CountAsync(e => e.Activo, cancelacion).ConfigureAwait(false);
+            var total = await conjunto.CountAsync(cancelacion).ConfigureAwait(false);
+
+            return new ConteoCatalogo(activos, total - activos);
+        }
+
+        return new Dictionary<string, ConteoCatalogo>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["puestos"] = await ContarAsync(contexto.Puestos.AsNoTracking()).ConfigureAwait(false),
+            ["plantas"] = await ContarAsync(contexto.Plantas.AsNoTracking()).ConfigureAwait(false),
+            ["areas"] = await ContarAsync(contexto.Areas.AsNoTracking()).ConfigureAwait(false),
+            ["secciones"] = await ContarAsync(contexto.Secciones.AsNoTracking()).ConfigureAwait(false),
+            ["tipos-documento"] = await ContarAsync(contexto.TiposDocumento.AsNoTracking()).ConfigureAwait(false)
+        };
+    }
+
     // ------------------------------------------------------------------
     // Listados
     // ------------------------------------------------------------------

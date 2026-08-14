@@ -1,0 +1,86 @@
+@model PaginacionVm
+@using System.Globalization
+@{
+    var cultura = CultureInfo.CurrentCulture;
+
+    // El controlador se resuelve aquí y siempre viaja con valor. Dejar que
+    // asp-controller reciba null no cae en "el controlador actual": el generador de
+    // enlaces se queda sin ese dato, aplica los valores por omisión de la ruta y
+    // devuelve "/" — el enlace de la página siguiente del tareo apuntaba al inicio.
+    var controlador = Model.Controlador
+        ?? ViewContext.RouteData.Values["controller"]?.ToString()
+        ?? string.Empty;
+}
+
+@*
+    Pie de página único para todos los listados paginados. Se usa así — con el atributo
+    entre comillas SIMPLES, porque la expresión lleva cadenas entre dobles:
+
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(Model.Resultado, "Index", "solicitud(es)", Model.RutaFiltros())' />
+
+    El rango («Mostrando 51–100 de 155») va siempre, incluso con una sola página: es la
+    respuesta a "¿esto es todo?", que un simple total no contesta cuando la tabla se corta
+    justo al borde de la pantalla.
+*@
+<nav class="paginacion" aria-label="Paginación">
+    <span class="conteo">
+        @if (Model.PaginaFueraDeRango)
+        {
+            @* La página pedida en la URL no existe. Se dice el total y se ofrece volver,
+               en vez de imprimir un rango imposible como «Mostrando 26–5 de 5». *@
+            <text>
+                @Model.TotalElementos.ToString("N0", cultura) @Model.Sustantivo ·
+                la página @Model.Pagina no existe
+            </text>
+        }
+        else
+        {
+            <text>
+                Mostrando @Model.Desde–@Model.Hasta de
+                @Model.TotalElementos.ToString("N0", cultura) @Model.Sustantivo
+            </text>
+        }
+    </span>
+
+    @if (Model.PaginaFueraDeRango)
+    {
+        <a class="boton boton-secundario"
+           asp-action="@Model.Accion"
+           asp-controller="@controlador"
+           asp-all-route-data="@Model.RutaHacia(1)">Ir al principio</a>
+    }
+
+    @*
+        Fuera de rango no se dibuja el par Anterior/Siguiente: desde la página 99 de 4,
+        «Anterior» llevaría a la 98, que tampoco existe. El único control con sentido es
+        volver al principio, que ya está arriba.
+
+        En el primer y último tramo el botón que sobra simplemente no se dibuja: anunciar
+        un botón muerto es peor que omitirlo.
+    *@
+    @if (Model.HayVariasPaginas && !Model.PaginaFueraDeRango)
+    {
+        @if (Model.HayPaginaAnterior)
+        {
+            <a class="boton boton-secundario"
+               asp-action="@Model.Accion"
+               asp-controller="@controlador"
+               asp-all-route-data="@Model.RutaHacia(Model.Pagina - 1)"
+               rel="prev">Anterior</a>
+        }
+
+        <span class="conteo">
+            Página @Model.Pagina.ToString("N0", cultura) de @Model.TotalPaginas.ToString("N0", cultura)
+        </span>
+
+        @if (Model.HayPaginaSiguiente)
+        {
+            <a class="boton boton-secundario"
+               asp-action="@Model.Accion"
+               asp-controller="@controlador"
+               asp-all-route-data="@Model.RutaHacia(Model.Pagina + 1)"
+               rel="next">Siguiente</a>
+        }
+    }
+</nav>

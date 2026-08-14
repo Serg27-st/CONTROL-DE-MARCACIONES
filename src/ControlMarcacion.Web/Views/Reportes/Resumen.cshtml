@@ -1,200 +1,142 @@
 @model ResumenTareoVm
+@using System.Globalization
 @{
     ViewData["Title"] = "Resumen de tareo";
+    ViewData["AccionFiltro"] = "Resumen";
+    ViewData["AccionExportar"] = "ExportarResumen";
 
-    static string Horas(decimal h) => h == 0 ? "—" : h.ToString("N2");
-    static string Dias(int d) => d == 0 ? "—" : d.ToString();
-    static string Soles(decimal s) => s == 0 ? "—" : "S/ " + s.ToString("N2");
+    var cultura = CultureInfo.CurrentCulture;
+    var r = Model.Resultado;
+    var t = Model.Totales;
+
+    string Horas(decimal h) => h == 0 ? "—" : h.ToString("N2", cultura);
+    string Dias(int d) => d == 0 ? "—" : d.ToString("N0", cultura);
+    string Soles(decimal s) => s == 0 ? "—" : "S/ " + s.ToString("N2", cultura);
 }
 
 <div class="titulo-pagina">
-    <h1>Resumen mensual de tareo</h1>
+    <h1>Resumen de tareo</h1>
     <a class="boton boton-secundario" asp-action="Index">Volver a reportes</a>
 </div>
 
-<div class="tarjeta">
-    <form method="get" asp-action="Resumen">
-        <div class="rejilla">
-            <div class="campo">
-                <label for="PeriodoId">Periodo</label>
-                <select id="PeriodoId" name="PeriodoId" class="select-buscable" required>
-                    <option value="">Seleccione…</option>
-                    @foreach (var p in Model.Periodos)
-                    {
-                        <option value="@p.Id" selected="@(Model.Filtro.PeriodoId == p.Id)">
-                            @p.Codigo — @p.Nombre
-                        </option>
-                    }
-                </select>
-            </div>
+<partial name="_FiltroReporte" model="Model" />
 
-            <div class="campo">
-                <label for="EmpresaId">Empresa</label>
-                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
-                    <option value="">Todas</option>
-                    @foreach (var e in Model.Empresas)
-                    {
-                        <option value="@e.Id" selected="@(Model.Filtro.EmpresaId == e.Id)">@e.Nombre</option>
-                    }
-                </select>
-            </div>
-
-            <div class="campo">
-                <label for="PlantaId">Planta</label>
-                <select id="PlantaId" name="PlantaId" class="select-buscable">
-                    <option value="">Todas</option>
-                    @foreach (var p in Model.Plantas)
-                    {
-                        <option value="@p.Id" selected="@(Model.Filtro.PlantaId == p.Id)">@p.Nombre</option>
-                    }
-                </select>
-            </div>
-
-            <div class="campo">
-                <label for="CentroId">Centro</label>
-                <select id="CentroId" name="CentroId" class="select-buscable">
-                    <option value="">Todos</option>
-                    @foreach (var c in Model.Centros)
-                    {
-                        <option value="@c.Id" selected="@(Model.Filtro.CentroId == c.Id)">@c.Nombre</option>
-                    }
-                </select>
-            </div>
-
-            <div class="campo">
-                <label for="CentroCostoId">Centro de costo</label>
-                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
-                    <option value="">Todos</option>
-                    @foreach (var cc in Model.CentrosCosto)
-                    {
-                        <option value="@cc.Id" selected="@(Model.Filtro.CentroCostoId == cc.Id)">@cc.Nombre</option>
-                    }
-                </select>
-            </div>
-        </div>
-
-        <div class="acciones">
-            <button type="submit" class="boton boton-primario">Ver</button>
-            @if (Model.HayPeriodoSeleccionado)
-            {
-                <a class="boton boton-secundario"
-                   asp-action="ExportarResumen"
-                   asp-all-route-data="@(new Dictionary<string, string?> {
-                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
-                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
-                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
-                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
-                   })">Exportar a Excel</a>
-                <a class="boton boton-primario"
-                   asp-action="ExportarTareoFinal"
-                   asp-all-route-data="@(new Dictionary<string, string?> {
-                       ["PeriodoId"] = Model.Filtro.PeriodoId?.ToString(),
-                       ["EmpresaId"] = Model.Filtro.EmpresaId?.ToString(),
-                       ["PlantaId"] = Model.Filtro.PlantaId?.ToString(),
-                       ["CentroId"] = Model.Filtro.CentroId?.ToString(),
-                       ["CentroCostoId"] = Model.Filtro.CentroCostoId?.ToString()
-                   })">Descargar tareo final</a>
-            }
-        </div>
-    </form>
-</div>
-
-@if (!Model.HayPeriodoSeleccionado)
+@if (!Model.HayAlcanceSeleccionado)
 {
     <div class="tarjeta">
-        <div class="sin-resultados">Seleccione un periodo para ver el resumen.</div>
+        <div class="sin-resultados">Elija un alcance para ver el resumen.</div>
     </div>
 }
 else
 {
     <div class="tarjeta">
-        @if (Model.Filas.Count == 0)
+        @if (r.TotalElementos == 0)
         {
             <div class="sin-resultados">
-                No hay tareo calculado para este periodo y estos filtros. Recalcule el periodo
+                No hay tareo calculado para este alcance y estos filtros. Recalcule el periodo
                 desde <a asp-controller="Asistencia" asp-action="Index">Tareo</a>.
             </div>
         }
         else
         {
             <div class="tabla-contenedor">
-                <table class="tabla">
+                @*
+                    Cabecera de dos niveles: dieciocho columnas donde once son cifras no son
+                    dieciocho cosas distintas, sino identificación, días por estado, horas y
+                    dinero. Sin los grupos hay que leer el rótulo de cada una para saber si
+                    "35 %" son horas o soles.
+                *@
+                <table class="tabla tabla-resumen">
                     <thead>
+                        <tr class="fila-grupos">
+                            <th colspan="5"></th>
+                            <th colspan="6" class="grupo-marca">Días por estado</th>
+                            <th colspan="5" class="grupo-tiempo">Horas acumuladas</th>
+                            <th colspan="2" class="grupo-desvio">Conceptos en soles</th>
+                        </tr>
                         <tr>
                             <th>Trabajador</th>
                             <th>ID</th>
                             <th>Planta</th>
                             <th>Centro</th>
                             <th>Centro de costo</th>
-                            <th>Puntual</th>
-                            <th>Tardanza</th>
-                            <th>Falta</th>
-                            <th>Justificada</th>
-                            <th>Incompleto</th>
-                            <th>No laborable</th>
-                            <th>H. ordinarias</th>
-                            <th>H. extra 25%</th>
-                            <th>H. extra 35%</th>
-                            <th>H. nocturnas</th>
-                            <th>H. tardanza</th>
-                            <th>Bono nocturno</th>
-                            <th>Movilidad</th>
+                            <th class="col-numero">Puntual</th>
+                            <th class="col-numero">Tardanza</th>
+                            <th class="col-numero">Falta</th>
+                            <th class="col-numero">Justificada</th>
+                            <th class="col-numero">Incompleto</th>
+                            <th class="col-numero">No laborable</th>
+                            <th class="col-numero">Ordinarias</th>
+                            <th class="col-numero">Extra 25%</th>
+                            <th class="col-numero">Extra 35%</th>
+                            <th class="col-numero">Nocturnas</th>
+                            <th class="col-numero">Tardanza</th>
+                            <th class="col-numero">Bono nocturno</th>
+                            <th class="col-numero">Movilidad</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var r in Model.Filas)
+                        @foreach (var f in r.Elementos)
                         {
                             <tr>
-                                <td>@r.Trabajador</td>
-                                <td><code>@(r.IdMarcador ?? "—")</code></td>
-                                <td>@r.Planta</td>
-                                <td>@(r.Centro ?? "—")</td>
-                                <td>@(r.CentroCosto ?? "—")</td>
-                                <td>@Dias(r.DiasPuntual)</td>
-                                <td>@Dias(r.DiasTardanza)</td>
-                                <td>@Dias(r.DiasFalta)</td>
-                                <td>@Dias(r.DiasAusenciaJustificada)</td>
-                                <td>@Dias(r.DiasIncompleto)</td>
-                                <td>@Dias(r.DiasNoLaborableTrabajado)</td>
-                                <td>@Horas(r.HorasOrdinarias)</td>
-                                <td>@Horas(r.HorasExtra25)</td>
-                                <td>@Horas(r.HorasExtra35)</td>
-                                <td>@Horas(r.HorasNocturnas)</td>
-                                <td>@Horas(r.HorasTardanza)</td>
-                                <td>@Soles(r.MontoBonoNocturno)</td>
-                                <td>@Soles(r.MontoMovilidad)</td>
+                                <td class="celda-trabajador"><strong>@f.Trabajador</strong></td>
+                                <td><code>@(f.IdMarcador ?? "—")</code></td>
+                                <td>@f.Planta</td>
+                                <td>@(f.Centro ?? "—")</td>
+                                <td>@(f.CentroCosto ?? "—")</td>
+                                <td class="col-numero">@Dias(f.DiasPuntual)</td>
+                                <td class="col-numero @(f.DiasTardanza > 0 ? "cifra-alerta" : "")">@Dias(f.DiasTardanza)</td>
+                                <td class="col-numero @(f.DiasFalta > 0 ? "cifra-alerta" : "")">@Dias(f.DiasFalta)</td>
+                                <td class="col-numero">@Dias(f.DiasAusenciaJustificada)</td>
+                                <td class="col-numero @(f.DiasIncompleto > 0 ? "cifra-alerta" : "")">@Dias(f.DiasIncompleto)</td>
+                                <td class="col-numero">@Dias(f.DiasNoLaborableTrabajado)</td>
+                                <td class="col-numero">@Horas(f.HorasOrdinarias)</td>
+                                <td class="col-numero">@Horas(f.HorasExtra25)</td>
+                                <td class="col-numero">@Horas(f.HorasExtra35)</td>
+                                <td class="col-numero">@Horas(f.HorasNocturnas)</td>
+                                <td class="col-numero">@Horas(f.HorasTardanza)</td>
+                                <td class="col-numero">@Soles(f.MontoBonoNocturno)</td>
+                                <td class="col-numero">@Soles(f.MontoMovilidad)</td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
+                        @*
+                            El TOTAL es del ALCANCE COMPLETO, no de esta página. Antes se
+                            sumaba aquí recorriendo las filas recibidas; con paginación eso
+                            habría pasado a ser "el total de lo que se ve" sin que nada lo
+                            delatara, en el reporte que se entrega a planilla. Ahora lo
+                            calcula el servicio y la vista solo lo imprime.
+                        *@
                         <tr>
-                            <th>TOTAL</th>
-                            <th></th>
-                            <th></th>
-                            <th></th>
-                            <th></th>
-                            <th>@Model.Filas.Sum(r => r.DiasPuntual)</th>
-                            <th>@Model.Filas.Sum(r => r.DiasTardanza)</th>
-                            <th>@Model.Filas.Sum(r => r.DiasFalta)</th>
-                            <th>@Model.Filas.Sum(r => r.DiasAusenciaJustificada)</th>
-                            <th>@Model.Filas.Sum(r => r.DiasIncompleto)</th>
-                            <th>@Model.Filas.Sum(r => r.DiasNoLaborableTrabajado)</th>
-                            <th>@Model.Filas.Sum(r => r.HorasOrdinarias).ToString("N2")</th>
-                            <th>@Model.Filas.Sum(r => r.HorasExtra25).ToString("N2")</th>
-                            <th>@Model.Filas.Sum(r => r.HorasExtra35).ToString("N2")</th>
-                            <th>@Model.Filas.Sum(r => r.HorasNocturnas).ToString("N2")</th>
-                            <th>@Model.Filas.Sum(r => r.HorasTardanza).ToString("N2")</th>
-                            <th>S/ @Model.Filas.Sum(r => r.MontoBonoNocturno).ToString("N2")</th>
-                            <th>S/ @Model.Filas.Sum(r => r.MontoMovilidad).ToString("N2")</th>
+                            <th colspan="5">
+                                TOTAL · @t.Trabajadores.ToString("N0", cultura) trabajador(es) del alcance
+                            </th>
+                            <th class="col-numero">@Dias(t.DiasPuntual)</th>
+                            <th class="col-numero">@Dias(t.DiasTardanza)</th>
+                            <th class="col-numero">@Dias(t.DiasFalta)</th>
+                            <th class="col-numero">@Dias(t.DiasAusenciaJustificada)</th>
+                            <th class="col-numero">@Dias(t.DiasIncompleto)</th>
+                            <th class="col-numero">@Dias(t.DiasNoLaborableTrabajado)</th>
+                            <th class="col-numero">@t.HorasOrdinarias.ToString("N2", cultura)</th>
+                            <th class="col-numero">@t.HorasExtra25.ToString("N2", cultura)</th>
+                            <th class="col-numero">@t.HorasExtra35.ToString("N2", cultura)</th>
+                            <th class="col-numero">@t.HorasNocturnas.ToString("N2", cultura)</th>
+                            <th class="col-numero">@t.HorasTardanza.ToString("N2", cultura)</th>
+                            <th class="col-numero">S/ @t.MontoBonoNocturno.ToString("N2", cultura)</th>
+                            <th class="col-numero">S/ @t.MontoMovilidad.ToString("N2", cultura)</th>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
-            <div class="paginacion">
-                <span class="conteo">@Model.Filas.Count trabajador(es)</span>
-            </div>
+            <partial name="_Paginacion"
+                     model='PaginacionVm.De(r, "Resumen", "trabajador(es)", Model.Filtro.ARuta())' />
+
+            <p class="nota-pie">
+                La fila <strong>TOTAL</strong> suma el alcance completo, no la página que se ve.
+                El <strong>Excel</strong> se exporta entero: la paginación es solo de pantalla.
+            </p>
         }
     </div>
 }

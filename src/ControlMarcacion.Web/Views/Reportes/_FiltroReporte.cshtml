@@ -1,0 +1,187 @@
+@model ReporteVm
+@using ControlMarcacion.Domain.Reportes
+@{
+    // El formulario lleva los cuatro alcances a la vez y JS muestra solo el que aplica.
+    // Se envían todos los campos siempre: el servidor lee únicamente los del alcance
+    // elegido, y así cambiar de alcance no borra lo que ya se había escrito en otro.
+    var accion = (string)ViewData["AccionFiltro"]!;
+    var accionExportar = (string)ViewData["AccionExportar"]!;
+    var hoy = DateOnly.FromDateTime(DateTime.Now);
+}
+
+<div class="tarjeta">
+    <form method="get" asp-action="@accion" id="filtro-reporte">
+        <div class="campo campo-alcance">
+            <label>Alcance del reporte</label>
+            <div class="opciones-alcance">
+                @foreach (var opcion in new[]
+                {
+                    (Valor: AlcanceReporte.Periodo, Texto: "Periodo de planilla"),
+                    (Valor: AlcanceReporte.Mes, Texto: "Mes"),
+                    (Valor: AlcanceReporte.Dia, Texto: "Día"),
+                    (Valor: AlcanceReporte.Rango, Texto: "Rango de fechas")
+                })
+                {
+                    <label class="opcion-alcance">
+                        <input type="radio" name="Alcance" value="@opcion.Valor"
+                               checked="@(Model.Filtro.Alcance == opcion.Valor)" />
+                        <span>@opcion.Texto</span>
+                    </label>
+                }
+            </div>
+            <p class="ayuda">
+                El <strong>tareo final</strong> solo se emite por periodo: sus reintegros y su
+                estado de cierre son del periodo.
+            </p>
+        </div>
+
+        <div class="rejilla">
+            <div class="campo" data-alcance="Periodo">
+                <label for="PeriodoId">Periodo</label>
+                <select id="PeriodoId" name="PeriodoId" class="select-buscable">
+                    <option value="">Seleccione…</option>
+                    @foreach (var p in Model.Periodos)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PeriodoId == p.Id)">
+                            @p.Codigo — @p.Nombre
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo" data-alcance="Mes">
+                <label for="Mes">Mes</label>
+                <select id="Mes" name="Mes">
+                    <option value="">Seleccione…</option>
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        var nombre = System.Globalization.CultureInfo
+                            .GetCultureInfo("es-PE").DateTimeFormat.GetMonthName(m);
+                        <option value="@m" selected="@(Model.Filtro.Mes == m)">
+                            @(char.ToUpperInvariant(nombre[0]) + nombre[1..])
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo" data-alcance="Mes">
+                <label for="Anio">Año</label>
+                <input type="number" id="Anio" name="Anio" min="2000" max="2100" step="1"
+                       value="@(Model.Filtro.Anio?.ToString() ?? hoy.Year.ToString())" />
+            </div>
+
+            <div class="campo" data-alcance="Dia">
+                <label for="DesdeDia">Día</label>
+                <input type="date" id="DesdeDia" name="Desde"
+                       value="@Model.Filtro.Desde?.ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="campo" data-alcance="Rango">
+                <label for="DesdeRango">Desde</label>
+                <input type="date" id="DesdeRango" name="Desde"
+                       value="@Model.Filtro.Desde?.ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="campo" data-alcance="Rango">
+                <label for="Hasta">Hasta</label>
+                <input type="date" id="Hasta" name="Hasta"
+                       value="@Model.Filtro.Hasta?.ToString("yyyy-MM-dd")" />
+                <span class="ayuda">Máximo @ResolutorRangoReporte.MaximoDias días.</span>
+            </div>
+
+            <div class="campo">
+                <label for="EmpresaId">Empresa</label>
+                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var e in Model.Empresas)
+                    {
+                        <option value="@e.Id" selected="@(Model.Filtro.EmpresaId == e.Id)">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId" class="select-buscable">
+                    <option value="">Todas</option>
+                    @foreach (var p in Model.Plantas)
+                    {
+                        <option value="@p.Id" selected="@(Model.Filtro.PlantaId == p.Id)">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroId">Centro</label>
+                <select id="CentroId" name="CentroId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var c in Model.Centros)
+                    {
+                        <option value="@c.Id" selected="@(Model.Filtro.CentroId == c.Id)">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="CentroCostoId">Centro de costo</label>
+                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var cc in Model.CentrosCosto)
+                    {
+                        <option value="@cc.Id" selected="@(Model.Filtro.CentroCostoId == cc.Id)">@cc.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Ver</button>
+            @if (Model.HayAlcanceSeleccionado)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="@accionExportar"
+                   asp-all-route-data="@Model.Filtro.ARuta()">Exportar a Excel</a>
+
+                @if (Model.Filtro.PuedeDescargarTareoFinal)
+                {
+                    <a class="boton boton-primario"
+                       asp-action="ExportarTareoFinal"
+                       asp-all-route-data="@Model.Filtro.ARuta()">Descargar tareo final</a>
+                }
+            }
+        </div>
+    </form>
+</div>
+
+@if (Model.Metadatos is { } metadatos)
+{
+    <div class="tarjeta tarjeta-alcance">
+        <p class="subtitulo">
+            <strong>@metadatos.Alcance</strong>
+            @if (metadatos.PeriodoAbierto is { } abierto)
+            {
+                <span class="etiqueta @(abierto ? "etiqueta-abierto" : "etiqueta-cerrado")">
+                    @(abierto ? "Periodo abierto" : "Periodo cerrado")
+                </span>
+            }
+            · @metadatos.FiltrosDescripcion
+        </p>
+
+        @* El mismo aviso que lleva el Excel: un tareo viejo no se distingue de uno al día. *@
+        @if (metadatos.Calculo.Advertencia is { } advertencia)
+        {
+            <div class="aviso @(metadatos.Calculo.SinCalcular ? "aviso-alerta" : "aviso-error")">
+                @advertencia
+                <a asp-controller="Asistencia" asp-action="Index">Ir a Tareo para recalcular</a>
+            </div>
+        }
+        else
+        {
+            <p class="ayuda">
+                Tareo al día: calculado el
+                @(metadatos.Calculo.CalculadoMasReciente?.ToString("dd/MM/yyyy HH:mm")), sin
+                cargas de marcaciones ni justificaciones posteriores.
+            </p>
+        }
+    </div>
+}

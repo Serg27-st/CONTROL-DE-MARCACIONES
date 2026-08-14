@@ -1,25 +1,36 @@
 @model ListaCatalogoVm
+@using System.Globalization
 @{
-    ViewData["Title"] = Model.Definicion.Titulo;
+    var definicion = Model.Definicion;
+    ViewData["Title"] = definicion.Titulo;
+
+    var cultura = CultureInfo.CurrentCulture;
+    var activos = Model.Elementos.Count(e => e.Activo);
+    var inactivos = Model.Elementos.Count - activos;
+    var enUso = Model.Elementos.Count(e => e.Dependencias > 0);
 }
 
 <div class="titulo-pagina">
-    <h1>@Model.Definicion.Titulo</h1>
-    <a class="boton boton-primario"
-       asp-action="Editar"
-       asp-route-clave="@Model.Definicion.Clave">@Model.Definicion.RotuloNuevo</a>
+    <h1>@definicion.Titulo</h1>
+    <div class="acciones-titulo">
+        <a class="boton boton-secundario" asp-action="Index">Volver a catálogos</a>
+        <a class="boton boton-primario"
+           asp-action="Editar"
+           asp-route-clave="@definicion.Clave">@definicion.RotuloNuevo</a>
+    </div>
 </div>
 
 <div class="tarjeta">
-    <p class="subtitulo">@Model.Definicion.Descripcion</p>
+    <p class="subtitulo">@definicion.Descripcion</p>
 
     <form method="get" asp-action="Lista">
-        <input type="hidden" name="clave" value="@Model.Definicion.Clave" />
+        <input type="hidden" name="clave" value="@definicion.Clave" />
+
         <div class="rejilla">
-            @if (Model.Definicion.EsJerarquico)
+            @if (definicion.EsJerarquico)
             {
                 <div class="campo">
-                    <label for="padreId">@Model.Definicion.EtiquetaPadre</label>
+                    <label for="padreId">@definicion.EtiquetaPadre</label>
                     <select id="padreId" name="padreId" class="select-buscable">
                         <option value="">Todas</option>
                         @foreach (var opcion in Model.OpcionesPadre)
@@ -39,7 +50,11 @@
 
         <div class="acciones">
             <button type="submit" class="boton boton-primario">Aplicar</button>
-            <a class="boton boton-secundario" asp-action="Index">Volver a catálogos</a>
+            @if (Model.PadreId is not null || Model.IncluirInactivos)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="Lista" asp-route-clave="@definicion.Clave">Quitar filtros</a>
+            }
         </div>
     </form>
 </div>
@@ -48,22 +63,66 @@
     @if (Model.Elementos.Count == 0)
     {
         <div class="sin-resultados">
-            No hay registros en este catálogo todavía.
+            @* El género de «seleccionada/o» no se deduce del sustantivo en español, y aquí
+               el rótulo del padre es un dato: se redacta sin concordancia en vez de
+               adivinarla. Es la misma razón por la que existe ConArticulo. *@
+            @if (Model.PadreId is not null)
+            {
+                <text>
+                    No hay registros bajo el filtro de @definicion.EtiquetaPadre que eligió.
+                </text>
+            }
+            else
+            {
+                <text>
+                    Este catálogo está vacío. Use «@definicion.RotuloNuevo» para cargar el
+                    primer registro.
+                </text>
+            }
         </div>
     }
     else
     {
+        @* Resumen antes de la tabla: el estado del catálogo de un vistazo, sin tener que
+           contar filas ni descubrir a mitad del listado que la mitad está desactivada. *@
+        <div class="tira-indicadores">
+            <div class="indicador">
+                <span class="indicador-cifra">@activos.ToString("N0", cultura)</span>
+                <span class="indicador-rotulo">Activos</span>
+            </div>
+            @if (Model.IncluirInactivos)
+            {
+                <div class="indicador">
+                    <span class="indicador-cifra">@inactivos.ToString("N0", cultura)</span>
+                    <span class="indicador-rotulo">Inactivos</span>
+                </div>
+            }
+            <div class="indicador">
+                <span class="indicador-cifra">@enUso.ToString("N0", cultura)</span>
+                <span class="indicador-rotulo">Referenciados por otros registros</span>
+            </div>
+        </div>
+
+        @*
+            Filtro en vivo sobre las filas ya renderizadas. Es client-side a propósito:
+            estos catálogos caben enteros en la página y un viaje al servidor por cada
+            tecla sería peor experiencia sin traer ni una fila nueva. El filtro de arriba,
+            el que sí consulta, sigue siendo el que decide QUÉ filas llegaron.
+        *@
+        <partial name="_FiltroTabla"
+                 model='new FiltroTablaVm { IdTabla = "tabla-catalogo", IdConteo = "conteo-catalogo", Filas = Model.Elementos.Count, Ejemplo = "Código o nombre…" }' />
+
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla" id="tabla-catalogo">
                 <thead>
                     <tr>
                         <th>Código</th>
                         <th>Nombre</th>
-                        @if (Model.Definicion.EsJerarquico)
+                        @if (definicion.EsJerarquico)
                         {
-                            <th>@Model.Definicion.EtiquetaPadre</th>
+                            <th>@definicion.EtiquetaPadre</th>
                         }
-                        <th>En uso</th>
+                        <th class="col-numero">En uso</th>
                         <th>Estado</th>
                         <th></th>
                     </tr>
@@ -71,14 +130,25 @@
                 <tbody>
                     @foreach (var item in Model.Elementos)
                     {
-                        <tr>
+                        <tr class="@(item.Activo ? "" : "fila-inactiva")">
                             <td><code>@item.Codigo</code></td>
-                            <td>@item.Nombre</td>
-                            @if (Model.Definicion.EsJerarquico)
+                            <td><strong>@item.Nombre</strong></td>
+                            @if (definicion.EsJerarquico)
                             {
-                                <td>@(item.PadreNombre ?? "—")</td>
+                                <td class="texto-suave">@(item.PadreNombre ?? "—")</td>
                             }
-                            <td>@(item.Dependencias == 0 ? "—" : $"{item.Dependencias} registro(s)")</td>
+                            <td class="col-numero">
+                                @if (item.Dependencias == 0)
+                                {
+                                    <span class="texto-suave">—</span>
+                                }
+                                else
+                                {
+                                    <span title="@item.Dependencias registro(s) apuntan a este elemento">
+                                        @item.Dependencias.ToString("N0", cultura)
+                                    </span>
+                                }
+                            </td>
                             <td>
                                 @if (item.Activo)
                                 {
@@ -90,23 +160,33 @@
                                 }
                             </td>
                             <td>
-                                <a asp-action="Editar"
-                                   asp-route-clave="@Model.Definicion.Clave"
-                                   asp-route-id="@item.Id">Editar</a>
+                                <div class="acciones-fila">
+                                    <a class="enlace-accion" asp-action="Editar"
+                                       asp-route-clave="@definicion.Clave"
+                                       asp-route-id="@item.Id">Editar</a>
 
-                                <form method="post" asp-action="CambiarEstado" class="en-linea-sep">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="clave" value="@Model.Definicion.Clave" />
-                                    <input type="hidden" name="id" value="@item.Id" />
-                                    <input type="hidden" name="activo" value="@((!item.Activo).ToString().ToLowerInvariant())" />
-                                    <button type="submit"
-                                            class="boton boton-secundario boton-chico"
-                                            data-confirmar="@(item.Activo
-                                                ? $"¿Desactivar {Model.Definicion.ConArticulo} '{item.Nombre}'? Dejará de aparecer en los formularios."
-                                                : $"¿Reactivar {Model.Definicion.ConArticulo} '{item.Nombre}'?")">
-                                        @(item.Activo ? "Desactivar" : "Activar")
-                                    </button>
-                                </form>
+                                    <form method="post" asp-action="CambiarEstado" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="clave" value="@definicion.Clave" />
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <input type="hidden" name="activo" value="@((!item.Activo).ToString().ToLowerInvariant())" />
+                                        @*
+                                            El botón queda habilitado aunque el elemento esté en
+                                            uso: quien decide si se puede desactivar es
+                                            ServicioCatalogos, y su regla cuenta solo a los
+                                            trabajadores, mientras que «En uso» suma también los
+                                            hijos del catálogo. Deshabilitarlo aquí bloquearía
+                                            bajas que el servidor sí permite.
+                                        *@
+                                        <button type="submit"
+                                                class="boton boton-secundario boton-chico"
+                                                data-confirmar="@(item.Activo
+                                                    ? $"¿Desactivar {definicion.ConArticulo} '{item.Nombre}'? Dejará de aparecer en los formularios."
+                                                    : $"¿Reactivar {definicion.ConArticulo} '{item.Nombre}'?")">
+                                            @(item.Activo ? "Desactivar" : "Activar")
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -115,11 +195,19 @@
         </div>
 
         <div class="paginacion">
-            <span class="conteo">@Model.Elementos.Count registro(s)</span>
+            <span class="conteo" id="conteo-catalogo">@Model.Elementos.Count registro(s)</span>
         </div>
+
+        <p class="nota-pie">
+            <strong>En uso</strong> cuenta los registros que apuntan a cada elemento. No se
+            puede desactivar uno que tenga trabajadores asignados: hay que reasignarlos
+            primero. Los catálogos <strong>no se eliminan</strong>, se desactivan, porque los
+            tareos históricos los referencian.
+        </p>
     }
 </div>
 
 @section Scripts {
     <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
 }

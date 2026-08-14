@@ -35,6 +35,34 @@ public interface IServicioSolicitudes
         string usuario,
         CancellationToken cancelacion = default);
 
+    /// <summary>
+    /// Registra el sustento de una solicitud que se dio de alta sin él.
+    /// </summary>
+    /// <remarks>
+    /// Es la contraparte de que el sustento no sea obligatorio al registrar: quien pide un
+    /// descanso médico avisa el mismo día y trae el certificado después. Sin esta acción,
+    /// el mensaje de <see cref="AprobarAsync"/> —«regístrelo antes de aprobar»— apuntaba a
+    /// algo que el sistema no permitía hacer, y la única salida era anular la solicitud y
+    /// volver a crearla.
+    ///
+    /// <b>Deliberadamente estrecha.</b> No es una edición de la solicitud: no toca
+    /// trabajador, tipo ni fechas, que son lo que el aprobador ya evaluó. Solo agrega el
+    /// documento que faltaba.
+    ///
+    /// Solo sobre solicitudes <b>pendientes</b>: una ya aprobada generó justificaciones que
+    /// heredaron el texto del sustento, y cambiarlo después las dejaría diciendo una cosa
+    /// distinta de la solicitud que las originó.
+    /// </remarks>
+    /// <exception cref="Domain.Comun.ReglaNegocioException">
+    /// Si la solicitud no está pendiente o el sustento viene vacío.
+    /// </exception>
+    Task RegistrarSustentoAsync(
+        long id,
+        string sustento,
+        string? rutaDocumentoSustento,
+        string usuario,
+        CancellationToken cancelacion = default);
+
     Task RechazarAsync(
         long id,
         string motivo,

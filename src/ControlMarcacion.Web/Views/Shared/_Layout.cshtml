@@ -20,9 +20,30 @@
     <link rel="stylesheet" href="~/css/searchable-select.css" asp-append-version="true" />
 </head>
 <body>
+    @*
+        Dos niveles, no una sola fila que se parte sola. Arriba, quién eres y dónde estás
+        (marca y sesión, en extremos opuestos); abajo, a dónde puedes ir. Antes era un solo
+        contenedor flex con wrap y doce enlaces: la marca se quedaba sola en un renglón, el
+        menú caía al siguiente y el botón de cerrar sesión a un tercero, con el subrayado
+        del apartado activo flotando a media altura en vez de apoyarse en el borde inferior.
+    *@
     <header class="encabezado">
-        <div class="marca">GCA · Control de Marcación</div>
-        <nav>
+        <div class="encabezado-superior">
+            <div class="marca">GCA · Control de Marcación</div>
+
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <form method="post" asp-controller="Cuenta" asp-action="Salir" class="sesion">
+                    @Html.AntiForgeryToken()
+                    <span class="sesion-usuario">@User.Identity.Name</span>
+                    <button type="submit" class="boton boton-secundario boton-cabecera">
+                        Cerrar sesión
+                    </button>
+                </form>
+            }
+        </div>
+
+        <nav class="encabezado-nav" aria-label="Secciones">
             <a class="@Activo("Inicio")" asp-controller="Inicio" asp-action="Index">Inicio</a>
             @if (gestionaTareo)
             {
@@ -54,17 +75,6 @@
                 <a class="@Activo("Auditoria")" asp-controller="Auditoria" asp-action="Index">Auditoría</a>
             }
         </nav>
-
-        @if (User.Identity?.IsAuthenticated == true)
-        {
-            <form method="post" asp-controller="Cuenta" asp-action="Salir" class="sesion">
-                @Html.AntiForgeryToken()
-                <span class="sesion-usuario">@User.Identity.Name</span>
-                <button type="submit" class="boton boton-secundario boton-cabecera">
-                    Cerrar sesión
-                </button>
-            </form>
-        }
     </header>
 
     <main class="contenido">

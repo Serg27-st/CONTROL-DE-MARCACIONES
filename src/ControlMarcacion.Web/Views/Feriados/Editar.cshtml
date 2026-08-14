@@ -1,0 +1,94 @@
+@model EditarFeriadoVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo feriado" : "Editar feriado";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario"
+       asp-action="Index" asp-route-anio="@Model.Anio">Volver a feriados</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+    <input type="hidden" asp-for="Anio" />
+
+    @* Las reglas de negocio —fecha repetida, feriado de planta sobre uno nacional— llegan
+       sin nombre de campo. Sin este bloque el formulario se recargaría idéntico y en
+       silencio, y el usuario volvería a pulsar Guardar esperando otro resultado. *@
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Datos del feriado</h2>
+
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Fecha">Fecha <span class="obligatorio">*</span></label>
+                <input asp-for="Datos.Fecha" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.Fecha"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Descripcion">Descripción <span class="obligatorio">*</span></label>
+                <input asp-for="Datos.Descripcion" type="text" maxlength="150" autocomplete="off"
+                       placeholder="Aniversario de la planta, Día de la Independencia…" />
+                <span class="error-campo" asp-validation-for="Datos.Descripcion"></span>
+                <small class="nota-limite">
+                    Es lo que explicará, meses después, por qué ese día se pagó con sobretasa.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Alcance</label>
+                <select asp-for="Datos.PlantaId" class="select-buscable">
+                    <option value="">Todas las plantas (nacional)</option>
+                    @foreach (var planta in Model.Plantas)
+                    {
+                        <option value="@planta.Id" selected="@(Model.Datos.PlantaId == planta.Id)">
+                            Solo @planta.Nombre
+                        </option>
+                    }
+                </select>
+                <small class="nota-limite">
+                    <strong>Nacional</strong> es lo que trae la sincronización: no se trabaja
+                    en ninguna planta. <strong>Solo una planta</strong> es para lo que ninguna
+                    fuente pública sabe — un aniversario, un feriado regional.
+                </small>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            El feriado <strong>no reescribe ningún tareo ya calculado</strong>: entra en el
+            cálculo en el próximo recálculo del periodo, desde
+            <a asp-controller="Asistencia" asp-action="Index">Tareo</a>. Un periodo cerrado
+            no se recalcula, así que cargar un feriado de un mes ya cerrado no cambia nada
+            hasta reabrirlo.
+            <br />
+            Los feriados <strong>no se eliminan</strong>: se desactivan. Los tareos que ya
+            aplicaron la sobretasa del 100 % necesitan que la fila que los sustenta siga ahí.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario"
+           asp-action="Index" asp-route-anio="@Model.Anio">Cancelar</a>
+    </div>
+</form>

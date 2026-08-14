@@ -1,132 +1,211 @@
+@model PanelInicioVm
+@using System.Globalization
 @{
     ViewData["Title"] = "Inicio";
 
-    // Inicio es la única pantalla abierta a cualquier rol autenticado. El panel con el
-    // estado de los módulos es de COORDINADOR y GERENCIA; los demás roles entran a hacer
-    // su trabajo, no a mirar el tablero. Dentro del panel, cada fila se muestra solo si
-    // el rol puede abrir ese módulo: un enlace que responde 403 no es información útil.
-    var esCoordinador = User.IsInRole(RolesSistema.Coordinador);
-    var gestionaTareo = esCoordinador || User.IsInRole(RolesSistema.Administrador);
-    var veSolicitudes = gestionaTareo || User.IsInRole(RolesSistema.TrabajadorSocial);
-    var veReportes = esCoordinador || User.IsInRole(RolesSistema.Gerencia);
-    var vePanel = esCoordinador || User.IsInRole(RolesSistema.Gerencia);
+    var cultura = CultureInfo.CurrentCulture;
+    var panel = Model.Panel;
+
+    static string Horas(int minutos) => minutos == 0 ? "0:00" : $"{minutos / 60}:{minutos % 60:00}";
 }
 
 <div class="titulo-pagina">
     <h1>Panel de control</h1>
+    @if (panel.Periodo is { } cabecera)
+    {
+        <span class="texto-suave">
+            Periodo @cabecera.Codigo ·
+            @cabecera.FechaInicio.ToString("dd/MM/yyyy", cultura) al
+            @cabecera.FechaFin.ToString("dd/MM/yyyy", cultura)
+            @if (cabecera.EstaAbierto)
+            {
+                <span class="etiqueta etiqueta-puntual separado">Abierto</span>
+            }
+            else
+            {
+                <span class="etiqueta etiqueta-incompleto separado">Cerrado</span>
+            }
+        </span>
+    }
+</div>
+
+@if (!Model.VePanel)
+{
+    @* Un rol sin tarjetas no recibe un panel vacío, sino la guía de siempre. *@
+    <div class="tarjeta">
+        <h2>Bienvenido</h2>
+        <p>
+            Sistema de control de asistencia y cálculo de tareo para <strong>GCA</strong>,
+            cliente <strong>Intradevco</strong>.
+        </p>
+        <p class="nota-pie">
+            Use el menú superior para ir a su trabajo. Si no ve ninguna opción, pida a su
+            coordinador que revise el rol de su cuenta.
+        </p>
+    </div>
+
+    return;
+}
+
+@if (!panel.HayPeriodo)
+{
+    <div class="aviso aviso-alerta" role="status">
+        <strong>No hay ningún periodo activo.</strong>
+        <p class="nota-compacta">
+            El periodo es lo que gobierna todo lo demás: sin uno abierto no se puede
+            calcular el tareo ni cerrar el mes.
+            @if (Model.GestionaTareo)
+            {
+                <a asp-controller="Periodos" asp-action="Index">Cree el primero en Periodos</a><text>.</text>
+            }
+        </p>
+    </div>
+}
+else if (!panel.HayPendientes)
+{
+    <div class="aviso aviso-exito" role="status">
+        <strong>El periodo @panel.Periodo!.Codigo está al día.</strong>
+        Sin días de marcación pendientes, sin solicitudes esperando y con el tareo
+        calculado después del último cambio.
+    </div>
+}
+
+<div class="rejilla-panel">
+
+    @* ----------------------------------------------------------- Marcaciones ---- *@
+    @if (Model.GestionaTareo && panel.Marcaciones is { } cobertura)
+    {
+        <a class="tarjeta-panel @(cobertura.HayHuecos ? "atencion" : "")"
+           asp-controller="Marcaciones" asp-action="Index">
+            <span class="tarjeta-panel-titulo">Marcaciones del periodo</span>
+
+            <span class="tarjeta-panel-cifra">
+                @if (cobertura.HayHuecos)
+                {
+                    @cobertura.DiasSinMarcacion
+                }
+                else
+                {
+                    @cobertura.DiasConMarcacion
+                }
+            </span>
+
+            <span class="tarjeta-panel-rotulo">
+                @if (cobertura.HayHuecos)
+                {
+                    <text>
+                        día(s) transcurrido(s) sin ninguna marcación, de
+                        @cobertura.DiasTranscurridos
+                    </text>
+                }
+                else
+                {
+                    <text>día(s) cubierto(s) de @cobertura.DiasTranscurridos transcurrido(s)</text>
+                }
+            </span>
+
+            <span class="tarjeta-panel-pie">
+                @cobertura.Marcaciones.ToString("N0", cultura) marcación(es) vigente(s) ·
+                @(cobertura.HayHuecos ? "Revisar qué días faltan" : "Ver el calendario")
+            </span>
+        </a>
+    }
+
+    @* ----------------------------------------------------------------- Tareo ---- *@
+    @if (Model.GestionaTareo && panel.Tareo is { } t)
+    {
+        <a class="tarjeta-panel @(t.Calculo.EstaAlDia ? "" : "atencion")"
+           asp-controller="Asistencia" asp-action="Index"
+           asp-route-periodoId="@panel.Periodo!.Id">
+            <span class="tarjeta-panel-titulo">Tareo</span>
+
+            <span class="tarjeta-panel-cifra">@t.DiasCalculados.ToString("N0", cultura)</span>
+
+            <span class="tarjeta-panel-rotulo">
+                día(s) calculado(s) de @t.Trabajadores trabajador(es)
+            </span>
+
+            <span class="tarjeta-panel-pie">
+                @if (t.Calculo.SinCalcular)
+                {
+                    <text>Sin calcular todavía · Recalcular el periodo</text>
+                }
+                else if (t.Calculo.Desactualizado)
+                {
+                    <text>
+                        Desactualizado desde @t.Calculo.UltimoCambioRelevante?.ToString("dd/MM HH:mm", cultura)
+                        · Recalcular
+                    </text>
+                }
+                else
+                {
+                    <text>
+                        Al día · calculado el
+                        @t.Calculo.CalculadoMasReciente?.ToString("dd/MM/yyyy HH:mm", cultura)
+                    </text>
+                }
+            </span>
+        </a>
+    }
+
+    @* ------------------------------------------------------------ Excepciones ---- *@
+    @if (Model.GestionaTareo && panel.Tareo is { } e && !e.Calculo.SinCalcular)
+    {
+        <a class="tarjeta-panel @(e.Faltas > 0 ? "atencion" : "")"
+           asp-controller="Asistencia" asp-action="Index"
+           asp-route-periodoId="@panel.Periodo!.Id"
+           asp-route-estado="@((int)ControlMarcacion.Domain.Asistencia.EstadoTareo.Falta)">
+            <span class="tarjeta-panel-titulo">Excepciones del periodo</span>
+
+            <span class="tarjeta-panel-cifra">@e.Faltas.ToString("N0", cultura)</span>
+            <span class="tarjeta-panel-rotulo">falta(s) sin justificar</span>
+
+            <span class="tarjeta-panel-pie">
+                @e.Tardanzas tardanza(s) · @Horas(e.MinutosExtra) h de sobretiempo
+            </span>
+        </a>
+    }
+
+    @* ----------------------------------------------------------- Solicitudes ---- *@
+    @if (Model.VeSolicitudes)
+    {
+        <a class="tarjeta-panel @(panel.SolicitudesPendientes > 0 ? "atencion" : "")"
+           asp-controller="Solicitudes" asp-action="Index"
+           asp-route-estado="@((int)ControlMarcacion.Domain.Solicitudes.EstadoSolicitud.Pendiente)">
+            <span class="tarjeta-panel-titulo">Solicitudes de ausencia</span>
+
+            <span class="tarjeta-panel-cifra">@panel.SolicitudesPendientes.ToString("N0", cultura)</span>
+            <span class="tarjeta-panel-rotulo">pendiente(s) de decisión</span>
+
+            <span class="tarjeta-panel-pie">
+                @(panel.SolicitudesPendientes > 0
+                    ? "Aprobar o rechazar"
+                    : "Nada esperando")
+            </span>
+        </a>
+    }
+
+    @* --------------------------------------------------------------- Reportes ---- *@
+    @if (Model.VeReportes && panel.Periodo is { } p)
+    {
+        <a class="tarjeta-panel" asp-controller="Reportes" asp-action="Index">
+            <span class="tarjeta-panel-titulo">Reportes</span>
+            <span class="tarjeta-panel-cifra-texto">@p.Codigo</span>
+            <span class="tarjeta-panel-rotulo">resumen, excepciones y tareo final</span>
+            <span class="tarjeta-panel-pie">
+                @(p.EstaAbierto
+                    ? "El periodo sigue abierto: las cifras pueden cambiar"
+                    : "Periodo cerrado: las cifras están congeladas")
+            </span>
+        </a>
+    }
 </div>
 
 <div class="tarjeta">
-    <h2>Bienvenido</h2>
-    <p>
-        Sistema de control de asistencia y cálculo de tareo para <strong>GCA</strong>,
-        cliente <strong>Intradevco</strong>.
-    </p>
-    <p class="texto-suave">
+    <h2>Cómo funciona</h2>
+    <p class="subtitulo-compacto">
         <strong>Marcador en duro + justificaciones = resultado final.</strong>
         Las marcaciones que llegan del ZKTeco no se modifican nunca; toda corrección se
         registra como justificación mientras el periodo esté abierto.
     </p>
-
-    @if (!vePanel)
-    {
-        <p style="color: var(--color-texto-suave); margin-bottom: 0;">
-            Use el menú superior para ir a su trabajo.
-            @if (gestionaTareo)
-            {
-                <text>Tiene acceso a Personal, Marcaciones, Solicitudes, Justificaciones, Tareo y Catálogos.</text>
-            }
-            else if (veSolicitudes)
-            {
-                <text>Tiene acceso a Solicitudes de ausencia.</text>
-            }
-            else
-            {
-                <text>Si no ve ninguna opción, pida a su coordinador que revise el rol de su cuenta.</text>
-            }
-        </p>
-    }
 </div>
-
-@if (vePanel)
-{
-    <div class="tarjeta">
-        <h2>Módulos</h2>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <thead>
-                    <tr>
-                        <th>Módulo</th>
-                        <th>Estado</th>
-                        <th>Descripción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (gestionaTareo)
-                    {
-                        <tr>
-                            <td><a asp-controller="Trabajadores" asp-action="Index">Personal</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Ficha del trabajador, datos personales y laborales, ID de marcador y turno</td>
-                        </tr>
-                        <tr>
-                            <td><a asp-controller="Catalogos" asp-action="Index">Catálogos</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Puestos, plantas, áreas, secciones, tipos de documento y turnos</td>
-                        </tr>
-                        <tr>
-                            <td><a asp-controller="Marcaciones" asp-action="Index">Marcaciones</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Carga del TXT del ZKTeco G3, con deduplicación y reporte de rechazos</td>
-                        </tr>
-                    }
-                    @if (gestionaTareo)
-                    {
-                        <tr>
-                            <td><a asp-controller="Periodos" asp-action="Index">Periodos</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Rango de fechas, ciclo de apertura y cierre, detección de días huérfanos</td>
-                        </tr>
-                    }
-                    @if (veSolicitudes)
-                    {
-                        <tr>
-                            <td><a asp-controller="Solicitudes" asp-action="Index">Solicitudes</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Vacaciones, descansos médicos, licencias y permisos, con aprobación</td>
-                        </tr>
-                    }
-                    @if (gestionaTareo)
-                    {
-                        <tr>
-                            <td><a asp-controller="Justificaciones" asp-action="Index">Justificaciones</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Corrección auditable de ausencias y tardanzas, con periodo abierto</td>
-                        </tr>
-                        <tr>
-                            <td><a asp-controller="Asistencia" asp-action="Index">Tareo</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Motor de cálculo, sobretasas y horas extras según normativa peruana</td>
-                        </tr>
-                    }
-                    @if (veReportes)
-                    {
-                        <tr>
-                            <td><a asp-controller="Reportes" asp-action="Index">Reportes</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Resumen mensual, excepciones y tareo final, exportables a Excel</td>
-                        </tr>
-                    }
-                    @if (esCoordinador)
-                    {
-                        <tr>
-                            <td><a asp-controller="Usuarios" asp-action="Index">Usuarios</a></td>
-                            <td><span class="etiqueta etiqueta-puntual">Disponible</span></td>
-                            <td>Alta de cuentas, rol y plantas que gestiona cada administrador</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-}

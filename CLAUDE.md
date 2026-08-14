@@ -117,6 +117,37 @@ en la primera petición real contra SQL Server. Le pasó a la carga masiva.
 **Interfaz**: todo en español, fecha `dd/MM/yyyy`, hora `HH:mm`, cultura `es-PE` fijada en el
 arranque. Assets locales en `wwwroot/`, sin CDN: la planta puede no tener salida a internet.
 
+**Filtro en vivo**: un solo parcial, `Views/Shared/_FiltroTabla.cshtml`, con
+`filtro-tabla.js`. Filtra las filas **ya cargadas**, sin viajar al servidor, y es para las
+tablas que caben enteras en la respuesta —catálogos, feriados de un año, turnos, tipos de
+ausencia, usuarios, periodos—. Los listados que **paginan** usan el filtro del formulario:
+ahí sí hay filas que no llegaron.
+⚠️ **Solo se dibuja a partir de `FiltroTablaVm.MinimoFilas` (12)**, aproximadamente una
+pantalla de tabla. Casi todos estos catálogos arrancan con un puñado de filas —cinco
+turnos, nueve tipos de ausencia, un periodo—, y una caja de búsqueda sobre cinco filas es
+ruido: ocupa sitio y no ahorra nada. El umbral hace que aparezca sola cuando la tabla deja
+de caber de un vistazo, sin que haya que acordarse el día que crezca.
+**Marcadores queda fuera a propósito**: ya tiene su propia búsqueda por servidor
+(código o descripción), y dos cajas de texto compitiendo en la misma pantalla confunden
+más de lo que ayudan.
+Es insensible a tildes en ambos sentidos ("produccion" encuentra "Producción"), Escape
+limpia, y el contador hereda el sustantivo de la tabla (`Sustantivo`), para no pasar de
+«13 feriado(s)» a «2 de 13 registro(s)» al primer tecleo.
+
+**Paginación**: un solo parcial, `Views/Shared/_Paginacion.cshtml`, alimentado por
+`PaginacionVm.De(resultado, accion, sustantivo, filtros)`. Lo usan los siete listados
+paginados. Cada vista aporta **solo sus filtros**, a través de un `RutaFiltros()` en su
+propio ViewModel; la clave `pagina` la escribe el parcial, y la omite en la página 1 para
+dejar la URL limpia (las acciones reciben `int pagina` y un 0 ausente ya es la primera).
+⚠️ El atributo va entre **comillas simples** — `model='PaginacionVm.De(r, "Index", …)'` —
+porque la expresión lleva cadenas entre dobles.
+⚠️ El parcial resuelve el controlador con `ViewContext.RouteData`: dejar que
+`asp-controller` reciba `null` **no** significa "el actual", el generador cae en los
+valores por omisión de la ruta y devuelve `/`.
+Antes cada vista traía su propia copia —cinco `RutaPagina` hechas a mano, tres con enlaces
+de texto en vez de botones y sin el rango «Mostrando 51–100 de 155»—, y a la de Personal
+le faltaba `TipoPlanilla`: pasar de página descartaba ese filtro en silencio.
+
 **Tests**: xUnit + **Shouldly** + NSubstitute. No uses FluentAssertions — desde la v8 exige
 licencia paga para uso comercial. Fechas literales (`new DateOnly(2026, 7, 15)`), nunca
 `DateTime.Now`.
@@ -155,6 +186,25 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
 
 **Funciona hoy:**
 
+- **Portada** (`/`): panel con el estado del mes, no un menú. Cuatro tarjetas que responden
+  lo que se viene a mirar —días del periodo sin marcaciones cargadas, si el tareo está al
+  día, faltas y tardanzas, solicitudes esperando decisión— y cada una lleva a la pantalla
+  donde se resuelve, ya filtrada. Antes era una tabla de módulos con una columna «Estado»
+  que ponía «Disponible» en todas las filas: para saber si el mes iba bien había que entrar
+  a cuatro pantallas.
+  Lo arma `IServicioPanelInicio` (`Application/Inicio`), un **orquestador**: no consulta la
+  base ni conoce ningún `DbSet`, solo compone lo que ya devuelven `IServicioPeriodos`,
+  `CoberturaDeRangoAsync`, `ResumirAsync`, `IServicioSolicitudes` y el
+  `EstadoCalculoTareo` de Reportes. Así la portada no puede decir algo distinto de la
+  pantalla a la que enlaza.
+  El periodo es **el más reciente**, el mismo criterio que usa Tareo al entrar sin elegir
+  nada — si divergieran, la portada resumiría un mes y enlazaría a otro.
+  ⚠️ Cada bloque **tolera su propio fallo**: si falta un parámetro legal y el estado del
+  cálculo revienta, se muestra el resto y ese dato queda como «sin calcular», que es la
+  lectura conservadora. Una portada que no carga deja al usuario sin punto de partida.
+  Las tarjetas se dibujan según lo que el rol puede **abrir**: una tarjeta que enlaza a un
+  403 es peor que no mostrarla. El control real sigue siendo el `[Authorize]` de cada
+  controlador.
 - **Personal**: listado con filtros, paginación y **búsqueda en vivo** (debounce 300 ms) por
   documento, apellidos, nombres o ID de marcador. Ver y editar abren un **panel flotante
   lateral** sobre la misma pantalla, sin navegar — el alta completa sigue teniendo su propia
@@ -221,6 +271,18 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
   el cierre del periodo, que es la decisión humana detrás del recálculo).
 - **Catálogos**: puestos, plantas, áreas, secciones y tipos de documento, con código único por
   padre, contador de uso y baja lógica bloqueada cuando el catálogo está en uso.
+  La **portada** (`/Catalogos`) es una rejilla de tarjetas con el conteo de activos e
+  inactivos de cada catálogo (`IServicioCatalogos.ConteosAsync`) y avisa arriba de los que
+  se quedaron **sin ningún elemento activo** —los que dejan un desplegable vacío en los
+  formularios que dependen de ellos—. El **listado** trae un filtro en vivo sobre las filas
+  ya cargadas (`filtro-tabla.js`, insensible a tildes: "produccion" encuentra "Producción").
+  Es client-side a propósito: estos catálogos caben enteros en la respuesta, a diferencia de
+  Personal y Tareo, que paginan y sí necesitan volver al servidor.
+  ⚠️ La columna **«En uso»** y la regla que bloquea la baja **no cuentan lo mismo**: la
+  columna suma hijos del catálogo más trabajadores, y `CambiarEstadoAsync` solo mira a los
+  trabajadores. Por eso el botón de desactivar no se deshabilita según la columna —lo haría
+  en casos que el servidor sí permite— y la decisión se deja donde corresponde, en
+  `Application`.
 - **Turnos**: pantalla propia con horarios, refrigerio, tolerancia, **ventanas de anticipación
   de entrada y salida** (configurables por turno) y plantas habilitadas.
 - **Ingesta del TXT**: carga del archivo del ZKTeco con deduplicación, detección de archivo
@@ -259,6 +321,21 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
   y extras 25/35, nocturnidad, tardanza, salida anticipada, cruce de medianoche, domingo
   o feriado trabajado, y aplicación de justificaciones sobre el cálculo crudo. Recálculo
   idempotente y bloqueado en periodo cerrado.
+- **Pantalla de tareo** (`/Asistencia`): **pagina** (50 filas) y filtra por periodo, estado
+  y **búsqueda de trabajador** (apellidos, nombres o documento). Antes volcaba el periodo
+  entero en una sola tabla, contra la regla que el propio `ResultadoPaginado` declara
+  —"todo listado del sistema pagina, sin excepción"—: con 200 trabajadores son 6 000 filas
+  de 14 columnas en un HTML que el equipo de planta no termina de pintar.
+  Los totales y el reparto por estado salen de `IServicioCalculoTareo.ResumirAsync`,
+  **calculado en la base sobre el periodo completo**, no sumando las filas que llegaron a
+  la vista: sumarlas daría "el total de esta página", que cambia al pasar de página.
+  El resumen **ignora el estado del filtro** a propósito, y sus pastillas son enlaces que
+  filtran, con el conteo de cada estado —incluidos los que están en cero—.
+  La **observación va en su propia fila** bajo el día que explica, no en un atributo
+  `title`: es el invariante "cada resultado se explica", y un tooltip no se imprime, no se
+  copia y no existe en pantalla táctil.
+  El listado se ordena por **apellidos** y no por `TrabajadorId`, que para quien lee el
+  tareo es orden arbitrario; el nombre se repite solo al cambiar de persona.
 - **Sobretasas**: liquidación por concepto con la tasa vigente a la fecha del periodo y su
   base legal. El sistema no calcula dinero — entrega minutos y porcentajes para planilla.
 - **Solicitudes de ausencia**: alta, aprobación, rechazo y anulación. Aprobar genera una
@@ -268,7 +345,28 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
   máximo 20 días por año calendario, licencia paternal máximo 10 días por evento, licencia
   por maternidad máximo 98 días por evento. **Vacaciones** se registran con subtipo
   (gozadas, máximo 30 días por periodo vacacional; venta, máximo 15 días) y un periodo
-  `AAAA-AAAA`. El sustento es obligatorio para todos los tipos, sin excepción. Los tipos
+  `AAAA-AAAA`. El **sustento se exige al aprobar, no al registrar**, y solo en los tipos
+  que lo marcan con `RequiereSustento` —`DM`, `LPAT`, `LMAT`, `SUBE` y `SUBA` en el
+  catálogo sembrado—. Es lo que permite anotar la ausencia el mismo día, para que no se
+  calcule como falta mientras llega el certificado de EsSalud.
+  El listado lo muestra como **Falta / Registrado / No exigido**; cuando falta **no ofrece
+  Aprobar** —sería ofrecer una acción que el servidor ya va a rechazar— sino
+  **«Registrar sustento»**, que es lo que desbloquea la fila.
+  `SolicitudListaDto.PuedeAprobarse` refleja el mismo criterio que `AprobarAsync`, con
+  tests que los mantienen en línea. La comprobación del servidor sigue ahí: ocultar un
+  botón no es el control.
+  ⚠️ `GuardarSolicitudRequest.Sustento` **no lleva `[Required]`**, por el mismo motivo que
+  `SubtipoVacaciones`: solo lo exigen cinco tipos de nueve, y pedirlo en el DTO bloquearía
+  las vacaciones y los permisos, que no lo necesitan nunca. Lo llevaba, y eso contradecía
+  la regla de `AprobarAsync`: en la práctica obligaba a teclear "pendiente" para poder
+  registrar un descanso médico el mismo día — y ese texto es el que hereda la
+  justificación como explicación ante una inspección.
+  `RegistrarSustentoAsync` agrega el sustento que faltaba. Es **deliberadamente estrecha**:
+  no toca trabajador, tipo ni fechas —lo que el aprobador ya evaluó—, solo el documento que
+  llegó después, y **solo sobre solicitudes pendientes** (una aprobada ya generó
+  justificaciones que heredaron ese texto). Antes no existía, y el mensaje "regístrelo
+  antes de aprobar" apuntaba a algo que el sistema no permitía: la única salida era anular
+  y volver a crear. Los tipos
   **subsidiados** (`DM`, `SUBE`, `SUBA`) exigen además el **detalle clínico** —
   contingencia, diagnóstico y centro de atención —, que es lo que llena las tres columnas
   homónimas de la hoja `Descanso Medico` del tareo final. El bloque solo aparece en el
@@ -276,10 +374,48 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
   sensible de salud: ver el bullet de Tareo final.
 - **Justificaciones**: consulta con trazabilidad completa (origen, estado anterior, quién y
   cuándo) y alta manual para lo puntual. Una sola justificación por trabajador y día.
-- **Reportes**: resumen mensual por trabajador y excepciones, exportables a Excel con
-  ClosedXML.
-- **Tareo final**: el libro que se entrega a planilla, con las tres hojas del archivo modelo
-  de GCA — `Tareo`, `Descanso Medico` y `Vacaciones-Licencias`. Estructura documentada en
+- **Reportes**: resumen por trabajador y excepciones, exportables a Excel con ClosedXML.
+  El alcance temporal ya no es solo el periodo: **periodo, mes calendario, día suelto o
+  rango libre** (tope de 366 días), resuelto por `ResolutorRangoReporte`, puro en `Domain`.
+  Las consultas filtran el `TareoDiario` **por fecha y no por `PeriodoId`**, porque un rango
+  libre puede cruzar dos periodos. El `PeriodoId` sigue haciendo falta donde el periodo *es*
+  el sujeto: cierre, reintegros y tareo final.
+  El padrón se acota al alcance con **el mismo solapamiento que aplica el motor**
+  (`FechaIngreso <= hasta && (FechaCese == null || FechaCese >= desde)`). Antes filtraba solo
+  por `Activo`, y como registrar un cese **no** apaga la ficha —`DarDeBaja` solo escribe
+  `FechaCese`—, alguien cesado en marzo salía en el tareo de julio en cero y con la
+  observación «CESE», como si hubiera cesado ese mes.
+  ⚠️ **Todo reporte declara de qué momento son sus cifras** (`EstadoCalculoTareo`): compara
+  el último `TareoDiario.CalculadoEn` del alcance contra lo último que pudo cambiarlo —una
+  marcación cargada, una carga anulada o reactivada, una justificación creada o modificada—.
+  Si algo es posterior, la pantalla **y el propio Excel** avisan que hay que recalcular. El
+  aviso va dentro del archivo porque el Excel se reenvía por correo, donde ya no hay pantalla:
+  un tareo desactualizado se ve idéntico a uno al día.
+  El resumen y las excepciones **paginan** (50 filas), y la exportación **no**: el Excel
+  lleva siempre el alcance completo. Son dos rutas del mismo servicio
+  (`ExcepcionesInternoAsync` con página nula) para que el archivo que se envía a planilla
+  no pueda dejar de coincidir con lo que se vio en pantalla.
+  ⚠️ La fila **TOTAL** del resumen sale de `TotalesResumenTareo`, **calculada sobre el
+  alcance completo en el servicio**. Antes se sumaba en la vista recorriendo `Model.Filas`:
+  eso solo era correcto mientras la pantalla volcaba todo, y al paginar habría pasado a ser
+  «el total de esta página» sin que nada lo delatara, en el reporte que se lleva a planilla.
+  Las horas del total se redondean **al final, sobre los minutos sumados**, no sumando el
+  redondeo de cada fila.
+  El resumen recorta en memoria y las excepciones en SQL, a propósito: el resumen es una
+  fila por trabajador y sus totales exigen recorrer el alcance entero de todas formas
+  —el bono nocturno se resuelve día por día con la RMV vigente en cada fecha—, mientras
+  que las excepciones son un día por fila y llegan a decenas de miles.
+- **Tareo final**: el libro que se entrega a planilla. Se emite **solo por periodo** y
+  rechaza los alcances por mes, día o rango: sus reintegros se cargan por trabajador y
+  periodo, y su encabezado declara el estado de cierre — sobre medio mes saldría incompleto
+  con aspecto de completo. Lleva una cuarta hoja, **`Trazabilidad`**, con alcance, filtros,
+  quién y cuándo lo generó y el estado del cálculo; va **al final y en hoja aparte** porque
+  las tres primeras se pegan en la plantilla de planilla y meter filas arriba de `Tareo`
+  correría todo el bloque. Las tres hojas del archivo modelo de GCA —
+  `Tareo`, `Descanso Medico` y `Vacaciones-Licencias`— siguen primero y en ese orden.
+  ⚠️ La columna **SUSPENSION** (`DiasSuspension`) **nunca se alimenta**: no existe el concepto
+  de suspensión en el sistema, así que sale siempre vacía pero se suma en los totales, lo que
+  la hace parecer calculada. Estructura documentada en
   `docs/04-formato-tareo-final.md`. El bloque de identificación sigue el formato vigente
   (`RESUMEN FIN DE MES ... - PLANTA ...`): **11 columnas** (A-K), con `CENTRO` =
   `Centro.Codigo` (`CO_AREA`), `CENTRO DE COSTO` = `CentroCosto.Codigo` (`CO_SECC`),
@@ -306,11 +442,26 @@ local de SQL Server con 34 tablas, los índices críticos y los catálogos sembr
   no una fecha fija del periodo — y visible en el Resumen mensual, no en la hoja `Tareo` del
   tareo final (esa hoja ya está verificada celda por celda contra el archivo real y no tiene
   columna pensada para soles).
-- **Feriados**: sin pantalla de mantenimiento manual a propósito — un botón de sincronización
-  (solo Coordinador) trae los feriados oficiales de Perú de una fuente pública
-  (`date.nager.at`) e inserta los que falten, sin borrar ni pisar uno ya cargado. El cálculo
-  del tareo sigue leyendo siempre la tabla local `Feriado`, nunca la red: sigue funcionando
-  aunque la planta esté sin internet ese día.
+- **Feriados** (`/Feriados`, solo `COORDINADOR`): dos caminos que no se reemplazan.
+  **Sincronizar** trae los feriados **nacionales** del año de una fuente pública
+  (`date.nager.at`) e inserta los que falten, sin borrar ni pisar uno ya cargado.
+  **Alta manual** (fecha, descripción, alcance nacional o por planta, baja lógica) cubre lo
+  que ninguna fuente pública sabe: el aniversario de una planta, un feriado regional, o un
+  nacional decretado que el proveedor todavía no publicó.
+  ⚠️ El alta manual **no existía**, pese a que el controlador, `IServicioFeriados` y el
+  estado vacío de la pantalla afirmaban los tres que el catálogo se cargaba "desde otras
+  rutas del sistema": `new Feriado` aparecía una sola vez en todo el código, dentro del
+  propio sync. Un feriado local de planta no se podía registrar, y sin registrar el motor
+  trata ese día como laborable — falta para quien no fue y sin el 100 % para quien sí—,
+  aunque `Feriado.PlantaId` y el motor (que consulta `f.PlantaId`) siempre lo soportaron.
+  ⚠️ La sincronización compara ahora **solo contra los nacionales**. Comparaba contra todas
+  las filas de la fecha, así que en cuanto existieran feriados de planta, un aniversario de
+  Planta 01 el 28 de julio habría hecho que se saltara Fiestas Patrias y las otras tres
+  plantas se habrían quedado sin el feriado nacional.
+  No se admite un feriado de planta sobre una fecha que ya es nacional: ese día no se
+  trabaja en ninguna planta y la fila sobraría.
+  El cálculo del tareo sigue leyendo siempre la tabla local `Feriado`, nunca la red: sigue
+  funcionando aunque la planta esté sin internet ese día.
 - **Selects con buscador**: componente propio (`searchable-select.js`, sin dependencias
   externas) aplicado a los combos largos de todo el sistema — envuelve el `<select>` nativo
   sin reemplazarlo, así que el binding de Razor y las cascadas AJAX existentes siguen

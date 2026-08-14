@@ -1,14 +1,42 @@
 using System.Diagnostics;
+using ControlMarcacion.Application.Inicio;
+using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControlMarcacion.Web.Controllers;
 
-public sealed class InicioController : Controller
+public sealed class InicioController(IServicioPanelInicio panel) : Controller
 {
     [HttpGet]
-    public IActionResult Index() => View();
+    public async Task<IActionResult> Index(CancellationToken cancelacion)
+    {
+        var gestionaTareo = User.IsInRole(RolesSistema.Coordinador)
+                            || User.IsInRole(RolesSistema.Administrador);
+
+        var veSolicitudes = gestionaTareo || User.IsInRole(RolesSistema.TrabajadorSocial);
+
+        var veReportes = User.IsInRole(RolesSistema.Coordinador)
+                         || User.IsInRole(RolesSistema.Gerencia);
+
+        // Sin ninguna tarjeta que mostrar no se consulta nada: la portada de un rol sin
+        // acceso al tareo ni a solicitudes es una guía de dos líneas, y hacerle pagar las
+        // consultas del panel para no enseñar ninguna sería trabajo tirado.
+        var vePanel = gestionaTareo || veSolicitudes || veReportes;
+
+        return View(new PanelInicioVm
+        {
+            GestionaTareo = gestionaTareo,
+            VeSolicitudes = veSolicitudes,
+            VeReportes = veReportes,
+            Panel = vePanel
+                ? await panel
+                    .ObtenerAsync(User.Identity?.Name ?? "sistema", cancelacion)
+                    .ConfigureAwait(false)
+                : PanelInicioDto.Vacio
+        });
+    }
 
     /// <summary>
     /// Página de error a la que deriva <c>UseExceptionHandler</c> fuera de desarrollo.

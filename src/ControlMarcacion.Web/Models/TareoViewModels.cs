@@ -1,19 +1,33 @@
+using System.Globalization;
 using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Catalogos.Dto;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Domain.Asistencia;
 
 namespace ControlMarcacion.Web.Models;
 
 /// <summary>Modelo de la pantalla de tareo.</summary>
+/// <remarks>
+/// El listado <b>pagina</b> y el resumen viene del servidor calculado sobre el periodo
+/// completo. Antes los totales se sumaban aquí, sobre <c>Tareos</c>: eso solo funcionaba
+/// porque la pantalla volcaba el periodo entero en una sola tabla —decenas de miles de
+/// filas— y habría empezado a mentir en cuanto se paginara.
+/// </remarks>
 public sealed class TareoVm
 {
     public IReadOnlyList<PeriodoListaDto> Periodos { get; init; } = [];
 
-    public IReadOnlyList<TareoDiarioDto> Tareos { get; init; } = [];
+    public ResultadoPaginado<TareoDiarioDto> Resultado { get; init; } =
+        ResultadoPaginado.Vacio<TareoDiarioDto>(50);
+
+    /// <summary>Totales y reparto por estado del periodo, no de la página visible.</summary>
+    public ResumenTareo Resumen { get; init; } = ResumenTareo.Vacio;
 
     public long? PeriodoId { get; init; }
 
     public EstadoTareo? Estado { get; init; }
+
+    public string? Busqueda { get; init; }
 
     /// <summary>Minutos por concepto con la tasa vigente aplicada.</summary>
     public LiquidacionPeriodo? Liquidacion { get; init; }
@@ -21,14 +35,28 @@ public sealed class TareoVm
     public PeriodoListaDto? PeriodoSeleccionado =>
         Periodos.FirstOrDefault(p => p.Id == PeriodoId);
 
-    /// <summary>Conteo por estado, para el resumen de la cabecera.</summary>
-    public IReadOnlyDictionary<EstadoTareo, int> Resumen =>
-        Tareos.GroupBy(t => t.Estado).ToDictionary(g => g.Key, g => g.Count());
+    public bool HayFiltroActivo => Estado is not null || !string.IsNullOrWhiteSpace(Busqueda);
 
-    public int MinutosExtraTotales =>
-        Tareos.Sum(t => t.MinutosExtra25 + t.MinutosExtra35);
+    /// <summary>
+    /// Filtros activos, con el estado que se indique. <b>Sin la página.</b>
+    /// </summary>
+    /// <remarks>
+    /// Lo usan las pastillas de estado —que filtran cambiando solo ese parámetro— y el
+    /// pie de paginación, que agrega la página por su cuenta. Se arma una vez aquí y no
+    /// en cada enlace de la vista: repetir el diccionario es la forma segura de que uno
+    /// de ellos se quede sin un filtro y descarte lo que el usuario acababa de escribir.
+    ///
+    /// Cambiar de estado vuelve a la página 1 sin decirlo: al no llevar página, la acción
+    /// recibe 0 y lo resuelve como la primera. Es lo correcto — la página 7 de «todos»
+    /// no tiene por qué existir en «faltas».
+    /// </remarks>
+    public Dictionary<string, string?> RutaFiltros(EstadoTareo? estado) => new()
+    {
+        ["periodoId"] = PeriodoId?.ToString(CultureInfo.InvariantCulture),
+        ["estado"] = estado is null ? null : ((int)estado).ToString(CultureInfo.InvariantCulture),
+        ["busqueda"] = Busqueda
+    };
 
-    public int MinutosTardanzaTotales => Tareos.Sum(t => t.MinutosTardanza);
-
-    public int MinutosNocturnosTotales => Tareos.Sum(t => t.MinutosNocturnos);
+    /// <summary>Los filtros tal como están, para el pie de paginación.</summary>
+    public Dictionary<string, string?> RutaFiltros() => RutaFiltros(Estado);
 }

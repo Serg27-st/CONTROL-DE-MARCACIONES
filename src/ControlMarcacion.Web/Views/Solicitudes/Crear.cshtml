@@ -135,10 +135,15 @@
         <h2>Sustento</h2>
         <div class="rejilla">
             <div class="campo">
-                <label asp-for="Datos.Sustento">
-                    Descripción del sustento <span class="obligatorio" aria-hidden="true">*</span>
-                </label>
-                <input asp-for="Datos.Sustento" type="text" maxlength="500" minlength="5" required />
+                @*
+                    Sin `required`: el sustento se exige AL APROBAR y solo en los tipos que
+                    lo piden. Forzarlo aquí obligaba a escribir algo en unas vacaciones —que
+                    no lo necesitan nunca— y, en un descanso médico, a teclear "pendiente"
+                    para poder registrar la ausencia el mismo día. Ese texto es el que hereda
+                    la justificación como explicación ante una inspección.
+                *@
+                <label asp-for="Datos.Sustento">Descripción del sustento</label>
+                <input asp-for="Datos.Sustento" type="text" maxlength="500" />
                 <span class="error-campo" asp-validation-for="Datos.Sustento"></span>
             </div>
 
@@ -154,9 +159,15 @@
         </div>
 
         <p class="nota-pie">
-            La descripción del sustento es obligatoria: es lo que explica, meses después, por
-            qué ese día no quedó como falta. El <strong>documento</strong> (certificado médico,
-            resolución) sí puede adjuntarse más tarde, antes de aprobar.
+            El sustento es lo que explica, meses después y ante una inspección, por qué ese
+            día no quedó como falta: la justificación que se genere al aprobar hereda este
+            texto.
+            <br />
+            <strong>Puede dejarse en blanco ahora.</strong> Los tipos que lo exigen —descanso
+            médico, licencias y subsidios— no se podrán <em>aprobar</em> sin él, pero la
+            solicitud sí se registra, para que la ausencia quede anotada el mismo día y no
+            se calcule como falta mientras llega el certificado. Cuando llegue, se agrega
+            con <strong>«Registrar sustento»</strong> desde el listado.
         </p>
     </div>
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Justificaciones.Dto;
 using ControlMarcacion.Domain.Justificaciones;
@@ -27,6 +28,14 @@ public sealed class ListaJustificacionesVm
     [BindNever]
     [ValidateNever]
     public IReadOnlyList<OpcionDto> Trabajadores { get; init; } = [];
+
+    /// <summary>Filtros activos, para conservarlos al cambiar de página.</summary>
+    public Dictionary<string, string?> RutaFiltros() => new()
+    {
+        ["periodoId"] = PeriodoId?.ToString(CultureInfo.InvariantCulture),
+        ["trabajadorId"] = TrabajadorId?.ToString(CultureInfo.InvariantCulture),
+        ["origen"] = Origen is null ? null : ((int)Origen).ToString(CultureInfo.InvariantCulture)
+    };
 }
 
 /// <summary>Modelo del formulario de alta manual.</summary>

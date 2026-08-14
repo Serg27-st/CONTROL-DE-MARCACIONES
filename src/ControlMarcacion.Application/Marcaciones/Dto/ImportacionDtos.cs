@@ -104,6 +104,34 @@ public sealed record DiaConMarcaciones(DateOnly Fecha, int Marcaciones, int Trab
     public bool TieneMarcaciones => Marcaciones > 0;
 }
 
+/// <summary>
+/// Cobertura de marcaciones sobre un rango, resumida: lo que hace falta para responder
+/// «¿me falta cargar algo de este periodo?» sin pintar un calendario.
+/// </summary>
+/// <remarks>
+/// Los días que todavía no ocurrieron no cuentan como hueco: en un periodo en curso, la
+/// mitad del mes está en el futuro y contarla como faltante convertiría el aviso en ruido
+/// permanente.
+/// </remarks>
+public sealed record CoberturaDeRango(
+    DateOnly Desde,
+    DateOnly Hasta,
+    int Marcaciones,
+    int DiasConMarcacion,
+    int DiasTranscurridos)
+{
+    public static CoberturaDeRango Vacia(DateOnly desde, DateOnly hasta) =>
+        new(desde, hasta, 0, 0, 0);
+
+    /// <summary>Días ya transcurridos del rango sin ninguna marcación cargada.</summary>
+    public int DiasSinMarcacion => Math.Max(DiasTranscurridos - DiasConMarcacion, 0);
+
+    public bool HayHuecos => DiasSinMarcacion > 0;
+
+    /// <summary>Días del rango, extremos incluidos, hayan ocurrido o no.</summary>
+    public int DiasDelRango => Hasta.DayNumber - Desde.DayNumber + 1;
+}
+
 /// <summary>Resumen de un mes dentro del año consultado.</summary>
 public sealed record MesConMarcaciones(int Anio, int Mes, int Marcaciones, int DiasConMarcacion)
 {

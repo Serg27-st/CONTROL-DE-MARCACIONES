@@ -1,4 +1,5 @@
 using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Reportes;
 using ControlMarcacion.Application.Reportes.Dto;
 using ControlMarcacion.Application.Seguridad;
@@ -14,11 +15,13 @@ namespace ControlMarcacion.Web.Controllers;
 /// </summary>
 /// <remarks>
 /// Solo lee y exporta: si el tareo está desactualizado, la corrección es recalcular el
-/// periodo desde Asistencia, no algo que este controlador pueda resolver.
+/// periodo desde Asistencia, no algo que este controlador pueda resolver. Lo que sí hace
+/// ahora es <b>avisarlo</b> — ver <see cref="EstadoCalculoTareo"/>—, porque antes un reporte
+/// viejo salía idéntico a uno al día.
 ///
-/// ⚠️ El formato de columnas es el que el sistema puede sustentar hoy con el tareo
-/// calculado. GCA no ha entregado el archivo modelo del tareo final; cuando llegue, estas
-/// pantallas y sus exportaciones se ajustan a esa plantilla.
+/// El alcance puede ser un periodo de planilla, un mes calendario, un día suelto o un rango
+/// de fechas. El <b>tareo final</b> es la excepción: se emite solo por periodo, porque sus
+/// reintegros y su estado de cierre son del periodo.
 ///
 /// Restringido a COORDINADOR y GERENCIA. La exportación saca datos personales de todo el
 /// padrón en un archivo que ya sale del sistema: no es una pantalla de consulta más.
@@ -34,188 +37,264 @@ public sealed class ReportesController(
     public IActionResult Index() => View();
 
     [HttpGet]
-    public async Task<IActionResult> Resumen(FiltroReporteVm filtro, CancellationToken cancelacion)
+    public async Task<IActionResult> Resumen(
+        FiltroReporteVm filtro,
+        int pagina,
+        CancellationToken cancelacion)
     {
-        IReadOnlyList<ResumenTareoDto> filas = [];
+        ArgumentNullException.ThrowIfNull(filtro);
 
-        if (filtro.PeriodoId is { } periodoId)
+        var resultado = ResultadoPaginado.Vacio<ResumenTareoDto>(ResumenTareoVm.FilasPorPagina);
+        var totales = TotalesResumenTareo.Vacio;
+        MetadatosReporte? metadatos = null;
+
+        if (filtro.EstaCompleto)
         {
             try
             {
-                filas = await servicio.ResumenTareoAsync(AFiltro(filtro, periodoId), cancelacion)
+                var filtroReporte = AFiltro(filtro);
+
+                metadatos = await servicio
+                    .ObtenerMetadatosAsync(filtroReporte, UsuarioActual, cancelacion)
                     .ConfigureAwait(false);
+
+                var respuesta = await servicio
+                    .ResumenTareoPaginadoAsync(
+                        filtroReporte, pagina, ResumenTareoVm.FilasPorPagina, cancelacion)
+                    .ConfigureAwait(false);
+
+                resultado = respuesta.Filas;
+                totales = respuesta.Totales;
+            }
+            catch (RecursoNoEncontradoException)
+            {
+                TempData["Error"] = "El periodo elegido ya no existe.";
             }
             catch (ReglaNegocioException excepcion)
             {
-                // Falta un parámetro legal (RMV, sobretasa nocturna o sueldo básico) para
-                // resolver el bono nocturno: se avisa en vez de mostrar un 500 o, peor, un
-                // bono en cero sin explicación.
+                // Alcance incompleto o mal formado, o falta un parámetro legal (RMV,
+                // sobretasa nocturna o sueldo básico) para resolver el bono nocturno: se
+                // avisa en vez de mostrar un 500 o, peor, un bono en cero sin explicación.
                 TempData["Error"] = excepcion.Message;
             }
         }
 
-        var empresaDeLaPlanta = filtro.PlantaId is { } plantaIdResumen
-            ? await catalogos.EmpresaDePlantaAsync(plantaIdResumen, cancelacion).ConfigureAwait(false)
-            : null;
+        var catalogos = await CargarCatalogosAsync(filtro, cancelacion).ConfigureAwait(false);
 
-        var modelo = new ResumenTareoVm
+        return View(new ResumenTareoVm
         {
             Filtro = filtro,
-            Periodos = await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
-            Empresas = await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
-            Plantas = await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
-            Centros = await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
-            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
-            Filas = filas
-        };
-
-        return View(modelo);
+            Metadatos = metadatos,
+            Resultado = resultado,
+            Totales = totales,
+            Periodos = catalogos.Periodos,
+            Empresas = catalogos.Empresas,
+            Plantas = catalogos.Plantas,
+            Centros = catalogos.Centros,
+            CentrosCosto = catalogos.CentrosCosto
+        });
     }
 
     [HttpGet]
-    public async Task<IActionResult> ExportarResumen(FiltroReporteVm filtro, CancellationToken cancelacion)
+    public async Task<IActionResult> Excepciones(
+        FiltroReporteVm filtro,
+        int pagina,
+        CancellationToken cancelacion)
     {
-        if (filtro.PeriodoId is not { } periodoId)
+        ArgumentNullException.ThrowIfNull(filtro);
+
+        var resultado = ResultadoPaginado.Vacio<ExcepcionDto>(ExcepcionesVm.FilasPorPagina);
+        MetadatosReporte? metadatos = null;
+
+        if (filtro.EstaCompleto)
         {
-            return BadRequest("Seleccione un periodo antes de exportar.");
+            try
+            {
+                var filtroReporte = AFiltro(filtro);
+
+                metadatos = await servicio
+                    .ObtenerMetadatosAsync(filtroReporte, UsuarioActual, cancelacion)
+                    .ConfigureAwait(false);
+
+                resultado = await servicio
+                    .ExcepcionesPaginadasAsync(
+                        filtroReporte, pagina, ExcepcionesVm.FilasPorPagina, cancelacion)
+                    .ConfigureAwait(false);
+            }
+            catch (RecursoNoEncontradoException)
+            {
+                TempData["Error"] = "El periodo elegido ya no existe.";
+            }
+            catch (ReglaNegocioException excepcion)
+            {
+                TempData["Error"] = excepcion.Message;
+            }
         }
 
-        var usuario = User.Identity?.Name ?? "sistema";
-        var filtroReporte = AFiltro(filtro, periodoId);
+        var catalogos = await CargarCatalogosAsync(filtro, cancelacion).ConfigureAwait(false);
 
-        try
-        {
-            var metadatos = await servicio.ObtenerMetadatosAsync(filtroReporte, usuario, cancelacion).ConfigureAwait(false);
-            var filas = await servicio.ResumenTareoAsync(filtroReporte, cancelacion).ConfigureAwait(false);
-            var archivo = exportador.ExportarResumenTareo(metadatos, filas);
-
-            return Excel(archivo, $"Resumen_tareo_{metadatos.PeriodoCodigo}");
-        }
-        catch (RecursoNoEncontradoException)
-        {
-            return NotFound();
-        }
-        catch (ReglaNegocioException excepcion)
-        {
-            TempData["Error"] = excepcion.Message;
-
-            return RedirectToAction(nameof(Resumen), RutaFiltro(filtro));
-        }
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Excepciones(FiltroReporteVm filtro, CancellationToken cancelacion)
-    {
-        var empresaDeLaPlanta = filtro.PlantaId is { } plantaIdExcepciones
-            ? await catalogos.EmpresaDePlantaAsync(plantaIdExcepciones, cancelacion).ConfigureAwait(false)
-            : null;
-
-        var modelo = new ExcepcionesVm
+        return View(new ExcepcionesVm
         {
             Filtro = filtro,
-            Periodos = await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
-            Empresas = await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
-            Plantas = await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
-            Centros = await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
-            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
-            Filas = filtro.PeriodoId is { } periodoId
-                ? await servicio.ExcepcionesAsync(AFiltro(filtro, periodoId), cancelacion).ConfigureAwait(false)
-                : []
-        };
-
-        return View(modelo);
+            Metadatos = metadatos,
+            Resultado = resultado,
+            Periodos = catalogos.Periodos,
+            Empresas = catalogos.Empresas,
+            Plantas = catalogos.Plantas,
+            Centros = catalogos.Centros,
+            CentrosCosto = catalogos.CentrosCosto
+        });
     }
 
     [HttpGet]
-    public async Task<IActionResult> ExportarExcepciones(FiltroReporteVm filtro, CancellationToken cancelacion)
-    {
-        if (filtro.PeriodoId is not { } periodoId)
-        {
-            return BadRequest("Seleccione un periodo antes de exportar.");
-        }
+    public Task<IActionResult> ExportarResumen(FiltroReporteVm filtro, CancellationToken cancelacion) =>
+        ExportarAsync(
+            filtro,
+            nameof(Resumen),
+            "Resumen-tareo",
+            async (filtroReporte, metadatos, ct) => exportador.ExportarResumenTareo(
+                metadatos,
+                await servicio.ResumenTareoAsync(filtroReporte, ct).ConfigureAwait(false)),
+            cancelacion);
 
-        var usuario = User.Identity?.Name ?? "sistema";
-        var filtroReporte = AFiltro(filtro, periodoId);
-
-        try
-        {
-            var metadatos = await servicio.ObtenerMetadatosAsync(filtroReporte, usuario, cancelacion).ConfigureAwait(false);
-            var filas = await servicio.ExcepcionesAsync(filtroReporte, cancelacion).ConfigureAwait(false);
-            var archivo = exportador.ExportarExcepciones(metadatos, filas);
-
-            return Excel(archivo, $"Excepciones_{metadatos.PeriodoCodigo}");
-        }
-        catch (RecursoNoEncontradoException)
-        {
-            return NotFound();
-        }
-    }
+    [HttpGet]
+    public Task<IActionResult> ExportarExcepciones(FiltroReporteVm filtro, CancellationToken cancelacion) =>
+        ExportarAsync(
+            filtro,
+            nameof(Excepciones),
+            "Excepciones",
+            async (filtroReporte, metadatos, ct) => exportador.ExportarExcepciones(
+                metadatos,
+                await servicio.ExcepcionesAsync(filtroReporte, ct).ConfigureAwait(false)),
+            cancelacion);
 
     /// <summary>
-    /// El tareo final en el formato de GCA: un libro con las hojas Tareo, Descanso Medico y
-    /// Vacaciones-Licencias.
+    /// El tareo final en el formato de GCA: un libro con las hojas Tareo, Descanso Medico,
+    /// Vacaciones-Licencias y Trazabilidad.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> ExportarTareoFinal(FiltroReporteVm filtro, CancellationToken cancelacion)
-    {
-        if (filtro.PeriodoId is not { } periodoId)
-        {
-            return BadRequest("Seleccione un periodo antes de exportar.");
-        }
-
-        var usuario = User.Identity?.Name ?? "sistema";
-        var filtroReporte = AFiltro(filtro, periodoId);
-
-        try
-        {
-            var metadatos = await servicio.ObtenerMetadatosAsync(filtroReporte, usuario, cancelacion).ConfigureAwait(false);
-            var tareo = await servicio.TareoFinalAsync(filtroReporte, cancelacion).ConfigureAwait(false);
-            var archivo = exportador.ExportarTareoFinal(metadatos, tareo);
-
-            return Excel(archivo, $"Tareo_{metadatos.PeriodoCodigo}");
-        }
-        catch (RecursoNoEncontradoException)
-        {
-            return NotFound();
-        }
-        catch (ReglaNegocioException excepcion)
-        {
-            // Falta un parámetro legal (RMV, % asignación familiar, movilidad diaria o
-            // sueldo básico de algún trabajador): no se genera un tareo con montos en cero
-            // sin que nadie se entere, se avisa qué cargar antes de reintentar.
-            TempData["Error"] = excepcion.Message;
-
-            return RedirectToAction(nameof(Resumen), RutaFiltro(filtro));
-        }
-    }
+    public Task<IActionResult> ExportarTareoFinal(FiltroReporteVm filtro, CancellationToken cancelacion) =>
+        ExportarAsync(
+            filtro,
+            nameof(Resumen),
+            "Tareo-final",
+            async (filtroReporte, metadatos, ct) => exportador.ExportarTareoFinal(
+                metadatos,
+                await servicio.TareoFinalAsync(filtroReporte, ct).ConfigureAwait(false)),
+            cancelacion);
 
     // ------------------------------------------------------------------
 
-    private static FiltroReporte AFiltro(FiltroReporteVm filtro, long periodoId) => new()
+    private string UsuarioActual => User.Identity?.Name ?? "sistema";
+
+    /// <summary>
+    /// El camino común de las tres exportaciones: validar, pedir metadatos, armar y bajar.
+    /// </summary>
+    /// <remarks>
+    /// Los metadatos se piden <b>antes</b> que los datos a propósito: es lo que valida el
+    /// alcance y resuelve el periodo, así que un filtro mal formado falla con su mensaje sin
+    /// haber consultado ni una fila de tareo.
+    /// </remarks>
+    private async Task<IActionResult> ExportarAsync(
+        FiltroReporteVm filtro,
+        string accionDeVuelta,
+        string nombreBase,
+        Func<FiltroReporte, MetadatosReporte, CancellationToken, Task<byte[]>> generar,
+        CancellationToken cancelacion)
     {
-        PeriodoId = periodoId,
+        ArgumentNullException.ThrowIfNull(filtro);
+
+        if (!filtro.EstaCompleto)
+        {
+            TempData["Error"] = "Complete el alcance del reporte antes de exportar.";
+
+            return RedirectToAction(accionDeVuelta, filtro.ARuta());
+        }
+
+        var filtroReporte = AFiltro(filtro);
+
+        try
+        {
+            var metadatos = await servicio
+                .ObtenerMetadatosAsync(filtroReporte, UsuarioActual, cancelacion)
+                .ConfigureAwait(false);
+
+            var archivo = await generar(filtroReporte, metadatos, cancelacion).ConfigureAwait(false);
+
+            return Excel(archivo, nombreBase, metadatos);
+        }
+        catch (RecursoNoEncontradoException)
+        {
+            return NotFound();
+        }
+        catch (ReglaNegocioException excepcion)
+        {
+            // Alcance no admitido (el tareo final exige periodo) o falta un parámetro legal
+            // —RMV, % de asignación familiar, movilidad diaria o el sueldo básico de algún
+            // trabajador—: no se entrega un archivo con montos en cero sin que nadie se
+            // entere, se dice qué cargar antes de reintentar.
+            TempData["Error"] = excepcion.Message;
+
+            return RedirectToAction(accionDeVuelta, filtro.ARuta());
+        }
+    }
+
+    /// <summary>Los desplegables del formulario de filtros, iguales en las dos pantallas.</summary>
+    private sealed record CatalogosDeFiltro(
+        IReadOnlyList<Application.Catalogos.Dto.PeriodoListaDto> Periodos,
+        IReadOnlyList<Application.Comun.OpcionDto> Empresas,
+        IReadOnlyList<Application.Comun.OpcionDto> Plantas,
+        IReadOnlyList<Application.Comun.OpcionDto> Centros,
+        IReadOnlyList<Application.Comun.OpcionDto> CentrosCosto);
+
+    private async Task<CatalogosDeFiltro> CargarCatalogosAsync(
+        FiltroReporteVm filtro,
+        CancellationToken cancelacion)
+    {
+        var empresaDeLaPlanta = filtro.PlantaId is { } plantaId
+            ? await catalogos.EmpresaDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false)
+            : null;
+
+        return new CatalogosDeFiltro(
+            await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
+            await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
+            await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
+            await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
+            await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false));
+    }
+
+    private static FiltroReporte AFiltro(FiltroReporteVm filtro) => new()
+    {
+        Alcance = filtro.Alcance,
+        PeriodoId = filtro.PeriodoId,
+        Anio = filtro.Anio,
+        Mes = filtro.Mes,
+        Desde = filtro.Desde,
+        Hasta = filtro.Hasta,
         EmpresaId = filtro.EmpresaId,
         PlantaId = filtro.PlantaId,
         CentroId = filtro.CentroId,
         CentroCostoId = filtro.CentroCostoId
     };
 
-    private static object RutaFiltro(FiltroReporteVm filtro) => new
+    /// <summary>
+    /// Descarga con un nombre que dice qué trae y ordena bien en una carpeta.
+    /// </summary>
+    /// <remarks>
+    /// Fechas en ISO (<c>2026-07-01_a_2026-07-31</c>) y no en <c>dd/MM/yyyy</c>: es el
+    /// formato de la interfaz, pero la barra no es válida en un nombre de archivo y, sobre
+    /// todo, doce exportaciones de un año se ordenan alfabéticamente en orden cronológico.
+    /// La marca de generación va al final para que las reediciones del mismo alcance queden
+    /// juntas en vez de dispersas por fecha de descarga.
+    /// </remarks>
+    private FileContentResult Excel(byte[] contenido, string nombreBase, MetadatosReporte metadatos)
     {
-        filtro.PeriodoId,
-        filtro.EmpresaId,
-        filtro.PlantaId,
-        filtro.CentroId,
-        filtro.CentroCostoId
-    };
-
-    private FileContentResult Excel(byte[] contenido, string nombreBase)
-    {
-        var marcaDeTiempo = DateTime.Now.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var generado = metadatos.GeneradoEn.ToString(
+            "yyyyMMdd-HHmm", System.Globalization.CultureInfo.InvariantCulture);
 
         return File(
             contenido,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"{nombreBase}_{marcaDeTiempo}.xlsx");
+            $"{nombreBase}_{metadatos.SufijoArchivo}_generado-{generado}.xlsx");
     }
 }

@@ -4,30 +4,6 @@
 
     var r = Model.Resultado;
 
-    // Conserva los filtros al pasar de página. Aquí importa más que en otros listados:
-    // esta tabla crece una fila por trabajador y por día de ausencia.
-    Dictionary<string, string> RutaPagina(int pagina)
-    {
-        var valores = new Dictionary<string, string> { ["pagina"] = pagina.ToString() };
-
-        if (Model.PeriodoId is { } periodo)
-        {
-            valores["periodoId"] = periodo.ToString();
-        }
-
-        if (Model.TrabajadorId is { } trabajador)
-        {
-            valores["trabajadorId"] = trabajador.ToString();
-        }
-
-        if (Model.Origen is { } origenFiltro)
-        {
-            valores["origen"] = origenFiltro.ToString();
-        }
-
-        return valores;
-    }
-
     static string NombreOrigen(OrigenJustificacion origen) => origen switch
     {
         OrigenJustificacion.Solicitud => "Solicitud",
@@ -184,19 +160,8 @@
             </table>
         </div>
 
-        <div class="paginacion">
-            <span class="conteo">@r.TotalElementos justificación(es) · página @r.Pagina de @r.TotalPaginas</span>
-
-            @if (r.HayPaginaAnterior)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina - 1)">Anterior</a>
-            }
-
-            @if (r.HayPaginaSiguiente)
-            {
-                <a asp-action="Index" asp-all-route-data="@RutaPagina(r.Pagina + 1)">Siguiente</a>
-            }
-        </div>
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(r, "Index", "justificación(es)", Model.RutaFiltros())' />
     }
 </div>
 
