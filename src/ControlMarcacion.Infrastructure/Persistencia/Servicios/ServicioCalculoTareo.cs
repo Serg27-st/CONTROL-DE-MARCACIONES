@@ -19,7 +19,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// <see cref="CalculadoraTareo"/>. La aritmética de horas extras y nocturnidad vive en
 /// Domain, sin base de datos, y por eso se puede probar con fechas literales.
 /// </remarks>
-internal sealed class ServicioCalculoTareo(MarcacionDbContext contexto) : IServicioCalculoTareo
+internal sealed class ServicioCalculoTareo(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IServicioCalculoTareo
 {
     /// <summary>
     /// Cuánto después del fin del turno se siguen aceptando marcaciones como salida.
@@ -234,7 +236,7 @@ internal sealed class ServicioCalculoTareo(MarcacionDbContext contexto) : IServi
         var tamanio = Math.Clamp(filtro.TamanioPagina, 10, 500);
         var pagina = Math.Max(filtro.Pagina, 1);
 
-        var consulta = Filtrar(filtro, aplicarEstado: true);
+        var consulta = await Filtrar(filtro, aplicarEstado: true, cancelacion).ConfigureAwait(false);
 
         var total = await consulta.CountAsync(cancelacion).ConfigureAwait(false);
 
@@ -286,7 +288,7 @@ internal sealed class ServicioCalculoTareo(MarcacionDbContext contexto) : IServi
 
         // Sin el estado: el reparto por estado ES el resumen, y filtrarlo por el estado
         // elegido dejaría una sola barra con el número que el usuario acaba de pedir.
-        var consulta = Filtrar(filtro, aplicarEstado: false);
+        var consulta = await Filtrar(filtro, aplicarEstado: false, cancelacion).ConfigureAwait(false);
 
         var porEstado = await consulta
             .GroupBy(x => x.Tareo.Estado)
@@ -338,12 +340,22 @@ internal sealed class ServicioCalculoTareo(MarcacionDbContext contexto) : IServi
     /// Que sea un <c>join</c> y no un <c>left join</c> es intencionado: un tareo sin
     /// trabajador es un dato roto y debe notarse, no colarse con el nombre en blanco.
     /// </remarks>
-    private IQueryable<TareoConTrabajador> Filtrar(FiltroTareo filtro, bool aplicarEstado)
+    private async Task<IQueryable<TareoConTrabajador>> Filtrar(
+        FiltroTareo filtro, bool aplicarEstado, CancellationToken cancelacion)
     {
         var consulta =
             from t in contexto.TareosDiarios.AsNoTracking()
             join w in contexto.Trabajadores.AsNoTracking() on t.TrabajadorId equals w.Id
             select new TareoConTrabajador { Tareo = t, Trabajador = w };
+
+        // Aislamiento por planta: el tareo visible —listado y resumen, que salen los dos de
+        // aquí— es solo el de las plantas del usuario. Se aprovecha el join al trabajador.
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantas is not null)
+        {
+            consulta = consulta.Where(x => plantas.Contains(x.Trabajador.PlantaId));
+        }
 
         if (filtro.PeriodoId is { } periodoId)
         {

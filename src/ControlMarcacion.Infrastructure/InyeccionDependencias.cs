@@ -46,15 +46,26 @@ public static class InyeccionDependencias
         // identidad de la petición HTTP, y esa registración gana sobre esta.
         servicios.TryAddScoped<IProveedorUsuarioActual, ProveedorUsuarioSistema>();
 
+        // Aislamiento por planta: mismo patrón que el proveedor de usuario. El respaldo ve
+        // TODAS las plantas (sin restricción), para que la siembra y las herramientas de EF
+        // no queden sin datos; Web registra después el que lee el rol y las plantas de la
+        // sesión, y esa registración gana sobre esta.
+        servicios.TryAddScoped<IProveedorAlcancePlantas, AlcancePlantasSistema>();
+
         // El interceptor de auditoría es Scoped porque acompaña al DbContext durante toda
         // la petición: guarda entre SavingChanges y SavedChanges los cambios que leyó del
         // ChangeTracker. Un singleton compartiría ese estado entre peticiones simultáneas
         // y mezclaría los cambios de un usuario con los de otro.
         servicios.AddScoped<InterceptorAuditoria>();
 
+        // SQLite: la base es un archivo local, no un servidor. Sin EnableRetryOnFailure,
+        // que era la respuesta a los fallos transitorios de red de SQL Server: aquí no hay
+        // red que falle. Los bloques que envuelven su trabajo en
+        // Database.CreateExecutionStrategy().ExecuteAsync(...) siguen siendo correctos —
+        // reciben la estrategia por omisión, que ejecuta una sola vez.
         servicios.AddDbContext<MarcacionDbContext>((proveedor, opciones) =>
             opciones
-                .UseSqlServer(cadenaConexion, sql => sql.EnableRetryOnFailure())
+                .UseSqlite(cadenaConexion)
                 .AddInterceptors(proveedor.GetRequiredService<InterceptorAuditoria>()));
 
         // Plantilla de lectura del marcador. Si no se pasa configuración, quedan los

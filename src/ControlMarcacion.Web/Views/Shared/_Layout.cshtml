@@ -92,17 +92,11 @@
     </main>
 
     <script src="~/js/searchable-select.js" asp-append-version="true"></script>
-    <script>
-        // Va antes de las secciones de cada vista a propósito: los scripts propios de
-        // cada pantalla (trabajador-form.js, solicitudes-crear.js...) solo escuchan
-        // "change" sobre los <select> reales y no dependen de que ya estén envueltos,
-        // así que el orden entre ambos no importa. Lo que sí importa es que initAll()
-        // corra una sola vez, después de que todo el documento (incluidas esas otras
-        // secciones) terminó de parsear.
-        document.addEventListener("DOMContentLoaded", function () {
-            SearchableSelect.initAll();
-        });
-    </script>
+    @* El init de los selects se movió a searchable-select-init.js: sin scripts en línea, la
+       CSP puede declarar `script-src 'self'` sin `'unsafe-inline'`. Va antes de las secciones
+       de cada vista porque aquellas solo escuchan "change" sobre los <select> reales y no
+       dependen del orden. *@
+    <script src="~/js/searchable-select-init.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

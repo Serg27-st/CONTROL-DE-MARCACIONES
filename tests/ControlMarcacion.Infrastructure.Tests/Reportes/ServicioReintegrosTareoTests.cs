@@ -30,7 +30,7 @@ public sealed class ServicioReintegrosTareoTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicio = new ServicioReintegrosTareo(contexto);
+        servicio = new ServicioReintegrosTareo(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

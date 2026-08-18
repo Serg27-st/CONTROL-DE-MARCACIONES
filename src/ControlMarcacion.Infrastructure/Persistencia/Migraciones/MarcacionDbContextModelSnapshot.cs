@@ -3,7 +3,6 @@ using System;
 using ControlMarcacion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -16,135 +15,129 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("ControlMarcacion.Domain.Asistencia.ReintegroTareo", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<decimal>("DescuentoPagoIndebido")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("descuento_pago_indebido");
 
                     b.Property<int>("DiasDescansoMedico")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dias_descanso_medico");
 
                     b.Property<int>("DiasLicenciaPaternidad")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dias_licencia_paternidad");
 
                     b.Property<int>("DiasSubsidioAccidente")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dias_subsidio_accidente");
 
                     b.Property<int>("DiasSubsidioMaternidad")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dias_subsidio_maternidad");
 
                     b.Property<decimal>("HorasExtra25")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_extra25");
 
                     b.Property<decimal>("HorasExtra25Nocturnas")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_extra25_nocturnas");
 
                     b.Property<decimal>("HorasExtra35")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_extra35");
 
                     b.Property<decimal>("HorasExtra35Nocturnas")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_extra35_nocturnas");
 
                     b.Property<decimal>("HorasNoLaborable")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_no_laborable");
 
                     b.Property<decimal>("HorasNoLaborableNocturnas")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_no_laborable_nocturnas");
 
                     b.Property<decimal>("HorasNocturnas")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_nocturnas");
 
                     b.Property<decimal>("HorasNormales")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("horas_normales");
 
                     b.Property<decimal>("LicenciaConGoce")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("licencia_con_goce");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<decimal>("MontoMovilidad")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("monto_movilidad");
 
                     b.Property<long>("PeriodoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("periodo_id");
 
                     b.Property<decimal>("ReintegroAfecto")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("reintegro_afecto");
 
                     b.Property<decimal>("ReintegroAsignacionFamiliar")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("reintegro_asignacion_familiar");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.Property<decimal>("Viatico")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("viatico");
 
                     b.HasKey("Id")
@@ -161,116 +154,114 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CalculadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("calculado_en");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("EntradaReal")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("entrada_real");
 
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("estado");
 
                     b.Property<DateOnly>("Fecha")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha");
 
                     b.Property<long?>("JustificacionId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("justificacion_id");
 
                     b.Property<int>("MinutosExtra25")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_extra25");
 
                     b.Property<int>("MinutosExtra25Nocturnos")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_extra25_nocturnos");
 
                     b.Property<int>("MinutosExtra35")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_extra35");
 
                     b.Property<int>("MinutosExtra35Nocturnos")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_extra35_nocturnos");
 
                     b.Property<int>("MinutosNocturnos")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_nocturnos");
 
                     b.Property<int>("MinutosOrdinarios")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_ordinarios");
 
                     b.Property<int>("MinutosSalidaAnticipada")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_salida_anticipada");
 
                     b.Property<int>("MinutosTardanza")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_tardanza");
 
                     b.Property<int>("MinutosTrabajados")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_trabajados");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Observacion")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("observacion");
 
                     b.Property<long>("PeriodoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("periodo_id");
 
                     b.Property<DateTime?>("SalidaReal")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("salida_real");
 
                     b.Property<string>("TipoDiaNoLaborable")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tipo_dia_no_laborable");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.Property<long?>("TurnoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("turno_id");
 
                     b.HasKey("Id")
@@ -293,43 +284,41 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ClaveRegistro")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("clave_registro");
 
                     b.Property<string>("Detalle")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("NVARCHAR(MAX)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("detalle");
 
                     b.Property<DateTime>("FechaHora")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_hora");
 
                     b.Property<string>("Operacion")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("operacion");
 
                     b.Property<string>("Tabla")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tabla");
 
                     b.Property<string>("Usuario")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("usuario");
 
                     b.HasKey("Id")
@@ -352,45 +341,43 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("descripcion");
 
                     b.Property<DateOnly>("Fecha")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<long?>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.HasKey("Id")
@@ -406,46 +393,44 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Descripcion")
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("descripcion");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<long>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.HasKey("Id")
@@ -465,80 +450,78 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime?>("CerradoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("cerrado_en");
 
                     b.Property<string>("CerradoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("cerrado_por");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("estado");
 
                     b.Property<DateOnly>("FechaFin")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
 
                     b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_inicio");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("MotivoReapertura")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo_reapertura");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.Property<DateTime?>("ReabiertoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("reabierto_en");
 
                     b.Property<string>("ReabiertoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("reabierto_por");
 
                     b.HasKey("Id")
@@ -571,47 +554,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<long?>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.HasKey("Id")
@@ -743,69 +724,67 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<string>("Comportamiento")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("comportamiento");
 
                     b.Property<bool>("ComputaComoAsistencia")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("computa_como_asistencia");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<bool>("EsPorHoras")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("es_por_horas");
 
                     b.Property<int?>("MaximoDiasPorAnioCalendario")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("maximo_dias_por_anio_calendario");
 
                     b.Property<int?>("MaximoDiasPorEvento")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("maximo_dias_por_evento");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.Property<bool>("RequiereSustento")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("requiere_sustento");
 
                     b.HasKey("Id")
@@ -935,55 +914,53 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<int?>("LongitudExacta")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("longitud_exacta");
 
                     b.Property<int?>("LongitudMaxima")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("longitud_maxima");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.Property<bool>("SoloDigitos")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("solo_digitos");
 
                     b.HasKey("Id")
@@ -1042,81 +1019,79 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("DiasAplicables")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("dias_aplicables");
 
                     b.Property<TimeOnly>("HoraFin")
-                        .HasColumnType("time")
+                        .HasColumnType("TEXT")
                         .HasColumnName("hora_fin");
 
                     b.Property<TimeOnly>("HoraInicio")
-                        .HasColumnType("time")
+                        .HasColumnType("TEXT")
                         .HasColumnName("hora_inicio");
 
                     b.Property<int>("MinutosAnticipacionEntrada")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasDefaultValue(15)
                         .HasColumnName("minutos_anticipacion_entrada");
 
                     b.Property<int>("MinutosAnticipacionSalida")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasDefaultValue(5)
                         .HasColumnName("minutos_anticipacion_salida");
 
                     b.Property<int>("MinutosJornadaOrdinaria")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_jornada_ordinaria");
 
                     b.Property<int>("MinutosRefrigerio")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_refrigerio");
 
                     b.Property<int>("MinutosTolerancia")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_tolerancia");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.HasKey("Id")
@@ -1215,39 +1190,37 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<long>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.Property<long>("TurnoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("turno_id");
 
                     b.HasKey("Id")
@@ -1277,93 +1250,91 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("EstadoAnterior")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("estado_anterior");
 
                     b.Property<DateOnly>("Fecha")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha");
 
                     b.Property<int?>("MinutosJustificados")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("minutos_justificados");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo");
 
                     b.Property<string>("Origen")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("origen");
 
                     b.Property<long>("PeriodoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("periodo_id");
 
                     b.Property<DateTime>("RegistradoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("registrado_en");
 
                     b.Property<string>("RegistradoPorUsuario")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("registrado_por_usuario");
 
                     b.Property<string>("RutaDocumentoSustento")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("ruta_documento_sustento");
 
                     b.Property<long?>("SolicitudAusenciaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("solicitud_ausencia_id");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tipo");
 
                     b.Property<long?>("TipoAusenciaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("tipo_ausencia_id");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -1385,50 +1356,48 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("ContenidoLinea")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("contenido_linea");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<long>("ImportacionId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("importacion_id");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo");
 
                     b.Property<int>("NumeroLinea")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("numero_linea");
 
                     b.HasKey("Id")
@@ -1444,87 +1413,85 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<bool>("Anulada")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("anulada");
 
                     b.Property<DateTime?>("AnuladaEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("anulada_en");
 
                     b.Property<string>("AnuladaPorUsuario")
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("anulada_por_usuario");
 
                     b.Property<string>("CargadoPorUsuario")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("cargado_por_usuario");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime>("FechaCarga")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_carga");
 
                     b.Property<int>("FilasDuplicadas")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("filas_duplicadas");
 
                     b.Property<int>("FilasInsertadas")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("filas_insertadas");
 
                     b.Property<int>("FilasLeidas")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("filas_leidas");
 
                     b.Property<int>("FilasRechazadas")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("filas_rechazadas");
 
                     b.Property<string>("HashContenido")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("hash_contenido");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("MotivoAnulacion")
                         .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo_anulacion");
 
                     b.Property<string>("NombreArchivo")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre_archivo");
 
                     b.HasKey("Id")
@@ -1546,64 +1513,62 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime>("FechaHora")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_hora");
 
                     b.Property<string>("IdMarcador")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id_marcador");
 
                     b.Property<long>("ImportacionId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("importacion_id");
 
                     b.Property<string>("LineaOriginal")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("linea_original");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("ModoVerificacion")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modo_verificacion");
 
                     b.Property<string>("TipoMarcacion")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tipo_marcacion");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -1629,55 +1594,53 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("BaseLegal")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("base_legal");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tipo");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("valor");
 
                     b.Property<DateOnly>("VigenteDesde")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("vigente_desde");
 
                     b.Property<DateOnly?>("VigenteHasta")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("vigente_hasta");
 
                     b.HasKey("Id")
@@ -1725,59 +1688,57 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("BaseLegal")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("base_legal");
 
                     b.Property<string>("Concepto")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("concepto");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<long?>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<decimal>("Porcentaje")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("porcentaje");
 
                     b.Property<DateOnly>("VigenteDesde")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("vigente_desde");
 
                     b.Property<DateOnly?>("VigenteHasta")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("vigente_hasta");
 
                     b.HasKey("Id")
@@ -1845,47 +1806,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.Property<long>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.HasKey("Id")
@@ -2012,46 +1971,44 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Descripcion")
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("descripcion");
 
                     b.Property<long>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.HasKey("Id")
@@ -2115,47 +2072,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<long>("CentroId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("centro_id");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("descripcion");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.HasKey("Id")
@@ -3127,48 +3082,46 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("RazonSocial")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("razon_social");
 
                     b.Property<string>("Ruc")
                         .HasMaxLength(11)
-                        .HasColumnType("nvarchar(11)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("ruc");
 
                     b.HasKey("Id")
@@ -3195,53 +3148,51 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<long>("ClienteId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("cliente_id");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("RazonSocial")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("razon_social");
 
                     b.Property<string>("Ruc")
                         .IsRequired()
                         .HasMaxLength(11)
-                        .HasColumnType("nvarchar(11)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("ruc");
 
                     b.HasKey("Id")
@@ -3287,47 +3238,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<long>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.HasKey("Id")
@@ -3382,47 +3331,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<long>("AreaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("area_id");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre");
 
                     b.HasKey("Id")
@@ -3477,49 +3424,47 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateOnly?>("FechaFin")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
 
                     b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_inicio");
 
                     b.Property<string>("IdMarcador")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id_marcador");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -3543,48 +3488,46 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateOnly?>("FechaFin")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
 
                     b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_inicio");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<decimal>("SueldoBasicoMensual")
                         .HasPrecision(12, 4)
-                        .HasColumnType("decimal(12,4)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("sueldo_basico_mensual");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -3605,47 +3548,45 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<DateOnly?>("FechaFin")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
 
                     b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_inicio");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.Property<long>("TurnoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("turno_id");
 
                     b.HasKey("Id")
@@ -3669,57 +3610,55 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<long>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateOnly?>("FechaCese")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_cese");
 
                     b.Property<DateOnly>("FechaIngreso")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_ingreso");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("MotivoCese")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo_cese");
 
                     b.Property<string>("ObservacionCese")
                         .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("observacion_cese");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -3738,137 +3677,135 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("ApellidoMaterno")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("apellido_materno");
 
                     b.Property<string>("ApellidoPaterno")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("apellido_paterno");
 
                     b.Property<long?>("AreaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("area_id");
 
                     b.Property<long?>("CentroCostoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("centro_costo_id");
 
                     b.Property<string>("CorreoElectronico")
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("correo_electronico");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Direccion")
                         .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("direccion");
 
                     b.Property<long>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<DateOnly?>("FechaCese")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_cese");
 
                     b.Property<DateOnly>("FechaIngreso")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_ingreso");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("MotivoCese")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo_cese");
 
                     b.Property<string>("Nombres")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombres");
 
                     b.Property<string>("NumeroDocumento")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("numero_documento");
 
                     b.Property<string>("ObservacionCese")
                         .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("observacion_cese");
 
                     b.Property<long>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.Property<long>("PuestoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("puesto_id");
 
                     b.Property<long?>("SeccionId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("seccion_id");
 
                     b.Property<string>("Sexo")
                         .IsRequired()
                         .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("sexo");
 
                     b.Property<string>("Telefono")
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("telefono");
 
                     b.Property<bool>("TieneHijos")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("tiene_hijos");
 
                     b.Property<long>("TipoDocumentoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("tipo_documento_id");
 
                     b.Property<string>("TipoPlanilla")
                         .IsRequired()
                         .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tipo_planilla");
 
                     b.Property<string>("Unidad")
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("unidad");
 
                     b.HasKey("Id")
@@ -3891,106 +3828,104 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("CentroAtencion")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("centro_atencion");
 
                     b.Property<string>("Contingencia")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("contingencia");
 
                     b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
 
                     b.Property<string>("CreadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
                     b.Property<string>("Diagnostico")
                         .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("diagnostico");
 
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("estado");
 
                     b.Property<DateOnly>("FechaFin")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
 
                     b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fecha_inicio");
 
                     b.Property<TimeOnly?>("HoraFin")
-                        .HasColumnType("time")
+                        .HasColumnType("TEXT")
                         .HasColumnName("hora_fin");
 
                     b.Property<TimeOnly?>("HoraInicio")
-                        .HasColumnType("time")
+                        .HasColumnType("TEXT")
                         .HasColumnName("hora_inicio");
 
                     b.Property<DateTime?>("ModificadoEn")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
 
                     b.Property<string>("ModificadoPor")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
                     b.Property<string>("MotivoAnulacion")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("motivo_anulacion");
 
                     b.Property<string>("Observacion")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("observacion");
 
                     b.Property<string>("PeriodoVacacional")
                         .HasMaxLength(9)
-                        .HasColumnType("nvarchar(9)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("periodo_vacacional");
 
                     b.Property<string>("RutaDocumentoSustento")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("ruta_documento_sustento");
 
                     b.Property<string>("SubtipoVacaciones")
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("subtipo_vacaciones");
 
                     b.Property<string>("Sustento")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("sustento");
 
                     b.Property<long>("TipoAusenciaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("tipo_ausencia_id");
 
                     b.Property<long>("TrabajadorId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
                     b.HasKey("Id")
@@ -4012,110 +3947,110 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("access_failed_count");
 
                     b.Property<bool>("Activo")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("activo");
 
                     b.Property<string>("ApellidoMaterno")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("apellido_materno");
 
                     b.Property<string>("ApellidoPaterno")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("apellido_paterno");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("email");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("email_confirmed");
 
                     b.Property<long?>("EmpresaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("empresa_id");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("lockout_enabled");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TEXT")
                         .HasColumnName("lockout_end");
 
                     b.Property<string>("NombreCompleto")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombre_completo");
 
                     b.Property<string>("Nombres")
                         .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("nombres");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("normalized_email");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("normalized_user_name");
 
                     b.Property<string>("NumeroDocumento")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("numero_documento");
 
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("password_hash");
 
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("phone_number");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("phone_number_confirmed");
 
                     b.Property<string>("SecurityStamp")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("security_stamp");
 
                     b.Property<long?>("TipoDocumentoId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("tipo_documento_id");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("two_factor_enabled");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_name");
 
                     b.HasKey("Id")
@@ -4126,8 +4061,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("user_name_index")
-                        .HasFilter("[normalized_user_name] IS NOT NULL");
+                        .HasDatabaseName("user_name_index");
 
                     b.ToTable("asp_net_users", (string)null);
                 });
@@ -4136,11 +4070,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("UsuarioId")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("usuario_id");
 
                     b.Property<long>("PlantaId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("planta_id");
 
                     b.HasKey("UsuarioId", "PlantaId")
@@ -4156,23 +4090,23 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("normalized_name");
 
                     b.HasKey("Id")
@@ -4180,8 +4114,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("role_name_index")
-                        .HasFilter("[normalized_name] IS NOT NULL");
+                        .HasDatabaseName("role_name_index");
 
                     b.ToTable("asp_net_roles", (string)null);
 
@@ -4220,25 +4153,23 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("claim_type");
 
                     b.Property<string>("ClaimValue")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("claim_value");
 
                     b.Property<string>("RoleId")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("role_id");
 
                     b.HasKey("Id")
@@ -4254,25 +4185,23 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("claim_type");
 
                     b.Property<string>("ClaimValue")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("claim_value");
 
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id")
@@ -4288,23 +4217,23 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("LoginProvider")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("ProviderKey")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("provider_key");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("provider_display_name");
 
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.HasKey("LoginProvider", "ProviderKey")
@@ -4320,12 +4249,12 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("UserId")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.Property<string>("RoleId")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("role_id");
 
                     b.HasKey("UserId", "RoleId")
@@ -4341,22 +4270,22 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                 {
                     b.Property<string>("UserId")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.Property<string>("LoginProvider")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("Name")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<string>("Value")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("value");
 
                     b.HasKey("UserId", "LoginProvider", "Name")

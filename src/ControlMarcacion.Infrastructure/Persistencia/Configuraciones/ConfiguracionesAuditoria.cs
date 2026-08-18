@@ -20,7 +20,13 @@ public class RegistroAuditoriaConfiguracion : IEntityTypeConfiguration<RegistroA
         // 60 caracteres y el alta de un trabajador pasa de 1 000. Es la única columna del
         // sistema sin largo máximo, y va sin índice a propósito — no se busca por su
         // contenido, se busca por tabla, registro, usuario o fecha.
-        builder.Property(r => r.Detalle).HasColumnType("NVARCHAR(MAX)").IsRequired();
+        //
+        // Sin HasColumnType: no fijar el tipo es lo que deja que cada proveedor elija el
+        // suyo para "texto sin límite" — TEXT en SQLite, nvarchar(max) en SQL Server. Lo
+        // llevaba escrito como NVARCHAR(MAX) literal, y ese texto viaja tal cual al SQL
+        // generado: contra SQLite la migración moría con «near "MAX": syntax error» a
+        // mitad de crear las tablas.
+        builder.Property(r => r.Detalle).IsRequired();
 
         // La pantalla de auditoría lista del más reciente al más antiguo.
         builder.HasIndex(r => r.FechaHora).IsDescending();

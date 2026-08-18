@@ -21,7 +21,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// aquí es más simple y más legible que un <c>GroupBy</c> traducido a SQL con sumas
 /// condicionales por cada estado.
 /// </remarks>
-internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioReportes
+internal sealed class ServicioReportes(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IServicioReportes
 {
     /// <summary>Estados que representan una anomalía sobre la que alguien debe actuar.</summary>
     private static readonly EstadoTareo[] EstadosDeExcepcion =
@@ -601,6 +603,19 @@ internal sealed class ServicioReportes(MarcacionDbContext contexto) : IServicioR
         if (filtro.CentroCostoId is { } centroCostoId)
         {
             consulta = consulta.Where(t => t.CentroCostoId == centroCostoId);
+        }
+
+        // Aislamiento por planta: un ADMINISTRADOR solo reporta sobre sus plantas. Como TODAS
+        // las salidas de reporte (resumen, excepciones, tareo final) resuelven su padrón por
+        // aquí, filtrar este único método las cubre a las tres. Hoy Reportes es de COORDINADOR
+        // y GERENCIA —ambos sin restricción—, así que es defensa en profundidad; mantiene el
+        // invariante uniforme y queda listo si algún día la matriz de roles cambia. No
+        // reemplaza a EvaluarVigenciaDelCalculoAsync, que a propósito no se filtra por planta.
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
         }
 
         return await consulta

@@ -38,7 +38,7 @@ public sealed class CargaAnuladaNoCuentaTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicio = new ServicioCalculoTareo(contexto);
+        servicio = new ServicioCalculoTareo(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

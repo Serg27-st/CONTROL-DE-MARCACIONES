@@ -41,7 +41,7 @@ public sealed class GeneracionTareoFinalEndToEndTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicioReportes = new ServicioReportes(contexto);
+        servicioReportes = new ServicioReportes(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

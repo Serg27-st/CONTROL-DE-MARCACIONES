@@ -51,7 +51,7 @@ public sealed class ServicioReportesTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicio = new ServicioReportes(contexto);
+        servicio = new ServicioReportes(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

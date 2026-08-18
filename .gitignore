@@ -37,6 +37,11 @@ secrets.json
 !tests/**/Recursos/*.dat
 !tests/**/Recursos/*_attlog.txt
 
+## Salida de despliegue
+## Binarios publicados (~135 MB) y la configuración de la PC destino, que lleva
+## la cadena de conexión y las credenciales del primer coordinador.
+/despliegue/
+
 ## Exportaciones generadas
 /exportaciones/
 *.xlsx

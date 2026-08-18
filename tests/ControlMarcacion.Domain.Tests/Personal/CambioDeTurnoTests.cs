@@ -1,5 +1,6 @@
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Application.Catalogos.Dto;
+using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Personal;
 using ControlMarcacion.Application.Personal.Dto;
 using ControlMarcacion.Domain.Comun;
@@ -31,9 +32,16 @@ public sealed class CambioDeTurnoTests
     private readonly ITrabajadorRepository repositorio = Substitute.For<ITrabajadorRepository>();
     private readonly IConsultaTrabajadores consulta = Substitute.For<IConsultaTrabajadores>();
     private readonly IConsultaCatalogos catalogos = Substitute.For<IConsultaCatalogos>();
+    private readonly IProveedorAlcancePlantas alcance = Substitute.For<IProveedorAlcancePlantas>();
 
     public CambioDeTurnoTests()
     {
+        // Sin restricción de plantas: estos tests son sobre la rotación de turno, no sobre el
+        // aislamiento por planta. null = ve todas (como un COORDINADOR).
+        alcance
+            .PlantasVisiblesAsync(Arg.Any<CancellationToken>())
+            .Returns((IReadOnlyCollection<long>?)null);
+
         catalogos
             .TipoDocumentoPorIdAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(new TipoDocumentoOpcionDto(1, "DNI", "DNI", 8, null, true));
@@ -159,7 +167,7 @@ public sealed class CambioDeTurnoTests
             .ObtenerPorIdAsync(trabajador.Id, Arg.Any<CancellationToken>())
             .Returns(trabajador);
 
-        return new ServicioTrabajadores(repositorio, consulta, catalogos);
+        return new ServicioTrabajadores(repositorio, consulta, catalogos, alcance);
     }
 
     private static Trabajador Obrero(long turnoId)

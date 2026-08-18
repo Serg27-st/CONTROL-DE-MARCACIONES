@@ -8,11 +8,21 @@ using Microsoft.EntityFrameworkCore;
 namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 
 /// <summary>Captura manual de los reintegros y descuentos del bloque AO-BF del tareo final.</summary>
-internal sealed class ServicioReintegrosTareo(MarcacionDbContext contexto) : IServicioReintegrosTareo
+internal sealed class ServicioReintegrosTareo(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IServicioReintegrosTareo
 {
     public async Task<ReintegroTareoDto?> ObtenerAsync(
-        long trabajadorId, long periodoId, CancellationToken cancelacion = default) =>
-        await contexto.ReintegrosTareo
+        long trabajadorId, long periodoId, CancellationToken cancelacion = default)
+    {
+        // Acceso por id: el reintegro de un trabajador de otra planta se responde como
+        // inexistente (null: nada que precargar), no se muestra.
+        if (!await alcance.PuedeVerTrabajadorAsync(contexto, trabajadorId, cancelacion).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return await contexto.ReintegrosTareo
             .AsNoTracking()
             .Where(r => r.TrabajadorId == trabajadorId && r.PeriodoId == periodoId)
             .Select(r => new ReintegroTareoDto(
@@ -38,6 +48,7 @@ internal sealed class ServicioReintegrosTareo(MarcacionDbContext contexto) : ISe
                 r.DescuentoPagoIndebido))
             .FirstOrDefaultAsync(cancelacion)
             .ConfigureAwait(false);
+    }
 
     public async Task GuardarAsync(
         GuardarReintegroTareoRequest solicitud, string usuario, CancellationToken cancelacion = default)
@@ -50,6 +61,13 @@ internal sealed class ServicioReintegrosTareo(MarcacionDbContext contexto) : ISe
             .ConfigureAwait(false);
 
         if (!existeTrabajador)
+        {
+            throw new RecursoNoEncontradoException("el trabajador", solicitud.TrabajadorId);
+        }
+
+        // Además de existir, debe ser de una planta que el usuario gestiona: un administrador
+        // no carga reintegros de trabajadores de otra planta (404, sin confirmar que existe).
+        if (!await alcance.PuedeVerTrabajadorAsync(contexto, solicitud.TrabajadorId, cancelacion).ConfigureAwait(false))
         {
             throw new RecursoNoEncontradoException("el trabajador", solicitud.TrabajadorId);
         }
@@ -110,12 +128,24 @@ internal sealed class ServicioReintegrosTareo(MarcacionDbContext contexto) : ISe
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default) =>
-        await contexto.Trabajadores
+    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default)
+    {
+        var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Activo && t.FechaCese == null)
+            .Where(t => t.Activo && t.FechaCese == null);
+
+        // El desplegable solo ofrece trabajadores de las plantas que el usuario gestiona.
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantas is not null)
+        {
+            consulta = consulta.Where(t => plantas.Contains(t.PlantaId));
+        }
+
+        return await consulta
             .OrderBy(t => t.ApellidoPaterno).ThenBy(t => t.ApellidoMaterno)
             .Select(t => new OpcionDto(t.Id, t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+    }
 }

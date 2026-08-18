@@ -121,6 +121,17 @@ internal sealed class ServicioUsuarios(
             ? solicitud.PlantaIds.Distinct().ToList()
             : [];
 
+        // Fail-closed: el aislamiento por planta trata «sin plantas» como «no ve ninguna», así
+        // que un ADMINISTRADOR sin plantas no vería a ningún trabajador. Crear la cuenta así la
+        // dejaría inservible desde el primer día — se exige al menos una planta. Es la
+        // contraparte, en el alta, de que el filtro de consulta sea estricto.
+        if (esAdministrador && plantaIds.Count == 0)
+        {
+            throw new ReglaNegocioException(
+                "Un administrador gestiona el tareo de plantas concretas: seleccione al menos " +
+                "una planta. Sin plantas asignadas no vería a ningún trabajador.");
+        }
+
         if (plantaIds.Count > 0)
         {
             var existentes = await contexto.Plantas

@@ -8,7 +8,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Consultas;
 /// <summary>
 /// Consultas de lectura del padrón, proyectadas directamente a DTO.
 /// </summary>
-internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsultaTrabajadores
+internal sealed class ConsultaTrabajadores(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IConsultaTrabajadores
 {
     public async Task<ResultadoPaginado<TrabajadorListaDto>> ListarAsync(
         FiltroTrabajadores filtro,
@@ -17,6 +19,16 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
         ArgumentNullException.ThrowIfNull(filtro);
 
         var consulta = contexto.Trabajadores.AsNoTracking();
+
+        // Aislamiento por planta: un ADMINISTRADOR solo ve el padrón de las plantas que
+        // gestiona. Va antes que los filtros de pantalla porque es un límite del alcance, no
+        // una preferencia del usuario; null = sin restricción (COORDINADOR, GERENCIA).
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
 
         if (filtro.EmpresaId is { } empresaId)
         {
@@ -103,12 +115,24 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
         return new ResultadoPaginado<TrabajadorListaDto>(elementos, total, pagina, tamanio);
     }
 
-    public Task<TrabajadorDetalleDto?> ObtenerDetalleAsync(
+    public async Task<TrabajadorDetalleDto?> ObtenerDetalleAsync(
         long id,
-        CancellationToken cancelacion = default) =>
-        contexto.Trabajadores
+        CancellationToken cancelacion = default)
+    {
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Id == id)
+            .Where(t => t.Id == id);
+
+        // Aislamiento por id directo: si el trabajador es de otra planta, la consulta no
+        // devuelve nada y el servicio responde 404, sin revelar que existe en otra planta.
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
+
+        return await consulta
             .Select(t => new TrabajadorDetalleDto(
                 t.Id,
                 t.TipoDocumentoId,
@@ -149,17 +173,28 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
                     .FirstOrDefault(),
                 t.MotivoCese,
                 t.ObservacionCese))
-            .FirstOrDefaultAsync(cancelacion);
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
+    }
 
-    public Task<TrabajadorPanelDto?> ObtenerPanelAsync(
+    public async Task<TrabajadorPanelDto?> ObtenerPanelAsync(
         long id,
         CancellationToken cancelacion = default)
     {
         var hoy = DateOnly.FromDateTime(DateTime.Now);
 
-        return contexto.Trabajadores
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Id == id)
+            .Where(t => t.Id == id);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
+
+        return await consulta
             .Select(t => new TrabajadorPanelDto(
                 t.Id,
                 contexto.TiposDocumento.Where(d => d.Id == t.TipoDocumentoId).Select(d => d.Codigo + " - " + d.Nombre).FirstOrDefault() ?? "-",
@@ -203,16 +238,26 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
                     .FirstOrDefault(),
                 t.MotivoCese,
                 t.ObservacionCese))
-            .FirstOrDefaultAsync(cancelacion);
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
     }
 
     public async Task<HistorialTrabajadorDto?> ObtenerHistorialAsync(
         long id,
         CancellationToken cancelacion = default)
     {
-        var cabecera = await contexto.Trabajadores
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        var consultaCabecera = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Id == id)
+            .Where(t => t.Id == id);
+
+        if (plantasVisibles is not null)
+        {
+            consultaCabecera = consultaCabecera.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
+
+        var cabecera = await consultaCabecera
             .Select(t => new
             {
                 t.Id,
@@ -222,6 +267,9 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
             .FirstOrDefaultAsync(cancelacion)
             .ConfigureAwait(false);
 
+        // Fuera de alcance o inexistente: en ambos casos null. Como el resto del historial
+        // (vínculos, sueldos, marcadores, turnos) solo se consulta si hay cabecera, un
+        // trabajador de otra planta nunca llega a esas cuatro consultas.
         if (cabecera is null)
         {
             return null;
@@ -330,6 +378,13 @@ internal sealed class ConsultaTrabajadores(MarcacionDbContext contexto) : IConsu
                     && a.IdMarcador.Contains(termino)
                     && a.FechaInicio <= hoy
                     && (a.FechaFin == null || a.FechaFin >= hoy)));
+
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
 
         return await consulta
             .OrderBy(t => t.ApellidoPaterno)

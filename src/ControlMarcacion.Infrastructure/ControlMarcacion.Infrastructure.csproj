@@ -27,7 +27,25 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+    <!--
+      SQLite y no SQL Server: el sistema se despliega en una sola PC y la base es un
+      archivo al lado del ejecutable, sin motor que instalar ni servicio que administrar.
+      Aritmética de dinero: SQLite no tiene tipo DECIMAL y EF lo guarda como TEXT, así que
+      comparar u ordenar decimales DENTRO de SQL da resultados incorrectos. Aquí no ocurre
+      —los 17 campos decimales se leen y se operan en C#, y todos los Sum() del exportador
+      son en memoria sobre DTOs ya materializados—, pero si algún día se escribe un
+      Where/OrderBy/Sum sobre un decimal traducido a SQL, hay que convertirlo a entero
+      (céntimos) antes de confiar en el resultado.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+
+    <!--
+      Fija la biblioteca nativa de SQLite por encima de la que arrastra el proveedor: la
+      2.1.11 tiene una vulnerabilidad de gravedad alta (GHSA-2m69-gcr7-jv3q) y, con las
+      advertencias tratadas como errores, NuGet Audit corta la compilación. No quitar esta
+      línea sin comprobar antes qué versión trae el proveedor.
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

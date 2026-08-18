@@ -35,7 +35,7 @@ public sealed class RegistrarSustentoTests : IDisposable
 
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
-        servicio = new ServicioSolicitudes(contexto);
+        servicio = new ServicioSolicitudes(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

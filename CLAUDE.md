@@ -18,7 +18,11 @@ Marcador (dato duro, inmutable)  +  Justificaciones (editable)  =  Tareo final
 
 ## Stack
 
-C# / **.NET 10 LTS** · ASP.NET Core MVC con vistas Razor · Entity Framework Core · SQL Server.
+C# / **.NET 10 LTS** · ASP.NET Core MVC con vistas Razor · Entity Framework Core · **SQLite**.
+
+El sistema se despliega en **una sola PC** como un `.exe` autocontenido, con la base en un
+archivo que la aplicación crea al arrancar. No hay motor que instalar ni servicio que
+administrar. Ver `docs/05-despliegue.md`.
 
 ## Comandos
 
@@ -91,8 +95,20 @@ repositorio ni su `DbSet`.
 
 **Base de datos**: tablas y columnas en **snake_case y español**, tabla en singular
 (`trabajador`, `marcacion_cruda`, `tareo_diario`). Enums persistidos **como texto**, no como
-número. `NVARCHAR` siempre (hay tildes y ñ). `DATETIME2(0)`, nunca `DATETIME`. `DECIMAL`,
-nunca `FLOAT`.
+número.
+
+⚠️ **Nunca fijes el tipo de columna a mano con `HasColumnType`.** SQLite solo tiene
+`TEXT`/`INTEGER`/`REAL`/`BLOB`, y ese texto viaja literal al SQL generado: un
+`HasColumnType("NVARCHAR(MAX)")` heredado de SQL Server hacía morir la migración con
+«near "MAX": syntax error» a mitad de crear las tablas. Deja que EF elija el tipo y expresa
+la intención con `HasMaxLength`.
+
+⚠️ **Aritmética de dinero**: SQLite no tiene `DECIMAL` y EF guarda los `decimal` como
+`TEXT`, así que **comparar, ordenar o sumar decimales dentro de SQL da resultados
+incorrectos**. Hoy no ocurre —los 17 campos decimales se leen y se operan en C#, y los
+`Sum()` del exportador son en memoria sobre DTOs ya materializados—. Si algún día hace
+falta un `Where`/`OrderBy`/`Sum` sobre un decimal traducido a SQL, guarda el valor en
+enteros (céntimos) antes de confiar en el resultado.
 
 **Tiempos**: se guardan en **minutos enteros (`int`)**, nunca en decimales de hora. `7.5 h` es
 presentación. Aritmética con `DateOnly`, `TimeOnly`, `TimeSpan`. Zona `America/Lima`.
@@ -105,14 +121,16 @@ ceros a la izquierda se pierden y el cruce falla.
 **Consultas de solo lectura**: `AsNoTracking()`. Reportes: proyección a DTO, nunca entidades
 completas.
 
-**Transacciones explícitas**: el `DbContext` se registra con `EnableRetryOnFailure()`, y esa
-estrategia **se niega a convivir con una transacción abierta a mano**. Nunca llames a
-`BeginTransactionAsync` suelto: envuelve el bloque entero en
-`Database.CreateExecutionStrategy().ExecuteAsync(...)` y reinicia dentro cualquier contador
-o lista que acumules, porque el bloque puede reejecutarse completo ante un fallo transitorio.
-⚠️ **Los tests con el proveedor InMemory no detectan esto**: no llevan estrategia de
-reintento, así que un `BeginTransactionAsync` mal puesto pasa toda la suite en verde y falla
-en la primera petición real contra SQL Server. Le pasó a la carga masiva.
+**Transacciones explícitas**: envuelve el bloque entero en
+`Database.CreateExecutionStrategy().ExecuteAsync(...)` en vez de llamar a
+`BeginTransactionAsync` suelto, y reinicia dentro cualquier contador o lista que acumules,
+porque el bloque puede reejecutarse completo.
+
+Con SQLite la estrategia por omisión ejecuta una sola vez —no hay red que falle, la base es
+un archivo—, así que hoy esa reejecución no ocurre. El patrón se mantiene igual porque es
+correcto en ambos casos y porque el día que se vuelva a un motor con reintentos
+(`EnableRetryOnFailure`), esa estrategia **se niega a convivir con una transacción abierta a
+mano** y todo el código que la use tendría que reescribirse a la vez.
 
 **Interfaz**: todo en español, fecha `dd/MM/yyyy`, hora `HH:mm`, cultura `es-PE` fijada en el
 arranque. Assets locales en `wwwroot/`, sin CDN: la planta puede no tener salida a internet.
@@ -181,8 +199,10 @@ Definidos en `.claude/agents/`. Invoca al que corresponda antes de trabajar en s
 
 ## Estado actual
 
-Compila limpio (0 advertencias) y corre. La base `ControlMarcacion` está creada en la instancia
-local de SQL Server con 34 tablas, los índices críticos y los catálogos sembrados.
+Compila limpio (0 advertencias) y corre, con 318 pruebas en verde. La base es **SQLite** y la
+crea la propia aplicación al arrancar: 40 tablas, 64 índices y los 16 catálogos sembrados
+(`Persistencia/DatosSemilla.cs`, que es la fuente — las migraciones solo son su consecuencia
+generada). Empaquetado y despliegue en `docs/05-despliegue.md`.
 
 **Funciona hoy:**
 

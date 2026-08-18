@@ -20,7 +20,8 @@ namespace ControlMarcacion.Application.Personal;
 public sealed class ServicioTrabajadores(
     ITrabajadorRepository repositorio,
     IConsultaTrabajadores consulta,
-    IConsultaCatalogos catalogos)
+    IConsultaCatalogos catalogos,
+    IProveedorAlcancePlantas alcance)
 {
     public Task<ResultadoPaginado<TrabajadorListaDto>> ListarAsync(
         FiltroTrabajadores filtro,
@@ -66,6 +67,9 @@ public sealed class ServicioTrabajadores(
         CancellationToken cancelacion = default)
     {
         ArgumentNullException.ThrowIfNull(solicitud);
+
+        // Un administrador solo da de alta trabajadores en las plantas que gestiona.
+        await GarantizarPlantaAsignableAsync(solicitud.PlantaId, cancelacion).ConfigureAwait(false);
 
         await ValidarAsync(solicitud, null, solicitud.FechaCese, cancelacion).ConfigureAwait(false);
 
@@ -127,6 +131,13 @@ public sealed class ServicioTrabajadores(
 
         var trabajador = await repositorio.ObtenerPorIdAsync(id, cancelacion).ConfigureAwait(false)
             ?? throw new RecursoNoEncontradoException("el trabajador", id);
+
+        // El administrador no puede tocar la ficha de un trabajador de otra planta (404, no
+        // se confirma que exista), ni moverlo a una planta que no gestiona (regla de negocio).
+        // Se comprueba la planta ACTUAL antes de aplicar cambios y la DESTINO que trae la
+        // solicitud.
+        await GarantizarAccesoTrabajadorAsync(trabajador.PlantaId, id, cancelacion).ConfigureAwait(false);
+        await GarantizarPlantaAsignableAsync(solicitud.PlantaId, cancelacion).ConfigureAwait(false);
 
         // El cese no se edita desde este formulario: tiene su propia acción, que exige
         // motivo. Se valida contra la fecha que el trabajador ya tiene registrada.
@@ -205,10 +216,42 @@ public sealed class ServicioTrabajadores(
             .ConfigureAwait(false)
             ?? throw new RecursoNoEncontradoException("el trabajador", solicitud.TrabajadorId);
 
+        // Dar de baja a alguien de otra planta se responde como 404: un administrador no
+        // gestiona ese vínculo.
+        await GarantizarAccesoTrabajadorAsync(trabajador.PlantaId, solicitud.TrabajadorId, cancelacion)
+            .ConfigureAwait(false);
+
         trabajador.DarDeBaja(solicitud.FechaCese, motivo, solicitud.Observacion, usuario);
 
         repositorio.Actualizar(trabajador);
         await repositorio.GuardarCambiosAsync(cancelacion).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Comprueba que el administrador gestione la planta de un trabajador existente antes de
+    /// tocarlo. Si no, responde como si no existiera (404): no se confirma que exista en otra
+    /// planta — filtrar el listado no basta si por id directo se llega igual a la ficha.
+    /// </summary>
+    private async Task GarantizarAccesoTrabajadorAsync(long plantaId, long id, CancellationToken cancelacion)
+    {
+        if (!await alcance.PuedeVerPlantaAsync(plantaId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("el trabajador", id);
+        }
+    }
+
+    /// <summary>
+    /// Un administrador solo puede registrar o mover un trabajador a una planta que gestiona.
+    /// A diferencia del acceso por id, aquí es una regla de negocio explícita: la planta
+    /// destino la eligió en el formulario, no es un id que adivinó.
+    /// </summary>
+    private async Task GarantizarPlantaAsignableAsync(long plantaId, CancellationToken cancelacion)
+    {
+        if (!await alcance.PuedeVerPlantaAsync(plantaId, cancelacion).ConfigureAwait(false))
+        {
+            throw new ReglaNegocioException(
+                "No puede registrar ni asignar un trabajador a una planta que no gestiona.");
+        }
     }
 
     private async Task ValidarAsync(

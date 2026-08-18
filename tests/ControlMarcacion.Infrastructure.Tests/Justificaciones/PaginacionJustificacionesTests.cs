@@ -32,7 +32,7 @@ public sealed class PaginacionJustificacionesTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicio = new ServicioJustificaciones(contexto);
+        servicio = new ServicioJustificaciones(contexto, new AlcanceSinRestriccion());
     }
 
     public void Dispose() => contexto.Dispose();

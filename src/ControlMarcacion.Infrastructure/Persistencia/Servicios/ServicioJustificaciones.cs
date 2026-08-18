@@ -11,7 +11,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// <summary>
 /// Justificaciones: consulta con trazabilidad y alta manual.
 /// </summary>
-internal sealed class ServicioJustificaciones(MarcacionDbContext contexto) : IServicioJustificaciones
+internal sealed class ServicioJustificaciones(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IServicioJustificaciones
 {
     public async Task<ResultadoPaginado<JustificacionListaDto>> ListarAsync(
         FiltroJustificaciones filtro,
@@ -20,6 +22,19 @@ internal sealed class ServicioJustificaciones(MarcacionDbContext contexto) : ISe
         ArgumentNullException.ThrowIfNull(filtro);
 
         var consulta = contexto.Justificaciones.AsNoTracking();
+
+        // Aislamiento por planta: un ADMINISTRADOR solo ve justificaciones de trabajadores de
+        // sus plantas. La justificación es donde se puede «maquillar» una falta, así que este
+        // filtro es tan importante como los demás.
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(j => contexto.Trabajadores
+                .Where(t => plantasVisibles.Contains(t.PlantaId))
+                .Select(t => t.Id)
+                .Contains(j.TrabajadorId));
+        }
 
         if (filtro.PeriodoId is { } periodoId)
         {
@@ -88,6 +103,13 @@ internal sealed class ServicioJustificaciones(MarcacionDbContext contexto) : ISe
             .FirstOrDefaultAsync(t => t.Id == solicitud.TrabajadorId, cancelacion)
             .ConfigureAwait(false)
             ?? throw new RecursoNoEncontradoException("el trabajador", solicitud.TrabajadorId);
+
+        // Un administrador solo justifica a trabajadores de sus plantas. Se responde como si el
+        // trabajador no existiera (404), sin confirmar que existe en otra planta.
+        if (!await alcance.PuedeVerPlantaAsync(trabajador.PlantaId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("el trabajador", solicitud.TrabajadorId);
+        }
 
         var periodo = await contexto.Periodos
             .AsNoTracking()
@@ -189,6 +211,13 @@ internal sealed class ServicioJustificaciones(MarcacionDbContext contexto) : ISe
             .ConfigureAwait(false)
             ?? throw new RecursoNoEncontradoException("la justificación", id);
 
+        // Acceso por id: una justificación de un trabajador de otra planta se responde como
+        // inexistente (404), no se retira.
+        if (!await alcance.PuedeVerTrabajadorAsync(contexto, justificacion.TrabajadorId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("la justificación", id);
+        }
+
         if (justificacion.Origen != OrigenJustificacion.Manual)
         {
             throw new ReglaNegocioException(
@@ -214,15 +243,27 @@ internal sealed class ServicioJustificaciones(MarcacionDbContext contexto) : ISe
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default) =>
-        await contexto.Trabajadores
+    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default)
+    {
+        var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Activo && t.FechaCese == null)
+            .Where(t => t.Activo && t.FechaCese == null);
+
+        // El desplegable solo ofrece trabajadores de las plantas que el usuario gestiona.
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantas is not null)
+        {
+            consulta = consulta.Where(t => plantas.Contains(t.PlantaId));
+        }
+
+        return await consulta
             .OrderBy(t => t.ApellidoPaterno).ThenBy(t => t.ApellidoMaterno)
             .Select(t => new OpcionDto(
                 t.Id, t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<OpcionDto>> TiposAusenciaAsync(CancellationToken cancelacion = default) =>
         await contexto.TiposAusencia

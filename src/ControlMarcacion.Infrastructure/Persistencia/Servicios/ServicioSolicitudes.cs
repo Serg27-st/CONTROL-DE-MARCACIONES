@@ -12,7 +12,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// <summary>
 /// Solicitudes de ausencia y su conversión en justificaciones.
 /// </summary>
-internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServicioSolicitudes
+internal sealed class ServicioSolicitudes(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IServicioSolicitudes
 {
     public async Task<ResultadoPaginado<SolicitudListaDto>> ListarAsync(
         FiltroSolicitudes filtro,
@@ -21,6 +23,10 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         ArgumentNullException.ThrowIfNull(filtro);
 
         var consulta = contexto.SolicitudesAusencia.AsNoTracking();
+
+        // Aislamiento por planta: un ADMINISTRADOR solo ve las solicitudes de trabajadores de
+        // sus plantas. Va antes que los filtros de pantalla porque es un límite del alcance.
+        consulta = await FiltrarPorAlcanceAsync(consulta, cancelacion).ConfigureAwait(false);
 
         if (filtro.TrabajadorId is { } trabajadorId)
         {
@@ -64,10 +70,18 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         return new ResultadoPaginado<SolicitudListaDto>(elementos, total, pagina, tamanio);
     }
 
-    public async Task<SolicitudListaDto?> ObtenerAsync(long id, CancellationToken cancelacion = default) =>
-        await Proyectar(contexto.SolicitudesAusencia.AsNoTracking().Where(s => s.Id == id))
+    public async Task<SolicitudListaDto?> ObtenerAsync(long id, CancellationToken cancelacion = default)
+    {
+        var consulta = contexto.SolicitudesAusencia.AsNoTracking().Where(s => s.Id == id);
+
+        // Acceso por id directo: si la solicitud es de un trabajador de otra planta no aparece
+        // (404 en el controlador), igual que en el listado.
+        consulta = await FiltrarPorAlcanceAsync(consulta, cancelacion).ConfigureAwait(false);
+
+        return await Proyectar(consulta)
             .FirstOrDefaultAsync(cancelacion)
             .ConfigureAwait(false);
+    }
 
     public async Task<long> GuardarAsync(
         GuardarSolicitudRequest solicitud,
@@ -75,6 +89,10 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         CancellationToken cancelacion = default)
     {
         ArgumentNullException.ThrowIfNull(solicitud);
+
+        // Un administrador solo registra ausencias de trabajadores de sus plantas. El
+        // desplegable ya viene filtrado; esto es el control de servidor detrás de él.
+        await GarantizarTrabajadorEnAlcanceAsync(solicitud.TrabajadorId, cancelacion).ConfigureAwait(false);
 
         if (solicitud.FechaFin < solicitud.FechaInicio)
         {
@@ -426,15 +444,28 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default) =>
-        await contexto.Trabajadores
+    public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default)
+    {
+        var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Activo && t.FechaCese == null)
+            .Where(t => t.Activo && t.FechaCese == null);
+
+        // El desplegable de trabajadores del formulario solo ofrece los de las plantas que el
+        // usuario gestiona: no puede registrar una ausencia de alguien que no ve.
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantas is not null)
+        {
+            consulta = consulta.Where(t => plantas.Contains(t.PlantaId));
+        }
+
+        return await consulta
             .OrderBy(t => t.ApellidoPaterno).ThenBy(t => t.ApellidoMaterno)
             .Select(t => new OpcionDto(
                 t.Id, t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<TipoAusenciaOpcionDto>> TiposAusenciaAsync(
         CancellationToken cancelacion = default) =>
@@ -588,11 +619,46 @@ internal sealed class ServicioSolicitudes(MarcacionDbContext contexto) : IServic
             ? (int)(fin.ToTimeSpan() - inicio.ToTimeSpan()).TotalMinutes
             : null;
 
-    private async Task<SolicitudAusencia> BuscarAsync(long id, CancellationToken cancelacion) =>
-        await contexto.SolicitudesAusencia
+    private async Task<SolicitudAusencia> BuscarAsync(long id, CancellationToken cancelacion)
+    {
+        var solicitud = await contexto.SolicitudesAusencia
             .FirstOrDefaultAsync(s => s.Id == id, cancelacion)
             .ConfigureAwait(false)
-        ?? throw new RecursoNoEncontradoException("la solicitud", id);
+            ?? throw new RecursoNoEncontradoException("la solicitud", id);
+
+        // Chokepoint del acceso por id: aprobar, rechazar, anular, registrar sustento y editar
+        // pasan todas por aquí. Si la solicitud es de un trabajador de otra planta, se responde
+        // como si no existiera, sin confirmar que existe en otra planta.
+        if (!await alcance.PuedeVerTrabajadorAsync(contexto, solicitud.TrabajadorId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("la solicitud", id);
+        }
+
+        return solicitud;
+    }
+
+    /// <summary>Acota una consulta de solicitudes a las plantas visibles (null = sin límite).</summary>
+    private async Task<IQueryable<SolicitudAusencia>> FiltrarPorAlcanceAsync(
+        IQueryable<SolicitudAusencia> consulta, CancellationToken cancelacion)
+    {
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        return plantas is null
+            ? consulta
+            : consulta.Where(s => contexto.Trabajadores
+                .Where(t => plantas.Contains(t.PlantaId))
+                .Select(t => t.Id)
+                .Contains(s.TrabajadorId));
+    }
+
+    /// <summary>404 si el trabajador no es de una planta que el usuario gestiona.</summary>
+    private async Task GarantizarTrabajadorEnAlcanceAsync(long trabajadorId, CancellationToken cancelacion)
+    {
+        if (!await alcance.PuedeVerTrabajadorAsync(contexto, trabajadorId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("el trabajador", trabajadorId);
+        }
+    }
 
     private IQueryable<SolicitudListaDto> Proyectar(IQueryable<SolicitudAusencia> consulta) =>
         consulta.Select(s => new SolicitudListaDto(
