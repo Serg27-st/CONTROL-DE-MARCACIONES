@@ -223,6 +223,18 @@ internal sealed class ServicioUsuarios(
             .ConfigureAwait(false);
 
         await userManager.UpdateAsync(usuario).ConfigureAwait(false);
+
+        // Bloquear solo impide VOLVER a entrar; una cookie ya emitida seguiría valiendo hasta
+        // que expire (8 h). Rotar el sello de seguridad invalida las sesiones ACTIVAS: la
+        // cookie lleva el sello anterior, y el SecurityStampValidator la rechaza en su
+        // siguiente revisión (ValidationInterval, fijado en 2 min en Program.cs). Se hace solo
+        // al desactivar: al reactivar no hay sesión que cortar. Rotarlo también revoca la
+        // sesión ante un cambio forzado, y es lo que cierra el hueco de "lo desactivé pero
+        // siguió trabajando".
+        if (!activo)
+        {
+            await userManager.UpdateSecurityStampAsync(usuario).ConfigureAwait(false);
+        }
     }
 
     public IReadOnlyList<string> RolesDisponibles() => RolesSistema.Todos;

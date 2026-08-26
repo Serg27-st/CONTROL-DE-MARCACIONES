@@ -54,13 +54,13 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         foreach (var r in filas)
         {
             var col = 1;
-            hoja.Cell(fila, col++).Value = r.Trabajador;
-            hoja.Cell(fila, col++).Value = r.IdMarcador ?? "—";
-            hoja.Cell(fila, col++).Value = r.Empresa;
-            hoja.Cell(fila, col++).Value = r.Planta;
-            hoja.Cell(fila, col++).Value = r.Centro ?? "—";
-            hoja.Cell(fila, col++).Value = r.CentroCosto ?? "—";
-            hoja.Cell(fila, col++).Value = r.Puesto;
+            hoja.Cell(fila, col++).Value = Sanear(r.Trabajador);
+            hoja.Cell(fila, col++).Value = Sanear(r.IdMarcador ?? "—");
+            hoja.Cell(fila, col++).Value = Sanear(r.Empresa);
+            hoja.Cell(fila, col++).Value = Sanear(r.Planta);
+            hoja.Cell(fila, col++).Value = Sanear(r.Centro ?? "—");
+            hoja.Cell(fila, col++).Value = Sanear(r.CentroCosto ?? "—");
+            hoja.Cell(fila, col++).Value = Sanear(r.Puesto);
             hoja.Cell(fila, col++).Value = r.DiasPuntual;
             hoja.Cell(fila, col++).Value = r.DiasTardanza;
             hoja.Cell(fila, col++).Value = r.DiasFalta;
@@ -113,12 +113,12 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         foreach (var e in filas)
         {
             var col = 1;
-            hoja.Cell(fila, col++).Value = e.Trabajador;
-            hoja.Cell(fila, col++).Value = e.IdMarcador ?? "—";
+            hoja.Cell(fila, col++).Value = Sanear(e.Trabajador);
+            hoja.Cell(fila, col++).Value = Sanear(e.IdMarcador ?? "—");
             hoja.Cell(fila, col++).Value = e.Fecha.ToDateTime(TimeOnly.MinValue);
             hoja.Cell(fila, col).Style.DateFormat.Format = "dd/MM/yyyy";
             col++;
-            hoja.Cell(fila, col++).Value = e.Turno ?? "—";
+            hoja.Cell(fila, col++).Value = Sanear(e.Turno ?? "—");
 
             if (e.EntradaReal is { } entrada)
             {
@@ -146,7 +146,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             hoja.Cell(fila, col++).Value = NombreEstado(e.Estado);
             hoja.Cell(fila, col++).Value = e.MinutosTardanza;
             hoja.Cell(fila, col++).Value = e.MinutosSalidaAnticipada;
-            hoja.Cell(fila, col).Value = e.Observacion ?? string.Empty;
+            hoja.Cell(fila, col).Value = Sanear(e.Observacion ?? string.Empty);
             fila++;
         }
 
@@ -249,7 +249,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         {
             hoja.Cell(fila, 1).Value = etiqueta;
             hoja.Cell(fila, 1).Style.Font.Bold = true;
-            hoja.Cell(fila, 2).Value = valor;
+            hoja.Cell(fila, 2).Value = Sanear(valor);
             fila++;
         }
 
@@ -385,21 +385,21 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             // El DNI va como texto: si Excel lo toma por número, un documento que empieza
             // en cero pierde el dígito y deja de cruzar con la planilla.
-            hoja.Cell(fila, 2).Value = f.Dni;
+            hoja.Cell(fila, 2).Value = Sanear(f.Dni);
             hoja.Cell(fila, 2).Style.NumberFormat.Format = "@";
 
-            hoja.Cell(fila, 3).Value = f.ApellidosYNombres;
-            hoja.Cell(fila, 4).Value = f.Planta;
+            hoja.Cell(fila, 3).Value = Sanear(f.ApellidosYNombres);
+            hoja.Cell(fila, 4).Value = Sanear(f.Planta);
 
             // CENTRO / CENTRO DE COSTO / DESCRIP. CECO: las tres del catálogo real de SAP
             // (CO_AREA / CO_SECC / DE_SECC), siempre de la misma fila. AREA es el área
             // interna del operario. Si el trabajador todavía no tiene centro de costo
             // asignado en Personal, las tres de CECO salen vacías: no se aproximan con
             // Área/Sección, porque eso daría un código que no existe en SAP.
-            hoja.Cell(fila, 5).Value = f.Centro ?? string.Empty;
-            hoja.Cell(fila, 6).Value = f.CentroCosto ?? string.Empty;
-            hoja.Cell(fila, 7).Value = f.DescripcionCeco ?? string.Empty;
-            hoja.Cell(fila, 8).Value = f.Area ?? string.Empty;
+            hoja.Cell(fila, 5).Value = Sanear(f.Centro ?? string.Empty);
+            hoja.Cell(fila, 6).Value = Sanear(f.CentroCosto ?? string.Empty);
+            hoja.Cell(fila, 7).Value = Sanear(f.DescripcionCeco ?? string.Empty);
+            hoja.Cell(fila, 8).Value = Sanear(f.Area ?? string.Empty);
             EscribirFecha(hoja.Cell(fila, 9), f.FechaIngreso);
 
             if (f.FechaCese is { } cese)
@@ -408,7 +408,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
                 hoja.Cell(fila, 10).Style.Font.FontColor = XLColor.FromHtml("#c0392b");
             }
 
-            hoja.Cell(fila, 11).Value = f.Observacion ?? string.Empty;
+            hoja.Cell(fila, 11).Value = Sanear(f.Observacion ?? string.Empty);
 
             int[] enDiasValores =
             [
@@ -635,16 +635,16 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         foreach (var d in tareo.DescansosMedicos)
         {
             hoja.Cell(fila, 1).Value = d.Mes;
-            hoja.Cell(fila, 2).Value = d.RazonSocial;
-            hoja.Cell(fila, 3).Value = d.Empresa;
-            hoja.Cell(fila, 4).Value = d.Dni;
+            hoja.Cell(fila, 2).Value = Sanear(d.RazonSocial);
+            hoja.Cell(fila, 3).Value = Sanear(d.Empresa);
+            hoja.Cell(fila, 4).Value = Sanear(d.Dni);
             hoja.Cell(fila, 4).Style.NumberFormat.Format = "@";
-            hoja.Cell(fila, 5).Value = d.ApellidosYNombres;
+            hoja.Cell(fila, 5).Value = Sanear(d.ApellidosYNombres);
             EscribirFecha(hoja.Cell(fila, 6), d.FechaInicio);
             EscribirFecha(hoja.Cell(fila, 7), d.FechaFin);
             hoja.Cell(fila, 8).Value = d.DiasEnElMes;
             hoja.Cell(fila, 9).Value = d.Contingencia ?? string.Empty;
-            hoja.Cell(fila, 10).Value = d.Diagnostico ?? string.Empty;
+            hoja.Cell(fila, 10).Value = Sanear(d.Diagnostico ?? string.Empty);
             hoja.Cell(fila, 11).Value = d.CentroAtencion ?? string.Empty;
             hoja.Cell(fila, 12).Value = d.Observacion;
             fila++;
@@ -690,9 +690,9 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         foreach (var v in tareo.Vacaciones)
         {
             hoja.Cell(fila, 1).Value = v.Numero;
-            hoja.Cell(fila, 2).Value = v.Dni;
+            hoja.Cell(fila, 2).Value = Sanear(v.Dni);
             hoja.Cell(fila, 2).Style.NumberFormat.Format = "@";
-            hoja.Cell(fila, 3).Value = v.Nombre;
+            hoja.Cell(fila, 3).Value = Sanear(v.Nombre);
             hoja.Cell(fila, 4).Value = v.Dias;
             EscribirFecha(hoja.Cell(fila, 5), v.FechaInicio);
             EscribirFecha(hoja.Cell(fila, 6), v.FechaTermino);
@@ -726,16 +726,16 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         foreach (var l in tareo.Licencias)
         {
             hoja.Cell(fila, 1).Value = l.Mes;
-            hoja.Cell(fila, 2).Value = l.Dni;
+            hoja.Cell(fila, 2).Value = Sanear(l.Dni);
             hoja.Cell(fila, 2).Style.NumberFormat.Format = "@";
-            hoja.Cell(fila, 3).Value = l.ApellidosYNombres;
+            hoja.Cell(fila, 3).Value = Sanear(l.ApellidosYNombres);
             EscribirFecha(hoja.Cell(fila, 4), l.FechaInicio);
             EscribirFecha(hoja.Cell(fila, 5), l.FechaFin);
             hoja.Cell(fila, 6).Value = l.DiasEnElMes;
-            hoja.Cell(fila, 7).Value = l.Contingencia;
-            hoja.Cell(fila, 8).Value = l.Diagnostico ?? string.Empty;
+            hoja.Cell(fila, 7).Value = Sanear(l.Contingencia);
+            hoja.Cell(fila, 8).Value = Sanear(l.Diagnostico ?? string.Empty);
             hoja.Cell(fila, 9).Value = l.CentroAtencion ?? string.Empty;
-            hoja.Cell(fila, 10).Value = l.Observacion ?? string.Empty;
+            hoja.Cell(fila, 10).Value = Sanear(l.Observacion ?? string.Empty);
             fila++;
         }
 
@@ -775,6 +775,13 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         celda.Value = valor;
         celda.Style.NumberFormat.Format = formato;
     }
+
+    /// <summary>
+    /// Texto de origen humano con la inyección de fórmula neutralizada. Se usa en todo dato
+    /// libre (nombres, observaciones, diagnóstico, áreas, catálogos): ver <see cref="SanitizadorExcel"/>.
+    /// Los títulos de columna, números y fechas no pasan por aquí — no pueden abrir una fórmula.
+    /// </summary>
+    private static string Sanear(string? valor) => SanitizadorExcel.Neutralizar(valor) ?? string.Empty;
 
     // ------------------------------------------------------------------
 

@@ -55,10 +55,55 @@ public sealed record FiltroTareo
     public int Pagina { get; init; } = 1;
 
     /// <summary>
-    /// Filas por página. Un periodo mensual son decenas de miles de filas
-    /// (trabajadores × días) y volcarlas de una vez tumba el navegador.
+    /// <b>Trabajadores</b> por página, no filas.
     /// </summary>
-    public int TamanioPagina { get; init; } = 50;
+    /// <remarks>
+    /// La unidad de página es la persona y no el día: la pantalla se llama «detalle por
+    /// trabajador y día», y paginar por filas partía el mes de alguien entre dos páginas
+    /// —días 1 al 20 en una, 21 al 31 en la siguiente, con el nombre repetido encima de
+    /// cada trozo—. Nadie lee medio mes de una persona.
+    ///
+    /// Es además lo que hace correctos los totales por trabajador sin consultar nada más:
+    /// la página trae a esa persona <b>entera</b>, así que sumar sus días es sumar todo lo
+    /// que le corresponde bajo el filtro activo.
+    /// </remarks>
+    public int TamanioPagina { get; init; } = 10;
+}
+
+/// <summary>
+/// Los días de un trabajador dentro del periodo, ya agrupados.
+/// </summary>
+/// <remarks>
+/// Los totales se calculan sobre <see cref="Dias"/> y eso es correcto <b>porque la
+/// paginación es por trabajador</b>: la lista no es un trozo, es todo lo que esa persona
+/// tiene bajo el filtro. Si algún día se volviera a paginar por filas, estos totales
+/// pasarían a ser «lo que se ve» sin que nada lo delatara.
+///
+/// Cuando hay un filtro por estado, describen lo filtrado —doce faltas, no doce días— y
+/// la vista los rotula en consecuencia.
+/// </remarks>
+public sealed record TareoDeTrabajador(
+    long TrabajadorId,
+    string Trabajador,
+    string? IdMarcador,
+    IReadOnlyList<TareoDiarioDto> Dias)
+{
+    public int TotalDias => Dias.Count;
+
+    public int Faltas => Dias.Count(d => d.Estado == EstadoTareo.Falta);
+
+    public int Tardanzas => Dias.Count(d => d.Estado == EstadoTareo.Tardanza);
+
+    public int MinutosTrabajados => Dias.Sum(d => d.MinutosTrabajados);
+
+    public int MinutosExtra => Dias.Sum(d => d.MinutosExtra25 + d.MinutosExtra35);
+
+    public int MinutosTardanza => Dias.Sum(d => d.MinutosTardanza);
+
+    /// <summary>Primer y último día que trae, para rotular el tramo mostrado.</summary>
+    public DateOnly? Desde => Dias.Count == 0 ? null : Dias[0].Fecha;
+
+    public DateOnly? Hasta => Dias.Count == 0 ? null : Dias[^1].Fecha;
 }
 
 /// <summary>
@@ -111,7 +156,14 @@ public interface IServicioCalculoTareo
         string usuario,
         CancellationToken cancelacion = default);
 
-    Task<ResultadoPaginado<TareoDiarioDto>> ListarAsync(
+    /// <summary>
+    /// El tareo agrupado por trabajador, con una página de <b>personas</b> completas.
+    /// </summary>
+    /// <remarks>
+    /// Ver <see cref="FiltroTareo.TamanioPagina"/>: la unidad de página es la persona, de
+    /// modo que el mes de nadie se parte entre dos páginas.
+    /// </remarks>
+    Task<ResultadoPaginado<TareoDeTrabajador>> ListarPorTrabajadorAsync(
         FiltroTareo filtro,
         CancellationToken cancelacion = default);
 

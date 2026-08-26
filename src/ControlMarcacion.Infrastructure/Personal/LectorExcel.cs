@@ -27,6 +27,12 @@ namespace ControlMarcacion.Infrastructure.Personal;
 /// </remarks>
 internal static class LectorExcel
 {
+    /// <summary>Filas máximas de un padrón antes de tratarlo como archivo anómalo (anti-DoS).</summary>
+    private const int MaxFilas = 50_000;
+
+    /// <summary>Columnas máximas: el padrón tiene decenas de columnas, no cientos.</summary>
+    private const int MaxColumnas = 200;
+
     /// <summary>Los dos primeros bytes de un .xlsx: es un ZIP, y todo ZIP empieza por "PK".</summary>
     public static bool EsLibroExcel(Stream contenido)
     {
@@ -67,6 +73,21 @@ internal static class LectorExcel
         }
 
         var ultimaColumna = usado.LastColumn().ColumnNumber();
+        var ultimaFila = usado.LastRow().RowNumber();
+
+        // Tope defensivo antes de recorrer celda por celda. Un padrón de personal son cientos o
+        // pocos miles de filas, no millones; un .xlsx es un ZIP y uno malicioso —o corrupto—
+        // puede declarar un rango enorme que, al materializarlo en una lista de arreglos de
+        // texto, agota la memoria de la única PC. La subida ya está acotada a 5 MB en el
+        // controlador; esto acota el otro extremo, el del rango ya abierto.
+        if (ultimaFila > MaxFilas || ultimaColumna > MaxColumnas)
+        {
+            throw new ReglaNegocioException(
+                $"El archivo declara un rango demasiado grande ({ultimaFila:N0} fila(s) × " +
+                $"{ultimaColumna} columna(s)); el máximo es {MaxFilas:N0} × {MaxColumnas}. " +
+                "Revise que sea el archivo del padrón y no otro.");
+        }
+
         var filas = new List<string[]>();
 
         foreach (var fila in usado.RowsUsed())

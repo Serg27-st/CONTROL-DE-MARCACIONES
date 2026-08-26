@@ -17,8 +17,16 @@ public sealed class TareoVm
 {
     public IReadOnlyList<PeriodoListaDto> Periodos { get; init; } = [];
 
-    public ResultadoPaginado<TareoDiarioDto> Resultado { get; init; } =
-        ResultadoPaginado.Vacio<TareoDiarioDto>(50);
+    /// <summary>Una página de <b>trabajadores</b>, cada uno con todos sus días.</summary>
+    public ResultadoPaginado<TareoDeTrabajador> Resultado { get; init; } =
+        ResultadoPaginado.Vacio<TareoDeTrabajador>(10);
+
+    /// <summary>Días que trae la página, sumando los de todos sus trabajadores.</summary>
+    /// <remarks>
+    /// El total de la paginación cuenta personas, no filas; esto es lo que hace falta para
+    /// decir «10 trabajadores · 310 días» y que nadie confunda las dos cifras.
+    /// </remarks>
+    public int DiasEnLaPagina => Resultado.Elementos.Sum(t => t.TotalDias);
 
     /// <summary>Totales y reparto por estado del periodo, no de la página visible.</summary>
     public ResumenTareo Resumen { get; init; } = ResumenTareo.Vacio;

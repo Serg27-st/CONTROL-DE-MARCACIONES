@@ -892,10 +892,58 @@ table.tabla tr.fila-grupos th.grupo-marca { border-left: 2px solid var(--color-b
 table.tabla tr.fila-grupos th.grupo-tiempo { border-left: 2px solid var(--color-borde); }
 table.tabla tr.fila-grupos th.grupo-desvio { border-left: 2px solid var(--color-borde); }
 
-/* Línea que marca dónde empieza otro trabajador. Sin ella, 31 filas de una persona y las
-   31 de la siguiente son un solo bloque de 62. */
-.tabla-tareo tr.inicio-trabajador td { border-top: 2px solid #cbd5e1; }
+/*
+  Cada persona es un <tbody> con su cabecera. Antes eran filas sueltas separadas por una
+  línea y con el nombre escrito en la primera: al pasar de página el bloque aparecía
+  descabezado, y no había forma de ver de un vistazo cuántas faltas llevaba alguien sin
+  contarlas a mano.
+*/
+.bloque-trabajador + .bloque-trabajador { border-top: 2px solid #cbd5e1; }
 
+.tabla-tareo tr.fila-trabajador th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 10px 14px;
+  background: #eef2f7;
+  border-bottom: 1px solid var(--color-borde);
+  border-top: 2px solid #cbd5e1;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+  white-space: normal;
+}
+
+.trabajador-nombre {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--color-primario);
+  margin-right: 10px;
+}
+
+.trabajador-id {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--color-texto-suave);
+  margin-right: 10px;
+}
+
+/* Los totales de esa persona: son completos porque la página trae al trabajador entero. */
+.trabajador-totales {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--color-texto-suave);
+}
+
+.trabajador-totales .etiqueta { margin: 0 2px; }
+
+/* El domingo se marca en la propia fecha: es el día cuya sobretasa cambia. */
+.celda-domingo { color: var(--estado-falta); font-weight: 600; }
+
+/* Columna de nombre en las tablas que SÍ lo repiten por fila —Resumen y Excepciones de
+   Reportes, que son una fila por persona o por incidencia—. El tareo ya no la usa: allí
+   el nombre vive en la cabecera de cada bloque. */
 .celda-trabajador { min-width: 190px; }
 
 .celda-fecha { white-space: nowrap; }
@@ -943,6 +991,54 @@ table.tabla tfoot th {
 /* Dieciocho columnas: se desplaza dentro de su contenedor en vez de comprimir las cifras
    hasta partirlas en dos líneas. */
 .tabla-resumen { min-width: 1500px; }
+
+/* ---- Filtros aplicados, con su aspa ---- */
+
+/*
+  Dice de un vistazo por qué el listado trae lo que trae, y —lo que el botón «Quitar
+  filtros» no permitía— soltar uno sin perder el otro.
+*/
+.filtros-activos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-borde);
+}
+
+.filtros-activos-rotulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-texto-suave);
+}
+
+.filtro-activo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+  background: #f8fafc;
+  font-size: 12.5px;
+  color: var(--color-texto);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.filtro-activo:hover { border-color: var(--estado-falta); background: #fdeaec; }
+
+.filtro-activo-quitar {
+  font-size: 15px;
+  line-height: 1;
+  color: var(--color-texto-suave);
+}
+
+.filtro-activo:hover .filtro-activo-quitar { color: var(--estado-falta); }
 
 /* ---- Pastillas de estado, que además filtran ---- */
 
@@ -1342,7 +1438,7 @@ table.tabla tfoot th {
 
   /* El tareo conserva sus catorce columnas y se desplaza en horizontal: comprimirlas
      partiría las cifras en dos líneas, que es peor que desplazar. */
-  .tabla-tareo { min-width: 1100px; }
+  .tabla-tareo { min-width: 980px; }
 }
 /* ------------------------------------------------------------------
    Reportes: selector de alcance y encabezado de trazabilidad

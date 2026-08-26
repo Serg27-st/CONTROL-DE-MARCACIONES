@@ -196,6 +196,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opciones =>
     .AddEntityFrameworkStores<MarcacionDbContext>()
     .AddDefaultTokenProviders();
 
+// Cada cuánto se revalida la cookie contra el sello de seguridad del usuario. El valor por
+// omisión son 30 minutos; se baja a 2 para que desactivar una cuenta (o forzar su salida)
+// corte su sesión activa casi enseguida en vez de dejarla viva media hora. Ver
+// ServicioUsuarios.CambiarEstadoAsync, que rota el sello. En SQLite local, revalidar cada 2
+// min es una consulta trivial: no hay red ni servidor que se resienta.
+builder.Services.Configure<SecurityStampValidatorOptions>(opciones =>
+    opciones.ValidationInterval = TimeSpan.FromMinutes(2));
+
 // ¿Se sirve de verdad por HTTPS? Fuera de desarrollo y salvo que el despliegue de una sola PC
 // lo apague con Despliegue:ExigirHttps=false (en appsettings.Production.json, por HTTP en
 // localhost). Una SOLA decisión gobierna tres cosas que tienen que ir siempre juntas: HSTS, la

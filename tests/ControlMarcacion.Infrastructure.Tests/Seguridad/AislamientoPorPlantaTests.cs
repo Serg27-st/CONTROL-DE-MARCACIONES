@@ -25,7 +25,8 @@ namespace ControlMarcacion.Infrastructure.Tests.Seguridad;
 public sealed class AislamientoPorPlantaTests : IDisposable
 {
     private const long PlantaDetergentes = 1;   // Consulting Advisers
-    private const long PlantaSulfonacion = 2;    // CA Outsourcing
+    private const long PlantaSulfonacion = 2;    // otra planta (basta con que sea distinta)
+    private const long PeriodoJulio2026 = 1;     // periodo sembrado por DatosSemilla (abierto)
 
     private readonly MarcacionDbContext contexto;
 
@@ -156,6 +157,29 @@ public sealed class AislamientoPorPlantaTests : IDisposable
         var opciones = await servicio.TrabajadoresAsync(CancellationToken.None);
 
         opciones.Select(o => o.Id).ShouldBe([1]);
+    }
+
+    // ------------------------------------------------------------------
+    // Motor de tareo (ServicioCalculoTareo)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task El_recalculo_solo_procesa_los_trabajadores_de_las_plantas_del_administrador()
+    {
+        // Se usa el periodo sembrado (Julio 2026, Id=1); no se crea uno propio para no chocar
+        // con el seed que aplica EnsureCreated.
+        await SembrarTrabajadorAsync(1, PlantaDetergentes, "AAA");
+        await SembrarTrabajadorAsync(2, PlantaSulfonacion, "BBB");
+
+        var servicio = new ServicioCalculoTareo(contexto, new AlcanceDePlantas(PlantaDetergentes));
+
+        var resultado = await servicio.RecalcularPeriodoAsync(PeriodoJulio2026, "admin", CancellationToken.None);
+
+        // Un administrador recalcula solo su planta: el trabajador de la otra razón social no
+        // se procesa, así que no se le crea ningún tareo. El recálculo es idempotente por
+        // (trabajador, día), de modo que procesar un subconjunto es correcto.
+        resultado.TrabajadoresProcesados.ShouldBe(1);
+        contexto.TareosDiarios.Select(t => t.TrabajadorId).Distinct().ToList().ShouldBe([1]);
     }
 
     // ------------------------------------------------------------------

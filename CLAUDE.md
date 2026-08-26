@@ -199,7 +199,7 @@ Definidos en `.claude/agents/`. Invoca al que corresponda antes de trabajar en s
 
 ## Estado actual
 
-Compila limpio (0 advertencias) y corre, con 318 pruebas en verde. La base es **SQLite** y la
+Compila limpio (0 advertencias) y corre, con 372 pruebas en verde. La base es **SQLite** y la
 crea la propia aplicación al arrancar: 40 tablas, 64 índices y los 16 catálogos sembrados
 (`Persistencia/DatosSemilla.cs`, que es la fuente — las migraciones solo son su consecuencia
 generada). Empaquetado y despliegue en `docs/05-despliegue.md`.
@@ -308,6 +308,37 @@ generada). Empaquetado y despliegue en `docs/05-despliegue.md`.
 - **Ingesta del TXT**: carga del archivo del ZKTeco con deduplicación, detección de archivo
   repetido por hash y reporte de IDs sin trabajador asignado —con su conteo y su rango de
   fechas—. Cubierta por 14 tests.
+- **Los dos `.dat` del marcador** (analizado 25/08/2026, `docs/06-formato-archivos-marcador.md`).
+  El menú del ZKTeco ofrece juntas dos operaciones que producen `.dat` y no se parecen en
+  nada: la **descarga de marcaciones** genera `SERIE_attlog.dat`, que es **el mismo texto
+  tabulado del TXT** y `LectorTxtZkteco` procesa sin un solo cambio —verificado sobre 14 332
+  marcaciones reales, cero rechazos—; el **respaldo de datos** genera `BKtransaction.dat`,
+  un volcado binario de las tablas del equipo, que lee `LectorRespaldoZkteco`.
+  `LectorMarcadorAutomatico` es el único `IFuenteDeMarcaciones` registrado y reparte **por
+  el contenido, nunca por la extensión ni el nombre**: los dos llegan como `.dat` y un
+  archivo renombrado a mano no debe cambiar cómo se interpreta.
+  El respaldo **no está cifrado** (entropía 2,85 de 8, con la serie y el firmware legibles
+  en claro). Su tiempo **no es epoch Unix**: ZKTeco trata todos los meses como de 31 días.
+  ⚠️ **El layout se deduce, no se supone.** Los 7 campos declarados suman 16 bytes y el
+  registro mide 28; el relleno no está declarado en ninguna parte, así que el lector prueba
+  todos los desplazamientos y se queda con el que da fechas válidas en todos los registros.
+  La fecha sola **no basta para desempatar**: leerla tres bytes antes da 2027-02-23, tan
+  plausible como la buena, y convierte el ID `2` en `33 554 432`. Por eso se exige además
+  que quede **alineada a 4 bytes**. Hay un test que fija ese caso exacto.
+  ⚠️ **Dos límites del binario que el texto no tiene**, y por los que el `attlog` sigue
+  siendo el archivo preferido: el ID viaja como entero, así que **se pierden los ceros a la
+  izquierda** (`0014` y `14` son personas distintas en el padrón real), y de los siete
+  campos **solo están confirmados el primero y el último** — los cuatro bytes intermedios se
+  leen pero no deciden nada. Un registro con ID en cero se rechaza en vez de atribuirse: en
+  la muestra real son los que el equipo escribe para sí mismo.
+  **El identificador está confirmado** (GCA, 25/08/2026): en el equipo de prueba `2` y `3`
+  son usuarios y `1` es el **master**, la cuenta de administrador del propio marcador. El
+  parser extrae exactamente ese conjunto, y el registro del master es además **el único con
+  otro modo de verificación** — dos señales independientes sobre el mismo campo.
+  ⚠️ **El master no entra al tareo y no hace falta código para lograrlo**: basta con no
+  asignarle ese ID a ningún trabajador. El padrón decide, y sus registros se reportan como
+  ID sin asignar. Una regla que descartara «el ID 1» sería peor: en otro equipo ese número
+  puede ser una persona.
 - **Pantalla de carga de marcaciones** (`/Marcaciones`): el archivo se suelta sobre una
   zona de arrastre que valida extensión y tamaño antes de subir nada, y debajo hay un
   **calendario de cobertura por año → mes → día**. Responde la pregunta que se hace de
@@ -341,11 +372,26 @@ generada). Empaquetado y despliegue en `docs/05-despliegue.md`.
   y extras 25/35, nocturnidad, tardanza, salida anticipada, cruce de medianoche, domingo
   o feriado trabajado, y aplicación de justificaciones sobre el cálculo crudo. Recálculo
   idempotente y bloqueado en periodo cerrado.
-- **Pantalla de tareo** (`/Asistencia`): **pagina** (50 filas) y filtra por periodo, estado
-  y **búsqueda de trabajador** (apellidos, nombres o documento). Antes volcaba el periodo
-  entero en una sola tabla, contra la regla que el propio `ResultadoPaginado` declara
-  —"todo listado del sistema pagina, sin excepción"—: con 200 trabajadores son 6 000 filas
-  de 14 columnas en un HTML que el equipo de planta no termina de pintar.
+- **Pantalla de tareo** (`/Asistencia`): **pagina por trabajador** (10 personas por página,
+  `ListarPorTrabajadorAsync`) y filtra por periodo, estado y **búsqueda de trabajador**
+  (apellidos, nombres o documento). Antes volcaba el periodo entero en una sola tabla,
+  contra la regla que el propio `ResultadoPaginado` declara —"todo listado del sistema
+  pagina, sin excepción"—: con 200 trabajadores son 6 000 filas en un HTML que el equipo de
+  planta no termina de pintar.
+  ⚠️ **La unidad de página es la persona, no la fila.** Paginar por filas partía el mes de
+  alguien entre dos páginas —días 1 al 20 en una, 21 al 31 en la siguiente— en una pantalla
+  que se llama «detalle por trabajador y día». Es además lo que hace correctos los totales
+  por trabajador **sin consultar nada más**: la página trae a cada persona entera, así que
+  sumar sus días es sumar todo lo que le corresponde bajo el filtro. Si algún día se
+  volviera a paginar por filas, esos totales pasarían a ser «lo que se ve» en silencio.
+  Cada persona es un `<tbody>` con **cabecera propia** (nombre, ID de marcador y sus
+  faltas/tardanzas/horas extra) y sus días debajo. Las columnas Trabajador e ID salieron
+  del cuerpo —viven en esa cabecera—, de 14 columnas a 12. Es **una sola tabla** con
+  cabeceras intercaladas y no una tabla por persona, para que las columnas queden alineadas
+  entre unos y otros. Con filtro de estado activo, la cabecera rotula lo filtrado
+  («12 día(s) con estado Falta»), no un total del mes que no sería cierto.
+  Los filtros aplicados se muestran como **pastillas con aspa**, que permiten soltar uno
+  sin perder el otro — lo que «Quitar filtros» no dejaba hacer.
   Los totales y el reparto por estado salen de `IServicioCalculoTareo.ResumirAsync`,
   **calculado en la base sobre el periodo completo**, no sumando las filas que llegaron a
   la vista: sumarlas daría "el total de esta página", que cambia al pasar de página.

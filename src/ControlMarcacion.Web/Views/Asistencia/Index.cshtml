@@ -114,7 +114,10 @@
             <div class="campo">
                 <label for="busqueda">Trabajador</label>
                 <input type="search" id="busqueda" name="busqueda" value="@Model.Busqueda"
-                       placeholder="Apellidos, nombres o documento" />
+                       placeholder="Apellidos, nombres o documento" autocomplete="off" />
+                <small class="nota-limite">
+                    Buscar a una persona deja su mes completo en pantalla, sin paginar.
+                </small>
             </div>
 
             <div class="campo">
@@ -138,6 +141,38 @@
             }
         </div>
     </form>
+
+    @*
+        Los filtros aplicados, cada uno con su aspa. Un desplegable y una caja de texto ya
+        muestran su valor, pero hay que mirarlos de uno en uno: la tira dice de un vistazo
+        por qué el listado trae lo que trae, y permite soltar UN filtro sin perder el otro
+        —que era la única opción con «Quitar filtros»—.
+    *@
+    @if (Model.HayFiltroActivo)
+    {
+        <div class="filtros-activos">
+            <span class="filtros-activos-rotulo">Filtrando por</span>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Busqueda))
+            {
+                <a class="filtro-activo"
+                   asp-action="Index"
+                   asp-all-route-data='new Dictionary<string, string?>(Model.RutaFiltros()) { ["busqueda"] = null }'>
+                    Trabajador: <strong>@Model.Busqueda</strong>
+                    <span class="filtro-activo-quitar" aria-hidden="true">×</span>
+                </a>
+            }
+
+            @if (Model.Estado is { } estadoActivo)
+            {
+                <a class="filtro-activo"
+                   asp-action="Index" asp-all-route-data="@Model.RutaFiltros(null)">
+                    Estado: <strong>@NombreEstado(estadoActivo)</strong>
+                    <span class="filtro-activo-quitar" aria-hidden="true">×</span>
+                </a>
+            }
+        </div>
+    }
 </div>
 
 @* ------------------------------------------------------------------ Resumen ---- *@
@@ -346,24 +381,35 @@
     }
     else
     {
+        <p class="subtitulo">
+            @r.TotalElementos.ToString("N0", cultura) trabajador(es) con días calculados.
+            Esta página muestra @r.Elementos.Count, con sus
+            @Model.DiasEnLaPagina.ToString("N0", cultura) día(s) — <strong>el mes de cada
+            persona entero</strong>, nunca partido entre dos páginas.
+        </p>
+
         <div class="tabla-contenedor">
+            @*
+                Una sola tabla con cabeceras de persona intercaladas, no una tabla por
+                trabajador: así las columnas quedan alineadas entre unos y otros, que es lo
+                que permite comparar de un vistazo. Las columnas Trabajador e ID salieron
+                del cuerpo —viven en la cabecera de cada bloque—, y de catorce se bajó a doce.
+            *@
             <table class="tabla tabla-tareo">
                 <thead>
                     @*
-                        Dos filas de cabecera: las once columnas de minutos no son once
-                        cosas distintas sino cuatro grupos, y sin ellos hay que leer el
-                        rótulo de cada una para saber si "35 %" es sobretiempo o descuento.
+                        Dos filas de cabecera: las columnas de minutos no son nueve cosas
+                        distintas sino tres grupos, y sin ellos hay que leer el rótulo de
+                        cada una para saber si "35 %" es sobretiempo o descuento.
                     *@
                     <tr class="fila-grupos">
-                        <th colspan="3"></th>
+                        <th></th>
                         <th colspan="3" class="grupo-marca">Jornada</th>
                         <th colspan="5" class="grupo-tiempo">Tiempo computado (h)</th>
                         <th colspan="2" class="grupo-desvio">Desvíos (min)</th>
                         <th></th>
                     </tr>
                     <tr>
-                        <th>Trabajador</th>
-                        <th>ID</th>
                         <th>Fecha</th>
                         <th>Turno</th>
                         <th>Entrada</th>
@@ -378,79 +424,111 @@
                         <th>Estado</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @{
-                        // Se repite el nombre solo cuando cambia de persona: con 31 filas
-                        // por trabajador, repetirlo en todas convierte la columna en una
-                        // pared de texto que impide ver dónde empieza el siguiente.
-                        long? trabajadorAnterior = null;
-                    }
-                    @foreach (var t in r.Elementos)
-                    {
-                        var nuevoTrabajador = trabajadorAnterior != t.TrabajadorId;
-                        trabajadorAnterior = t.TrabajadorId;
 
-                        <tr class="@(nuevoTrabajador ? "inicio-trabajador" : "") @(t.EsDiaNoLaborable ? "fila-no-laborable" : "")">
-                            <td class="celda-trabajador">
-                                @if (nuevoTrabajador)
-                                {
-                                    <strong>@t.Trabajador</strong>
-                                }
-                            </td>
-                            <td>@if (nuevoTrabajador) { <code>@(t.IdMarcador ?? "—")</code> }</td>
-                            <td class="celda-fecha">
-                                @t.Fecha.ToString("dd/MM", cultura)
-                                <small class="texto-suave">@t.Fecha.ToString("ddd", cultura)</small>
-                            </td>
-                            <td>@(t.Turno ?? "—")</td>
-                            <td>@(t.EntradaReal?.ToString("HH:mm", cultura) ?? "—")</td>
-                            <td>@(t.SalidaReal?.ToString("HH:mm", cultura) ?? "—")</td>
-                            <td class="col-numero"><strong>@Horas(t.MinutosTrabajados)</strong></td>
-                            <td class="col-numero">@Horas(t.MinutosOrdinarios)</td>
-                            <td class="col-numero">@Horas(t.MinutosExtra25)</td>
-                            <td class="col-numero">@Horas(t.MinutosExtra35)</td>
-                            <td class="col-numero">@Horas(t.MinutosNocturnos)</td>
-                            <td class="col-numero @(t.MinutosTardanza > 0 ? "cifra-alerta" : "")">
-                                @(t.MinutosTardanza == 0 ? "—" : t.MinutosTardanza.ToString("N0", cultura))
-                            </td>
-                            <td class="col-numero @(t.MinutosSalidaAnticipada > 0 ? "cifra-alerta" : "")">
-                                @(t.MinutosSalidaAnticipada == 0 ? "—" : t.MinutosSalidaAnticipada.ToString("N0", cultura))
-                            </td>
-                            <td>
-                                <span class="etiqueta @ClaseEstado(t.Estado)">@NombreEstado(t.Estado)</span>
-                                @if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.DescansoSemanal)
-                                {
-                                    <span class="etiqueta etiqueta-justificada">Descanso +100%</span>
-                                }
-                                else if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado)
-                                {
-                                    <span class="etiqueta etiqueta-justificada">Feriado +100%</span>
-                                }
-                            </td>
+                @foreach (var persona in r.Elementos)
+                {
+                    @*
+                        Un <tbody> por persona: agrupa semánticamente y permite teñir el
+                        bloque entero sin repetir la clase en cada fila.
+                    *@
+                    <tbody class="bloque-trabajador">
+                        <tr class="fila-trabajador">
+                            <th colspan="12" scope="colgroup">
+                                <span class="trabajador-nombre">@persona.Trabajador</span>
+                                <span class="trabajador-id">ID @(persona.IdMarcador ?? "—")</span>
+
+                                @* Totales de ESTA persona. Son completos porque la página
+                                   trae a cada trabajador entero: ver TareoDeTrabajador. *@
+                                <span class="trabajador-totales">
+                                    @if (Model.Estado is { } filtrado)
+                                    {
+                                        <text>
+                                            @persona.TotalDias día(s) con estado
+                                            «@NombreEstado(filtrado)»
+                                        </text>
+                                    }
+                                    else
+                                    {
+                                        <text>@persona.TotalDias día(s)</text>
+
+                                        if (persona.Faltas > 0)
+                                        {
+                                            <span class="etiqueta etiqueta-falta">@persona.Faltas falta(s)</span>
+                                        }
+
+                                        if (persona.Tardanzas > 0)
+                                        {
+                                            <span class="etiqueta etiqueta-tardanza">@persona.Tardanzas tardanza(s)</span>
+                                        }
+
+                                        if (persona.MinutosExtra > 0)
+                                        {
+                                            <text>· @Horas(persona.MinutosExtra) h extra</text>
+                                        }
+                                    }
+                                </span>
+                            </th>
                         </tr>
 
-                        @*
-                            La observación va en su propia fila y no en un title: es la
-                            explicación de por qué salió ese resultado —invariante del
-                            sistema: cada resultado se explica— y un tooltip no se
-                            imprime, no se copia y no existe en pantalla táctil.
-                        *@
-                        @if (!string.IsNullOrWhiteSpace(t.Observacion))
+                        @foreach (var t in persona.Dias)
                         {
-                            <tr class="fila-observacion @(t.EsDiaNoLaborable ? "fila-no-laborable" : "")">
-                                <td colspan="14">
-                                    <span class="marca-observacion" aria-hidden="true">↳</span>
-                                    @t.Observacion
+                            var esDomingo = t.Fecha.DayOfWeek == DayOfWeek.Sunday;
+
+                            <tr class="@(t.EsDiaNoLaborable ? "fila-no-laborable" : "")">
+                                <td class="celda-fecha @(esDomingo ? "celda-domingo" : "")">
+                                    @t.Fecha.ToString("dd/MM", cultura)
+                                    <small class="texto-suave">@t.Fecha.ToString("ddd", cultura)</small>
+                                </td>
+                                <td>@(t.Turno ?? "—")</td>
+                                <td>@(t.EntradaReal?.ToString("HH:mm", cultura) ?? "—")</td>
+                                <td>@(t.SalidaReal?.ToString("HH:mm", cultura) ?? "—")</td>
+                                <td class="col-numero"><strong>@Horas(t.MinutosTrabajados)</strong></td>
+                                <td class="col-numero">@Horas(t.MinutosOrdinarios)</td>
+                                <td class="col-numero">@Horas(t.MinutosExtra25)</td>
+                                <td class="col-numero">@Horas(t.MinutosExtra35)</td>
+                                <td class="col-numero">@Horas(t.MinutosNocturnos)</td>
+                                <td class="col-numero @(t.MinutosTardanza > 0 ? "cifra-alerta" : "")">
+                                    @(t.MinutosTardanza == 0 ? "—" : t.MinutosTardanza.ToString("N0", cultura))
+                                </td>
+                                <td class="col-numero @(t.MinutosSalidaAnticipada > 0 ? "cifra-alerta" : "")">
+                                    @(t.MinutosSalidaAnticipada == 0 ? "—" : t.MinutosSalidaAnticipada.ToString("N0", cultura))
+                                </td>
+                                <td>
+                                    <span class="etiqueta @ClaseEstado(t.Estado)">@NombreEstado(t.Estado)</span>
+                                    @if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.DescansoSemanal)
+                                    {
+                                        <span class="etiqueta etiqueta-justificada">Descanso +100%</span>
+                                    }
+                                    else if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado)
+                                    {
+                                        <span class="etiqueta etiqueta-justificada">Feriado +100%</span>
+                                    }
                                 </td>
                             </tr>
+
+                            @*
+                                La observación va en su propia fila y no en un title: es la
+                                explicación de por qué salió ese resultado —invariante del
+                                sistema: cada resultado se explica— y un tooltip no se
+                                imprime, no se copia y no existe en pantalla táctil.
+                            *@
+                            @if (!string.IsNullOrWhiteSpace(t.Observacion))
+                            {
+                                <tr class="fila-observacion @(t.EsDiaNoLaborable ? "fila-no-laborable" : "")">
+                                    <td colspan="12">
+                                        <span class="marca-observacion" aria-hidden="true">↳</span>
+                                        @t.Observacion
+                                    </td>
+                                </tr>
+                            }
                         }
-                    }
-                </tbody>
+                    </tbody>
+                }
             </table>
         </div>
 
         <partial name="_Paginacion"
-                 model='PaginacionVm.De(r, "Index", "día(s) calculado(s)", Model.RutaFiltros())' />
+                 model='PaginacionVm.De(r, "Index", "trabajador(es)", Model.RutaFiltros())' />
     }
 </div>
 

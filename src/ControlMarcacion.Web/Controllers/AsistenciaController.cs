@@ -17,13 +17,17 @@ public sealed class AsistenciaController(
     IServicioCalculoTareo servicio,
     IServicioPeriodos periodos) : Controller
 {
-    /// <summary>Filas por página del listado del tareo.</summary>
+    /// <summary>Trabajadores por página del listado del tareo.</summary>
     /// <remarks>
-    /// Un periodo mensual son decenas de miles de filas (trabajadores × días). La pantalla
-    /// las volcaba todas en una sola tabla; con 200 trabajadores eso son 6 000 filas de 13
-    /// columnas en un HTML que el navegador de la planta no termina de pintar.
+    /// Un periodo mensual son decenas de miles de filas (trabajadores × días), así que la
+    /// pantalla tiene que paginar: con 200 trabajadores son 6 000 filas de un HTML que el
+    /// equipo de planta no termina de pintar.
+    ///
+    /// La unidad es el <b>trabajador</b> y no la fila: diez personas de un mes son unas
+    /// 310 filas, un tamaño de página razonable, y sobre todo ninguna aparece con el mes
+    /// partido entre dos páginas. Ver <c>FiltroTareo.TamanioPagina</c>.
     /// </remarks>
-    private const int FilasPorPagina = 50;
+    private const int TrabajadoresPorPagina = 10;
 
     [HttpGet]
     public async Task<IActionResult> Index(
@@ -51,7 +55,7 @@ public sealed class AsistenciaController(
             Estado = estado,
             Busqueda = busqueda,
             Pagina = Math.Max(pagina, 1),
-            TamanioPagina = FilasPorPagina
+            TamanioPagina = TrabajadoresPorPagina
         };
 
         var modelo = new TareoVm
@@ -60,7 +64,7 @@ public sealed class AsistenciaController(
             PeriodoId = seleccionado,
             Estado = estado,
             Busqueda = busqueda,
-            Resultado = await servicio.ListarAsync(filtro, cancelacion).ConfigureAwait(false),
+            Resultado = await servicio.ListarPorTrabajadorAsync(filtro, cancelacion).ConfigureAwait(false),
             Resumen = await servicio.ResumirAsync(filtro, cancelacion).ConfigureAwait(false),
             Liquidacion = await servicio
                 .LiquidarPeriodoAsync(seleccionado.Value, cancelacion)

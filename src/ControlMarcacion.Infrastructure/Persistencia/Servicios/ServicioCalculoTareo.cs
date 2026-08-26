@@ -52,10 +52,24 @@ internal sealed class ServicioCalculoTareo(
             throw new PeriodoCerradoException(periodo.Codigo);
         }
 
-        var trabajadores = await contexto.Trabajadores
+        var consultaTrabajadores = contexto.Trabajadores
             .AsNoTracking()
             .Where(t => t.Activo && t.FechaIngreso <= periodo.FechaFin
-                        && (t.FechaCese == null || t.FechaCese >= periodo.FechaInicio))
+                        && (t.FechaCese == null || t.FechaCese >= periodo.FechaInicio));
+
+        // Aislamiento por planta: un ADMINISTRADOR recalcula SOLO sus plantas. El recálculo es
+        // idempotente por (trabajador, día), así que procesar un subconjunto no corrompe nada
+        // —refresca sus plantas y deja las demás como estaban—; además evita que dispare el
+        // recálculo de la planilla de la otra razón social y que el conteo del resultado mezcle
+        // plantas. COORDINADOR (sin restricción) sigue recalculando el periodo entero.
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consultaTrabajadores = consultaTrabajadores.Where(t => plantasVisibles.Contains(t.PlantaId));
+        }
+
+        var trabajadores = await consultaTrabajadores
             .Select(t => new { t.Id, t.FechaIngreso, t.FechaCese, t.PlantaId })
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
@@ -227,29 +241,54 @@ internal sealed class ServicioCalculoTareo(
             porEstado);
     }
 
-    public async Task<ResultadoPaginado<TareoDiarioDto>> ListarAsync(
+    public async Task<ResultadoPaginado<TareoDeTrabajador>> ListarPorTrabajadorAsync(
         FiltroTareo filtro,
         CancellationToken cancelacion = default)
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
-        var tamanio = Math.Clamp(filtro.TamanioPagina, 10, 500);
+        var tamanio = Math.Clamp(filtro.TamanioPagina, 1, 100);
         var pagina = Math.Max(filtro.Pagina, 1);
 
         var consulta = await Filtrar(filtro, aplicarEstado: true, cancelacion).ConfigureAwait(false);
 
-        var total = await consulta.CountAsync(cancelacion).ConfigureAwait(false);
+        // Primero QUIÉNES entran en la página. Se ordena por apellido y no por Id: el Id es
+        // el orden en que se dieron de alta, que para quien lee el tareo es arbitrario.
+        var personas = consulta
+            .Select(x => new
+            {
+                x.Tareo.TrabajadorId,
+                x.Trabajador.ApellidoPaterno,
+                x.Trabajador.ApellidoMaterno,
+                x.Trabajador.Nombres
+            })
+            .Distinct();
 
-        // Se ordena por el apellido del trabajador y no por su Id: el Id es el orden en
-        // que se dieron de alta, que para quien lee el tareo es orden arbitrario. La fecha
-        // desempata para que los días de una persona salgan seguidos y en orden.
-        var elementos = await consulta
+        var total = await personas.CountAsync(cancelacion).ConfigureAwait(false);
+
+        var idsDeLaPagina = await personas
+            .OrderBy(p => p.ApellidoPaterno)
+            .ThenBy(p => p.ApellidoMaterno)
+            .ThenBy(p => p.Nombres)
+            .Skip((pagina - 1) * tamanio)
+            .Take(tamanio)
+            .Select(p => p.TrabajadorId)
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        if (idsDeLaPagina.Count == 0)
+        {
+            return new ResultadoPaginado<TareoDeTrabajador>([], total, pagina, tamanio);
+        }
+
+        // Y ahora TODOS sus días, sin recortar: es lo que hace que los totales por persona
+        // sean completos y que su mes no aparezca partido.
+        var filas = await consulta
+            .Where(x => idsDeLaPagina.Contains(x.Tareo.TrabajadorId))
             .OrderBy(x => x.Trabajador.ApellidoPaterno)
             .ThenBy(x => x.Trabajador.ApellidoMaterno)
             .ThenBy(x => x.Trabajador.Nombres)
             .ThenBy(x => x.Tareo.Fecha)
-            .Skip((pagina - 1) * tamanio)
-            .Take(tamanio)
             .Select(x => new TareoDiarioDto(
                 x.Tareo.Id,
                 x.Tareo.TrabajadorId,
@@ -277,7 +316,18 @@ internal sealed class ServicioCalculoTareo(
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-        return new ResultadoPaginado<TareoDiarioDto>(elementos, total, pagina, tamanio);
+        // El agrupado conserva el orden de las filas, que ya viene por apellido y fecha
+        // desde SQL; GroupBy de LINQ to Objects respeta el orden de aparición.
+        var grupos = filas
+            .GroupBy(f => f.TrabajadorId)
+            .Select(g => new TareoDeTrabajador(
+                g.Key,
+                g.First().Trabajador,
+                g.First().IdMarcador,
+                [.. g]))
+            .ToList();
+
+        return new ResultadoPaginado<TareoDeTrabajador>(grupos, total, pagina, tamanio);
     }
 
     public async Task<ResumenTareo> ResumirAsync(
@@ -408,9 +458,24 @@ internal sealed class ServicioCalculoTareo(
             return null;
         }
 
-        var totales = await contexto.TareosDiarios
+        var consultaTareos = contexto.TareosDiarios
             .AsNoTracking()
-            .Where(t => t.PeriodoId == periodoId)
+            .Where(t => t.PeriodoId == periodoId);
+
+        // Aislamiento por planta: la liquidación que ve un ADMINISTRADOR suma solo sus plantas,
+        // no las de la otra razón social. Se muestra en la misma pantalla que el listado ya
+        // acotado (/Asistencia), así que sus totales tienen que coincidir con lo que ve.
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+
+        if (plantasVisibles is not null)
+        {
+            consultaTareos = consultaTareos.Where(t => contexto.Trabajadores
+                .Where(w => plantasVisibles.Contains(w.PlantaId))
+                .Select(w => w.Id)
+                .Contains(t.TrabajadorId));
+        }
+
+        var totales = await consultaTareos
             .GroupBy(t => 1)
             .Select(g => new
             {

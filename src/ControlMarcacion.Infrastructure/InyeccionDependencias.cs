@@ -96,9 +96,12 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         servicios.AddScoped<IServicioReintegrosTareo, ServicioReintegrosTareo>();
         servicios.AddScoped<IServicioUsuarios, ServicioUsuarios>();
 
-        // Ingesta: el lector del TXT es un adaptador detrás de IFuenteDeMarcaciones, para
-        // que una futura conexión directa al equipo no obligue a tocar el servicio.
-        servicios.AddScoped<IFuenteDeMarcaciones, LectorTxtZkteco>();
+        // Ingesta: los dos lectores concretos y, delante de ellos, el que decide cuál toca
+        // según el contenido. Solo el automático se expone como IFuenteDeMarcaciones, para que
+        // una futura conexión directa al equipo no obligue a tocar el servicio de importación.
+        servicios.AddScoped<LectorTxtZkteco>();
+        servicios.AddScoped<LectorRespaldoZkteco>();
+        servicios.AddScoped<IFuenteDeMarcaciones, LectorMarcadorAutomatico>();
         servicios.AddScoped<IServicioImportacion, ServicioImportacion>();
 
         // Orquestador de la portada: vive en Application porque solo compone servicios de
