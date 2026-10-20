@@ -133,6 +133,7 @@ public sealed class GeneracionTareoFinalEndToEndTests : IDisposable
             FechaIngreso = new DateOnly(2020, 1, 1)
         };
 
+        trabajador.AbrirVinculo("prueba");
         await contexto.Trabajadores.AddAsync(trabajador);
         await contexto.SaveChangesAsync();
         trabajadorId = trabajador.Id;

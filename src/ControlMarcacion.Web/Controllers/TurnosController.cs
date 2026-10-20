@@ -60,6 +60,7 @@ public sealed class TurnosController(IServicioTurnos servicio) : Controller
                 MinutosTolerancia = actual.MinutosTolerancia,
                 MinutosAnticipacionEntrada = actual.MinutosAnticipacionEntrada,
                 MinutosAnticipacionSalida = actual.MinutosAnticipacionSalida,
+                MinutosGraciaSalida = actual.MinutosGraciaSalida,
                 MinutosJornadaOrdinaria = actual.MinutosJornadaOrdinaria,
                 DiasAplicables = actual.DiasAplicables,
                 Activo = actual.Activo,

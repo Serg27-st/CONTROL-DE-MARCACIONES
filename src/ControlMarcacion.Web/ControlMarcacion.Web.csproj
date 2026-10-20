@@ -10,8 +10,19 @@
 
   <PropertyGroup>
     <RootNamespace>ControlMarcacion.Web</RootNamespace>
+    <AssemblyName>ControlMarcacion.Web</AssemblyName>
+    <!-- El instalador conserva el nombre histórico ControlMarcacion.exe sin propagar
+         AssemblyName a los proyectos referenciados. -->
+    <AssemblyName Condition="'$(LocalInstaller)' == 'true'">ControlMarcacion</AssemblyName>
     <UserSecretsId>controlmarcacion-gca-2026</UserSecretsId>
+    <!-- Requerido solo por el stub generado de MessageBoxW; el código de aplicación no
+         contiene bloques unsafe. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ControlMarcacion.Web.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ControlMarcacion.Application\ControlMarcacion.Application.csproj" />

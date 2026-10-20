@@ -136,4 +136,37 @@ public sealed class JustificacionesController(
 
         return RedirectToAction(nameof(Index));
     }
+
+    /// <summary>
+    /// Retira una regularización propia que todavía nadie resolvió.
+    /// </summary>
+    /// <remarks>
+    /// Es distinto de <see cref="Eliminar"/>: aquella retira una justificación que ya está
+    /// aplicada, esta retira un pedido que nunca llegó a aplicarse. Quién puede hacerlo lo
+    /// decide el servicio —solo quien la registró—, no esta acción.
+    /// </remarks>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancelar(long id, CancellationToken cancelacion)
+    {
+        try
+        {
+            var usuario = User.Identity?.Name ?? "sistema";
+
+            await servicio.CancelarAsync(id, usuario, cancelacion).ConfigureAwait(false);
+
+            TempData["Mensaje"] =
+                "Regularización retirada. El día vuelve a quedar libre para pedir otra.";
+        }
+        catch (ReglaNegocioException excepcion)
+        {
+            TempData["Error"] = excepcion.Message;
+        }
+        catch (RecursoNoEncontradoException)
+        {
+            return NotFound();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
 }

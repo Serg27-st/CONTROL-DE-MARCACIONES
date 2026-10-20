@@ -101,7 +101,10 @@ public sealed record FilaTareoFinalDto
 
     public int DiasFalta { get; init; }
 
-    public int DiasSuspension { get; init; }
+    // No hay DiasSuspension: el sistema no tiene el concepto y nadie lo calculaba, pero la
+    // propiedad existía, salía siempre en cero y se sumaba en la fila TOTAL, lo que la hacía
+    // parecer calculada. La columna SUSPENSION del tareo final se conserva —es el formato de
+    // GCA— y ahora va vacía. Ver ExportadorReportesExcel.SuspensionSinDato.
 
     public int DiasFaltaJustificada { get; init; }
 

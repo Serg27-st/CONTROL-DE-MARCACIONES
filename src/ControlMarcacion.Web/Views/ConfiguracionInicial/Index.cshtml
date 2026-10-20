@@ -1,0 +1,54 @@
+@model ConfiguracionInicialVm
+@{
+    ViewData["Title"] = "Configuración inicial";
+}
+
+<div class="tarjeta">
+    <h2 class="titulo-tarjeta-normal">Configurar Control de Marcación</h2>
+
+    <p>
+        Cree la cuenta del coordinador principal. Esta pantalla quedará deshabilitada
+        inmediatamente después de completar el proceso.
+    </p>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div>@error.ErrorMessage</div>
+            }
+        </div>
+    }
+
+    <form method="post" asp-controller="ConfiguracionInicial" asp-action="Index">
+        @Html.AntiForgeryToken()
+
+        <div class="campo">
+            <label asp-for="NombreCompleto">Nombre completo</label>
+            <input asp-for="NombreCompleto" autocomplete="name" autofocus />
+            <span class="error-campo" asp-validation-for="NombreCompleto"></span>
+        </div>
+
+        <div class="campo">
+            <label asp-for="Correo">Correo</label>
+            <input asp-for="Correo" type="email" autocomplete="username" />
+            <span class="error-campo" asp-validation-for="Correo"></span>
+        </div>
+
+        <div class="campo">
+            <label asp-for="Clave">Contraseña</label>
+            <input asp-for="Clave" type="password" autocomplete="new-password" />
+            <span class="error-campo" asp-validation-for="Clave"></span>
+            <small>Use al menos 8 caracteres, con mayúscula, minúscula y número.</small>
+        </div>
+
+        <div class="campo">
+            <label asp-for="ConfirmacionClave">Confirmar contraseña</label>
+            <input asp-for="ConfirmacionClave" type="password" autocomplete="new-password" />
+            <span class="error-campo" asp-validation-for="ConfirmacionClave"></span>
+        </div>
+
+        <button type="submit" class="boton boton-primario">Crear coordinador</button>
+    </form>
+</div>

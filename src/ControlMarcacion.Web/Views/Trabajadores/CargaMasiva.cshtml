@@ -63,6 +63,11 @@
             <label for="actualizarExistentes">Actualizar los trabajadores que ya existan</label>
         </div>
 
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="registrarMarcadores" name="registrarMarcadores" value="true" checked />
+            <label for="registrarMarcadores">Registrar en el catálogo los ID de marcador que falten</label>
+        </div>
+
         <div class="acciones">
             <button type="submit" name="soloValidar" value="true" class="boton boton-secundario">
                 Validar sin guardar
@@ -84,6 +89,14 @@
             registrado <em>corrija</em> esa ficha en lugar de rechazarse por duplicado. Úselo
             para volver a subir el mismo padrón con un dato que faltaba —los ceses, por
             ejemplo—. Apagado, la carga solo da de alta.
+            <br />
+            <strong>Registrar los ID de marcador que falten</strong> da de alta en el catálogo,
+            en el aparato que indica la columna <code>equipo</code>, cada ID que todavía no
+            exista. Así el primer padrón no exige registrar antes, uno por uno, los cien ID de
+            cada aparato. Solo agrega: nunca cambia un código existente. Si la unidad tiene dos
+            aparatos y la fila no dice cuál, la fila se rechaza en vez de adivinar. Apáguelo si
+            el catálogo ya está completo y quiere que un ID desconocido —un error de tipeo— se
+            rechace.
         </p>
     </form>
 </div>
@@ -117,6 +130,31 @@
                 {
                     <text>@resultado.Rechazados quedaron sin registrar.</text>
                 }
+            </div>
+        }
+
+        @if (resultado.MarcadoresRegistrados.Count > 0)
+        {
+            <div class="aviso aviso-exito" role="status">
+                @(resultado.SoloValidacion ? "Se registrarían" : "Se registraron")
+                <strong>@resultado.MarcadoresRegistrados.Count</strong> ID de marcador nuevo(s)
+                en el catálogo. Revise que ninguno esté mal escrito:
+                <ul class="nota-compacta">
+                    @foreach (var grupo in resultado.MarcadoresRegistrados.GroupBy(m => m.Equipo))
+                    {
+                        <li><strong>@grupo.Key</strong>: @string.Join(", ", grupo.Select(m => m.Codigo))</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (resultado.FilasSinMarcadorEnCatalogo > 0)
+        {
+            <div class="aviso aviso-atencion" role="status">
+                <strong>@resultado.FilasSinMarcadorEnCatalogo fila(s)</strong> traen un ID de
+                marcador que no está en el catálogo, y la casilla «Registrar en el catálogo los
+                ID de marcador que falten» estaba apagada. Vuelva a subir el archivo con la
+                casilla marcada para registrarlos al cargar.
             </div>
         }
 

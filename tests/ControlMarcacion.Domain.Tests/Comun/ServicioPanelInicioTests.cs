@@ -102,6 +102,33 @@ public sealed class ServicioPanelInicioTests
         panel.HayPendientes.ShouldBeTrue();
     }
 
+    /// <summary>
+    /// Todos los días tienen marcaciones, pero las del M-Z faltan en cuatro: la portada no
+    /// puede decir «todo cargado».
+    /// </summary>
+    /// <remarks>
+    /// Antes solo miraba los días sin ninguna marcación, y con dos aparatos en la planta un
+    /// archivo olvidado no se notaba: el día tenía las marcaciones del otro.
+    /// </remarks>
+    [Fact]
+    public async Task Marca_pendiente_cuando_a_un_aparato_le_faltan_dias_aunque_todos_tengan_marcaciones()
+    {
+        SembrarPeriodo();
+        importacion.CoberturaDeRangoAsync(
+                Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new CoberturaDeRango(
+                Inicio, Fin, 1500, DiasConMarcacion: 15, DiasTranscurridos: 15,
+                DiasIncompletos: 4, AparatosIncompletos: ["Detergentes M-Z"]));
+        SembrarTareo();
+
+        var panel = await Servicio.ObtenerAsync("coordinador@gca.local");
+
+        panel.Marcaciones!.DiasSinMarcacion.ShouldBe(0);
+        panel.Marcaciones.DiasPorRevisar.ShouldBe(4);
+        panel.Marcaciones.HayHuecos.ShouldBeTrue();
+        panel.HayPendientes.ShouldBeTrue();
+    }
+
     [Fact]
     public async Task Marca_pendiente_cuando_el_tareo_esta_desactualizado()
     {
@@ -137,7 +164,36 @@ public sealed class ServicioPanelInicioTests
         panel.Tareo!.Calculo.EstaAlDia.ShouldBeTrue();
         panel.Marcaciones!.HayHuecos.ShouldBeFalse();
         panel.SolicitudesPendientes.ShouldBe(0);
+        panel.Tareo.PendientesDeValidar.ShouldBe(0);
         panel.HayPendientes.ShouldBeFalse();
+    }
+
+    /// <summary>
+    /// Un día que el sistema no pudo decidir cuenta como pendiente, aunque todo lo demás
+    /// esté en orden.
+    /// </summary>
+    /// <remarks>
+    /// Es la razón de ser de la tarjeta: esos días <b>no son faltas</b> —no aparecen en el
+    /// conteo de faltas— y cerrar el mes sin mirarlos es cerrarlo a medias. Sin esto la
+    /// portada diría «nada pendiente» sobre un periodo con media planta sin archivo cargado.
+    /// </remarks>
+    [Fact]
+    public async Task Los_dias_pendientes_de_validar_cuentan_como_pendientes()
+    {
+        SembrarPeriodo();
+        SembrarCobertura(diasConMarcacion: 15, diasTranscurridos: 15);
+        SembrarTareo(
+            new EstadoCalculoTareo(
+                CalculadoMasReciente: new DateTime(2026, 7, 21, 9, 0, 0),
+                UltimoCambioRelevante: new DateTime(2026, 7, 20, 8, 0, 0),
+                MotivoUltimoCambio: "una carga de marcaciones"),
+            pendientesDeValidar: 37);
+
+        var panel = await Servicio.ObtenerAsync("coordinador@gca.local");
+
+        panel.Tareo!.PendientesDeValidar.ShouldBe(37);
+        panel.Tareo.Faltas.ShouldBe(0);
+        panel.HayPendientes.ShouldBeTrue();
     }
 
     /// <summary>
@@ -211,14 +267,15 @@ public sealed class ServicioPanelInicioTests
                 Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(new CoberturaDeRango(Inicio, Fin, 1500, diasConMarcacion, diasTranscurridos));
 
-    private void SembrarTareo(EstadoCalculoTareo? calculo = null)
+    private void SembrarTareo(EstadoCalculoTareo? calculo = null, int pendientesDeValidar = 0)
     {
         tareo.ResumirAsync(Arg.Any<FiltroTareo>(), Arg.Any<CancellationToken>())
             .Returns(new ResumenTareo(
                 new Dictionary<EstadoTareo, int>
                 {
                     [EstadoTareo.Falta] = 0,
-                    [EstadoTareo.Tardanza] = 0
+                    [EstadoTareo.Tardanza] = 0,
+                    [EstadoTareo.PendienteValidacion] = pendientesDeValidar
                 },
                 Dias: 155, Trabajadores: 5,
                 MinutosOrdinarios: 27360, MinutosExtra25: 7000, MinutosExtra35: 7090,

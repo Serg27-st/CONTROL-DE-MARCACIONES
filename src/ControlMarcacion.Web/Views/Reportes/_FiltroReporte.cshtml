@@ -132,6 +132,30 @@
                     }
                 </select>
             </div>
+
+            @* Entra quien tuvo un número de ese aparato DENTRO del alcance, no quien lo tiene
+               hoy: las marcaciones de julio salieron del aparato de julio. *@
+            <div class="campo">
+                <label for="EquipoId">Aparato marcador</label>
+                <select id="EquipoId" name="EquipoId" class="select-buscable">
+                    <option value="">Todos</option>
+                    @foreach (var eq in Model.Equipos)
+                    {
+                        @* La planta se nombra salvo que ya se esté filtrando por ella. Un
+                           aparato de otra planta sí la lleva: es una combinación que no
+                           devuelve a nadie y tiene que verse. *@
+                        var etiqueta = Model.Filtro.PlantaId == eq.PlantaId
+                            ? eq.Nombre
+                            : $"{eq.Nombre} ({eq.Planta})";
+
+                        <option value="@eq.Id" selected="@(Model.Filtro.EquipoId == eq.Id)">@etiqueta</option>
+                    }
+                </select>
+                <span class="ayuda">
+                    Quien cambió de aparato dentro del alcance sale en los dos, con sus totales
+                    completos: el tareo es por persona, no por aparato.
+                </span>
+            </div>
         </div>
 
         <div class="acciones">

@@ -122,12 +122,41 @@
         };
     }
 
+    // Etiqueta del <optgroup> que contiene la opción, o cadena vacía si está suelta.
+    function grupoDeOpcion(opcion) {
+        return opcion.parentElement && opcion.parentElement.tagName === "OPTGROUP"
+            ? limpiarTexto(opcion.parentElement.label)
+            : "";
+    }
+
     function construirOpciones(contexto) {
         contexto.lista.innerHTML = "";
         contexto.opciones = [];
         contexto.resaltadaIndice = -1;
 
+        var grupoActual = null;
+        var cabeceraActual = null;
+
         Array.prototype.forEach.call(contexto.select.options, function (opcion, indice) {
+            var grupo = grupoDeOpcion(opcion);
+
+            // Cabecera de grupo. Sin esto el componente APLANABA los <optgroup>, y en el
+            // marcador de personal eso dejaba dos entradas "21" indistinguibles en pantalla
+            // —una por aparato, dos personas distintas— justo lo que el agrupado viene a
+            // resolver. No es opción: no se elige ni se navega con el teclado.
+            if (grupo !== grupoActual) {
+                grupoActual = grupo;
+                cabeceraActual = null;
+
+                if (grupo !== "") {
+                    cabeceraActual = document.createElement("li");
+                    cabeceraActual.className = "select-buscable-grupo";
+                    cabeceraActual.setAttribute("role", "presentation");
+                    cabeceraActual.textContent = grupo;
+                    contexto.lista.appendChild(cabeceraActual);
+                }
+            }
+
             var item = document.createElement("li");
             item.className = "select-buscable-opcion";
             item.id = contexto.idBase + "-opcion-" + indice;
@@ -146,8 +175,13 @@
 
             contexto.opciones.push({
                 valor: opcion.value,
-                texto: textoDeOpcion(opcion),
+                // El texto de búsqueda incluye el grupo: teclear "M-Z" tiene que encontrar
+                // los códigos de ese aparato, que es como el usuario los piensa.
+                texto: grupo === ""
+                    ? textoDeOpcion(opcion)
+                    : textoDeOpcion(opcion) + " " + grupo,
                 elemento: item,
+                cabecera: cabeceraActual,
                 deshabilitada: opcion.disabled
             });
         });
@@ -155,7 +189,19 @@
 
     function sincronizarEtiqueta(contexto) {
         var opcion = contexto.select.options[contexto.select.selectedIndex];
-        contexto.etiqueta.textContent = opcion ? textoDeOpcion(opcion) : "Seleccione…";
+
+        if (!opcion) {
+            contexto.etiqueta.textContent = "Seleccione…";
+            return;
+        }
+
+        var grupo = grupoDeOpcion(opcion);
+
+        // Con el desplegable cerrado también hace falta el grupo: "21" a secas no dice de
+        // qué aparato es, y es la única pista que queda a la vista al revisar la ficha.
+        contexto.etiqueta.textContent = grupo === "" || opcion.value === ""
+            ? textoDeOpcion(opcion)
+            : textoDeOpcion(opcion) + " · " + grupo;
     }
 
     function sincronizarDeshabilitado(contexto) {
@@ -180,12 +226,25 @@
         var termino = limpiarTexto(texto).toLowerCase();
         var hayVisibles = false;
 
+        // Las cabeceras de grupo se ocultan primero y se reabren solo si alguna de sus
+        // opciones sobrevive al filtro: si no, al buscar "22" quedaría en pantalla el
+        // rótulo de un aparato sin una sola fila debajo.
+        contexto.opciones.forEach(function (item) {
+            if (item.cabecera) {
+                item.cabecera.hidden = true;
+            }
+        });
+
         contexto.opciones.forEach(function (item) {
             var coincide = termino === "" || item.texto.toLowerCase().indexOf(termino) >= 0;
             item.elemento.hidden = !coincide;
 
             if (coincide) {
                 hayVisibles = true;
+
+                if (item.cabecera) {
+                    item.cabecera.hidden = false;
+                }
             }
         });
 

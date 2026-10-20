@@ -11,9 +11,11 @@
     var dedicados = new List<(string Controlador, string Titulo, string Porque)>
     {
         ("Turnos", "Turnos", "Horarios, refrigerio, tolerancia, ventanas de anticipación, días aplicables y plantas habilitadas."),
+        ("Cuadrillas", "Cuadrillas", "Grupos que rotan de turno a la vez. Se programa una vez su ciclo y el turno de cada día de sus integrantes sale de ahí, sin editar ficha por ficha."),
         ("Periodos", "Periodos", "Rango de fechas y ciclo de apertura y cierre, que congela el tareo."),
         ("TiposAusencia", "Tipos de ausencia", "El comportamiento decide cómo los trata el cálculo; crear uno sin elegirlo produciría tareos incorrectos en silencio."),
-        ("Marcadores", "Marcadores", "Cada ID pertenece a una planta, y su código es único en todo el sistema porque el TXT del marcador no dice de qué planta salió cada marcación.")
+        ("Equipos", "Equipos marcadores", "El aparato ZKTeco físico, con su planta y su serie. Hay que registrarlo antes que sus códigos: sin equipo no se pueden dar de alta marcadores ni cargar archivos."),
+        ("Marcadores", "Marcadores", "Cada ID pertenece a un equipo y hereda su planta. El código es único dentro del aparato, no en todo el sistema: dos equipos de la misma planta pueden numerar del 1 al 100.")
     };
 
     // Feriados es del coordinador; esta pantalla también la ve un administrador. El

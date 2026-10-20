@@ -121,6 +121,77 @@ Verificado contra el archivo real de producción (2509 marcaciones, 50 trabajado
 
 **Se puede verificar:** se carga un TXT, se recarga el mismo y no se duplica nada.
 
+### Verificar el origen de la carga ✅ *hecho el 22/09/2026*
+
+> Observación registrada el 11/09/2026, tras el testeo integral con dos aparatos por planta.
+
+> **Implementado** con los cuatro puntos del diseño de abajo, más tres decisiones que el
+> diseño no fijaba: un cuarto valor, `SerieAprendida`, para encontrar la carga que enseñó la
+> serie; la coincidencia con otro equipo como **proporción** (50 %, mínimo 5) sobre los días
+> en que el otro equipo tiene datos y los últimos 92 días del archivo; y la misma
+> comprobación al **reactivar** una carga anulada. Además, el mismo archivo (mismo hash)
+> vigente en otro aparato se rechaza siempre, sin casilla de confirmación. Detalle en
+> CLAUDE.md, «Verificación del origen de la carga».
+
+**El problema.** Lo único que une un archivo con su aparato es la opción que elige el
+operador en la pantalla de carga. Como **todos los ZKTeco numeran a su personal desde el 1**,
+elegir mal no produce ningún error: cada marcación encuentra dueño —el equivocado— y ni
+siquiera aparece en «IDs sin trabajador». En las plantas con dos aparatos (Planta 01 A-L /
+M-Z, Detergentes / Lava vajillas) es el error más probable y el más caro.
+
+`ComprobarSerie` existe, pero hoy está **dormida por partida doble**: `LectorTxtZkteco` no
+entrega ninguna serie (el contenido del `attlog` no trae ni una letra), y ninguno de los seis
+equipos tiene serie registrada. Solo actuaría con el respaldo binario, y solo si el equipo
+tuviera la suya.
+
+**La restricción que decide el diseño.** El usuario **ya no tiene acceso físico a los
+marcadores**: no se puede leer la serie en el menú del aparato ni en su etiqueta. La serie
+tiene que salir **de los propios archivos**.
+
+**Evidencia** (share `\\192.168.13.182\Asistencia`, 11/09/2026): de 22 archivos del marcador,
+**19 llevan la serie en el nombre** (`AEWD193260084_attlog.dat`) y **3 fueron renombrados**
+a mano (`03-03-2025.txt`, `03-07-2025.txt`, `NOV-POR TERMINAR.txt`, los tres con marcaciones
+reales). También aparecen sufijos agregados: `AEWD193260084_attlog PAT.dat`,
+`AEH2200760069_attlog_prueba.txt`. Series vistas: `AEWD193260084`, `AEH2200760069` y
+`VGU6251600671` (esta en la cabecera del binario); ninguna está asociada todavía a uno de
+los seis equipos.
+
+**Diseño propuesto.**
+
+1. Serie del archivo: primero la del contenido (cabecera del binario, que no se puede
+   renombrar); si no hay, la del nombre con un patrón anclado al inicio,
+   `^([A-Za-z0-9]{6,20})_attlog`, que ignora lo que venga después (`PAT`, `_prueba`, `(1)`).
+   Si contenido y nombre traen series distintas, se rechaza.
+2. **Aprender la serie del primer archivo** de cada equipo, en vez de exigir que alguien la
+   teclee, **con cruce contra los demás equipos**:
+
+   | Serie del archivo | Serie del equipo elegido | Resultado |
+   |---|---|---|
+   | Igual | Registrada | Verificado |
+   | Distinta | Registrada | Rechazo, nombrando el equipo al que corresponde |
+   | La tiene otro equipo | Vacía | Rechazo: el archivo es de ese otro equipo |
+   | Ningún equipo la tiene | Vacía | Se registra en este equipo y se avisa en el resultado |
+   | No se encuentra (renombrado) | Cualquiera | Se acepta, marcado «origen no verificado» |
+
+   Riesgo conocido: si el primer archivo de un aparato se sube al equipo equivocado, se
+   aprende la serie equivocada. El cruce hace que el error aparezca en la **siguiente**
+   carga de cualquiera de los dos aparatos, en vez de no aparecer nunca; se corrige editando
+   la serie en `/Equipos` y anulando esa primera carga.
+3. Columna `OrigenVerificado` en `ImportacionMarcador` (`PorContenido` / `PorNombre` /
+   `NoVerificado`), visible en el historial de cargas: el aviso en pantalla se pierde, y al
+   investigar meses después un día mal atribuido hay que saber qué cargas nunca se
+   verificaron.
+4. **Segunda fase, para los renombrados:** el `attlog` acumula el historial del aparato
+   (`AEWD193260084_attlog PAT.dat` tiene 14 332 líneas), así que cada descarga repite
+   marcaciones ya cargadas. Si las de un archivo coinciden en ID y segundo exacto con las ya
+   cargadas de **otro** equipo, el archivo es de ese equipo. No depende del nombre; no
+   protege el primer archivo de cada aparato ni aparatos cuya memoria se borre tras descargar.
+
+**Descartado:** exigir el `.dat` binario (pierde ceros a la izquierda: `0014` y `14` son
+personas distintas); rechazar todo archivo sin serie en el nombre (habría rechazado 3 de los
+22 reales); comparar los IDs del archivo con los del equipo (A-L y M-Z numeran ambos del 1
+al 100, justo el caso a proteger).
+
 ---
 
 ## Fase 4 — Motor de cálculo del tareo ⚠️ *núcleo funcionando*

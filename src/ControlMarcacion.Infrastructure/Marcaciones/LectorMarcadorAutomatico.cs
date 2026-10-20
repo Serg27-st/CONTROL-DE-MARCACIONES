@@ -1,5 +1,9 @@
 using ControlMarcacion.Application.Marcaciones;
 using ControlMarcacion.Application.Marcaciones.Dto;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 
 namespace ControlMarcacion.Infrastructure.Marcaciones;
 
@@ -26,15 +30,120 @@ namespace ControlMarcacion.Infrastructure.Marcaciones;
 /// </remarks>
 public sealed class LectorMarcadorAutomatico(
     LectorTxtZkteco lectorTexto,
-    LectorRespaldoZkteco lectorRespaldo) : IFuenteDeMarcaciones
+    LectorRespaldoZkteco lectorRespaldo,
+    LectorRespaldoZktecoSdk? lectorSdk = null,
+    IOptions<OpcionesLectorBkTransaction>? opciones = null,
+    ComparadorLecturasBkTransaction? comparador = null,
+    ILogger<LectorMarcadorAutomatico>? logger = null) : IFuenteDeMarcaciones
 {
+    private static readonly Action<ILogger, string, int, int, int, Exception?> LogInterno =
+        LoggerMessage.Define<string, int, int, int>(
+        LogLevel.Information,
+        new EventId(2101, "LectorBkInterno"),
+        "Lector BKtransaction seleccionado: Interno; hash={Hash}; aceptadas={Aceptadas}; " +
+        "ignoradas={Ignoradas}; rechazadas={Rechazadas}.");
+    private static readonly Action<ILogger, Exception?> LogSdk = LoggerMessage.Define(
+        LogLevel.Information,
+        new EventId(2102, "LectorBkSdk"),
+        "Lector BKtransaction seleccionado: Sdk.");
+    private static readonly Action<ILogger, Exception?> LogComparar = LoggerMessage.Define(
+        LogLevel.Information,
+        new EventId(2103, "LectorBkComparar"),
+        "Lector BKtransaction seleccionado: Comparar; Interno es autoritativo.");
+    private static readonly Action<ILogger, string, Exception?> LogComparacionIncompleta =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(2104, "ComparacionBkIncompleta"),
+            "La comparación BKtransaction quedó incompleta: {Codigo}.");
+    private readonly OpcionesLectorBkTransaction opciones =
+        opciones?.Value ?? new OpcionesLectorBkTransaction();
+    private readonly ILogger<LectorMarcadorAutomatico> logger =
+        logger ?? NullLogger<LectorMarcadorAutomatico>.Instance;
+
     public ResultadoLectura Leer(Stream contenido)
     {
         ArgumentNullException.ThrowIfNull(contenido);
 
-        return DetectarRespaldo(contenido)
-            ? lectorRespaldo.Leer(contenido)
-            : lectorTexto.Leer(contenido);
+        if (!DetectarRespaldo(contenido))
+        {
+            return lectorTexto.Leer(contenido);
+        }
+
+        var datos = LeerTodo(contenido);
+        return opciones.Modo() switch
+        {
+            ModoLectorBkTransaction.Interno => LeerInterno(datos),
+            ModoLectorBkTransaction.Sdk => LeerSdk(datos),
+            ModoLectorBkTransaction.Comparar => Comparar(datos),
+            _ => throw new InvalidOperationException("Modo de lector BKtransaction no soportado.")
+        };
+    }
+
+    private ResultadoLectura LeerInterno(byte[] datos)
+    {
+        var resultado = Leer(lectorRespaldo, datos);
+        LogInterno(
+            logger,
+            Convert.ToHexString(SHA256.HashData(datos)),
+            resultado.Marcaciones.Count,
+            resultado.EventosEquipoIgnorados.Count,
+            resultado.Rechazadas.Count,
+            null);
+        return resultado;
+    }
+
+    private ResultadoLectura LeerSdk(byte[] datos)
+    {
+        if (lectorSdk is null)
+        {
+            throw new SdkZktecoException(
+                "SDK_NO_DISPONIBLE", "El adaptador SDK no está registrado en Infrastructure.");
+        }
+
+        LogSdk(logger, null);
+        return Leer(lectorSdk, datos);
+    }
+
+    private ResultadoLectura Comparar(byte[] datos)
+    {
+        LogComparar(logger, null);
+        var interno = Leer(lectorRespaldo, datos);
+        ResultadoLectura? resultadoSdk = null;
+        SdkZktecoException? errorSdk = null;
+
+        try
+        {
+            resultadoSdk = lectorSdk is null
+                ? throw new SdkZktecoException(
+                    "SDK_NO_DISPONIBLE", "El adaptador SDK no está registrado en Infrastructure.")
+                : Leer(lectorSdk, datos);
+        }
+        catch (SdkZktecoException ex)
+        {
+            errorSdk = ex;
+            LogComparacionIncompleta(logger, ex.Codigo, ex);
+        }
+
+        comparador?.Escribir(datos, interno, resultadoSdk, errorSdk);
+        return interno;
+    }
+
+    private static ResultadoLectura Leer(IFuenteDeMarcaciones lector, byte[] datos)
+    {
+        using var copia = new MemoryStream(datos, writable: false);
+        return lector.Leer(copia);
+    }
+
+    private static byte[] LeerTodo(Stream contenido)
+    {
+        if (contenido.CanSeek)
+        {
+            contenido.Position = 0;
+        }
+
+        using var memoria = new MemoryStream();
+        contenido.CopyTo(memoria);
+        return memoria.ToArray();
     }
 
     /// <summary>

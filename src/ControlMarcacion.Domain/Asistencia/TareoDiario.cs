@@ -96,12 +96,63 @@ public class TareoDiario : EntidadBase
     /// </remarks>
     public TipoDiaNoLaborable TipoDiaNoLaborable { get; set; }
 
+    /// <summary>
+    /// El día provino de un tramo de descanso explícito de la rotación. Se persiste porque
+    /// un TurnoId nulo también puede significar falta de programación y no es una señal
+    /// suficiente para reportes ni liquidación.
+    /// </summary>
+    public bool EsDescansoProgramado { get; set; }
+
+    /// <summary>
+    /// Coincidencia estructural entre descanso programado y feriado. Mantiene únicos los
+    /// minutos físicos y permite detener la valorización especial del 1 de mayo hasta que
+    /// exista una regla económica aprobada.
+    /// </summary>
+    public TipoCoincidenciaFeriadoDescanso CoincidenciaFeriadoDescanso { get; set; }
+
     /// <summary>Se trabajó en un día que no correspondía. Derivado, no se persiste.</summary>
     public bool EsDiaNoLaborable => TipoDiaNoLaborable != TipoDiaNoLaborable.Ninguno;
 
     // ---------- Estado y trazabilidad ----------
 
     public EstadoTareo Estado { get; set; }
+
+    /// <summary>
+    /// Qué hay que resolver en este día, si hay algo. Nulo cuando el día no tiene nada
+    /// pendiente.
+    /// </summary>
+    /// <remarks>
+    /// Es un campo aparte del estado porque responde otra pregunta: el estado dice cómo
+    /// quedó el día, la incidencia dice qué falta para cerrarlo. Un día
+    /// <see cref="EstadoTareo.Incompleto"/> puede necesitar la entrada o la salida —lo que
+    /// se regulariza es distinto—, y un día <see cref="EstadoTareo.Puntual"/> puede tener
+    /// que revisarse igual si sus marcas contradicen el turno asignado.
+    /// </remarks>
+    public TipoIncidencia? TipoIncidencia { get; set; }
+
+    /// <summary>
+    /// El día espera una decisión humana: es lo que lo pone en la bandeja de incidencias.
+    /// </summary>
+    /// <remarks>
+    /// Se persiste en vez de derivarse del estado porque no hay correspondencia uno a uno:
+    /// una marca impar ya regularizada deja de requerir validación sin cambiar de
+    /// naturaleza, y un día puntual con turno discrepante la requiere sin dejar de ser
+    /// puntual. Derivarlo del estado obligaría a repetir esa tabla de equivalencias en cada
+    /// consulta que arme la bandeja.
+    /// </remarks>
+    public bool RequiereValidacion { get; set; }
+
+    /// <summary>
+    /// Cuántas marcaciones del trabajador cayeron fuera de la ventana de su turno y no se
+    /// usaron para calcular.
+    /// </summary>
+    /// <remarks>
+    /// Hoy se descartan en silencio. Guardar el conteo es lo que permite que el día lo
+    /// declare —el invariante es que todo resultado se explica— y que la bandeja distinga
+    /// «no marcó» de «marcó a una hora que no encaja con su turno», que son problemas
+    /// distintos y se resuelven distinto.
+    /// </remarks>
+    public int MarcacionesFueraVentana { get; set; }
 
     /// <summary>Justificación aplicada, si el estado fue modificado por una.</summary>
     public long? JustificacionId { get; set; }
@@ -129,6 +180,13 @@ public enum TipoDiaNoLaborable
 
     /// <summary>Feriado trabajado. D. Leg. 713, art. 9.</summary>
     Feriado = 2
+}
+
+public enum TipoCoincidenciaFeriadoDescanso
+{
+    Ninguna = 0,
+    FeriadoOrdinario = 1,
+    PrimeroDeMayo = 2
 }
 
 public enum EstadoTareo
@@ -161,5 +219,26 @@ public enum EstadoTareo
     Feriado = 8,
 
     /// <summary>Fuera del vínculo laboral: antes del ingreso o después del cese.</summary>
-    SinVinculo = 9
+    SinVinculo = 9,
+
+    /// <summary>
+    /// El sistema no puede afirmar qué pasó ese día y hace falta que una persona lo decida.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No reemplaza a <see cref="Incompleto"/>, que ya es correcto y ya significa «una sola
+    /// marca, cero minutos, no se inventa la hora que falta». Este estado cubre lo que
+    /// <see cref="Incompleto"/> no puede: el día en que <b>no se cargó el archivo</b> del
+    /// aparato de esa persona. Ahí no hay marca impar que señalar —no hay ninguna marca— y
+    /// el día salía como <see cref="Falta"/>, indistinguible de una falta real en el Excel
+    /// que va a planilla.
+    /// </para>
+    /// <para>
+    /// ⚠️ La diferencia entre los dos es de qué se duda: en <see cref="Incompleto"/> se sabe
+    /// que la persona vino y falta una hora; aquí no se sabe ni siquiera si vino, porque el
+    /// dato nunca llegó al sistema. Convertirlo en falta es afirmar lo que no se sabe, y en
+    /// planilla eso se cobra.
+    /// </para>
+    /// </remarks>
+    PendienteValidacion = 10
 }

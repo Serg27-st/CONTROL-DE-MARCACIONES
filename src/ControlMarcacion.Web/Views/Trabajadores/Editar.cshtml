@@ -193,15 +193,46 @@
         <h2>Marcador y turno</h2>
         <div class="rejilla">
             <div class="campo">
-                <label asp-for="Datos.IdMarcador">ID de marcador</label>
-                <select asp-for="Datos.IdMarcador" id="IdMarcador" class="select-buscable"
-                        asp-items="@(new SelectList(Model.Marcadores, "Valor", "Nombre"))">
-                    <option value="">Sin marcador asignado</option>
+                <label for="EquipoMarcadorId">Aparato marcador</label>
+                @* Un solo aparato en la planta: se preselecciona, no hay nada que elegir. *@
+                <select asp-for="Datos.EquipoId" id="EquipoMarcadorId" class="select-buscable">
+                    @if (Model.EquiposMarcador.Count != 1)
+                    {
+                        <option value="">@(Model.EquiposMarcador.Count == 0 ? "La unidad no tiene aparatos" : "Seleccione el aparato…")</option>
+                    }
+                    @foreach (var equipo in Model.EquiposMarcador)
+                    {
+                        <option value="@equipo.Id">@equipo.Nombre (@equipo.Codigo)</option>
+                    }
                 </select>
+                <small class="texto-suave">
+                    El aparato donde la persona pone la huella. Con dos aparatos en la planta
+                    el mismo número es de dos personas distintas.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label for="IdMarcador">N.º en el aparato</label>
+                <input asp-for="Datos.IdMarcador" id="IdMarcador" maxlength="30"
+                       inputmode="numeric" autocomplete="off" placeholder="Ej. 14" />
                 <span class="error-campo" asp-validation-for="Datos.IdMarcador"></span>
                 <small class="texto-suave">
-                    Solo se ofrecen los marcadores de la unidad elegida. Si falta alguno,
-                    regístrelo en <a asp-controller="Marcadores" asp-action="Index">Marcadores</a>.
+                    El número con que está registrada en ese aparato (el de la lista de
+                    usuarios del equipo), con sus ceros a la izquierda si los tiene. Si no
+                    está en el catálogo de <a asp-controller="Marcadores" asp-action="Index">Marcadores</a>,
+                    se registra al guardar.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label for="MarcadorVigenteDesde">Rige desde</label>
+                <input asp-for="Datos.MarcadorVigenteDesde" id="MarcadorVigenteDesde" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.MarcadorVigenteDesde"></span>
+                <small class="texto-suave">
+                    Vacío: la primera vez rige desde el ingreso, y un cambio, desde mañana.
+                    Si el número estaba <strong>mal desde el principio</strong>, ponga la fecha
+                    de ingreso: se corrige y, al recalcular, sus marcaciones pasan a esta
+                    persona.
                 </small>
             </div>
 
@@ -212,13 +243,47 @@
                     <option value="">Sin turno asignado</option>
                 </select>
             </div>
+
+            <div class="campo">
+                <label for="CuadrillaId">Cuadrilla (rota)</label>
+                <select asp-for="Datos.CuadrillaId" id="CuadrillaId" class="select-buscable">
+                    <option value="">— Turno fijo —</option>
+                    @foreach (var planta in Model.Cuadrillas.GroupBy(c => c.Planta))
+                    {
+                        <optgroup label="@planta.Key">
+                            @foreach (var cuadrilla in planta)
+                            {
+                                <option value="@cuadrilla.Id">@cuadrilla.Codigo - @cuadrilla.Nombre</option>
+                            }
+                        </optgroup>
+                    }
+                </select>
+                <small class="texto-suave">
+                    Si la persona rota con un grupo, elija su cuadrilla: el turno de cada día lo
+                    da el ciclo de la cuadrilla y el turno fijo se ignora. Debe ser de su planta.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label for="TurnoVigenteDesde">Turno rige desde</label>
+                <input asp-for="Datos.TurnoVigenteDesde" id="TurnoVigenteDesde" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.TurnoVigenteDesde"></span>
+                <small class="texto-suave">
+                    Vacío: la primera vez rige desde el ingreso, y un cambio, desde mañana.
+                    Si la <strong>rotación ya ocurrió</strong>, ponga el día en que empezó el
+                    turno nuevo y recalcule el periodo. Si rotaron un día antes o después de lo
+                    anotado, ponga la fecha real con el mismo turno: se corre el cambio.
+                </small>
+            </div>
         </div>
 
         <p class="nota-pie">
-            El identificador del marcador, el turno y el sueldo básico se guardan con
-            vigencia por fecha. Al cambiarlos se cierra la asignación anterior y se abre una
-            nueva, para que las marcaciones y los tareos ya registrados sigan calculándose
-            con lo que estaba vigente entonces.
+            El número del marcador, el turno y el sueldo básico se guardan con vigencia por
+            fecha: un cambio cierra la asignación anterior y abre una nueva, así lo ya
+            ocurrido sigue calculándose con lo que regía entonces. Las marcaciones se
+            atribuyen al calcular el tareo, con el número y el turno vigentes en cada fecha:
+            después de asignar o corregir un número, o de anotar una rotación con fecha,
+            recalcule el periodo. Un periodo cerrado no admite cambios de turno en sus días.
         </p>
     </div>
 

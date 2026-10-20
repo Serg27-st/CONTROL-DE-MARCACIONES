@@ -102,7 +102,8 @@ public class SeccionConfiguracion : IEntityTypeConfiguration<Seccion>
 /// <summary>
 /// Centro SAP. Es un catálogo hermano de <see cref="Planta"/> (ambos cuelgan de
 /// <see cref="Empresa"/>), no un reemplazo: la relación con las 4 plantas
-/// sembradas no es 1 a 1 y no debe forzarse.
+/// sembradas no es 1 a 1 y no debe forzarse. <see cref="Centro.PlantaId"/> es un
+/// vínculo opcional que solo sirve para desempatar códigos de centro de costo.
 /// </summary>
 public class CentroConfiguracion : IEntityTypeConfiguration<Centro>
 {
@@ -123,6 +124,13 @@ public class CentroConfiguracion : IEntityTypeConfiguration<Centro>
         builder.HasOne(c => c.Empresa)
             .WithMany()
             .HasForeignKey(c => c.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Opcional: solo desempata códigos de centro de costo repetidos dentro de una
+        // misma empresa. No convierte al centro en hijo de la planta.
+        builder.HasOne(c => c.Planta)
+            .WithMany()
+            .HasForeignKey(c => c.PlantaId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(c => c.CentrosCosto)

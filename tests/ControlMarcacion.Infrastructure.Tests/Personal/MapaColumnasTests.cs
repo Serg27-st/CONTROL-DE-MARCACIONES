@@ -110,4 +110,48 @@ public class MapaColumnasTests
 
         mapa.Valor(["DNI", "   "], Columna.NumeroDocumento).ShouldBeNull();
     }
+
+    /// <summary>
+    /// La fila de ejemplo de la plantilla tiene que cuadrar con su propio encabezado.
+    /// </summary>
+    /// <remarks>
+    /// El encabezado se genera del enum <c>Columna</c>, pero la fila de ejemplo es una
+    /// cadena escrita a mano: agregar una columna al enum la descuadra en silencio y todo
+    /// lo que va después se lee corrido —al agregar <c>equipo</c>, el sueldo básico caía en
+    /// la columna del turno—. Quien descarga la plantilla y la rellena carga mal 250 filas
+    /// sin que nada avise.
+    /// </remarks>
+    /// <summary>
+    /// El padrón de Planta 1 escribe sus encabezados en dos renglones de la misma celda.
+    /// </summary>
+    [Fact]
+    public void Un_encabezado_partido_en_dos_renglones_se_reconoce()
+    {
+        string[] encabezado =
+        [
+            "tipo\ndocumento", "numero\ndocumento", "apellido\npaterno", "apellido\nmaterno",
+            "nombres", "sexo", "empresa", "unidad", "tipo_planilla", "puesto", "fecha_ingreso"
+        ];
+
+        var mapa = MapaColumnas.Construir(encabezado);
+
+        mapa.Valor(["DNI", "09876543"], Columna.NumeroDocumento).ShouldBe("09876543");
+    }
+
+    [Fact]
+    public void La_fila_de_ejemplo_tiene_tantos_campos_como_el_encabezado()
+    {
+        var csv = System.Text.Encoding.UTF8.GetString(
+            new CargaMasivaTrabajadores(null!, null!, null!, null!, null!).GenerarPlantillaCsv());
+
+        var lineas = csv.TrimEnd('\r', '\n').Split('\n');
+
+        lineas.Length.ShouldBe(2);
+
+        var encabezado = lineas[0].TrimEnd('\r').Split(';');
+        var ejemplo = lineas[1].TrimEnd('\r').Split(';');
+
+        ejemplo.Length.ShouldBe(encabezado.Length);
+        encabezado.Length.ShouldBe(MapaColumnas.EncabezadoCanonico.Count);
+    }
 }

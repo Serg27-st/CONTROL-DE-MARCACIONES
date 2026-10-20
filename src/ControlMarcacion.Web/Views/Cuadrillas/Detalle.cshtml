@@ -1,0 +1,273 @@
+@model DetalleCuadrillaVm
+@{
+    var c = Model.Cuadrilla;
+    ViewData["Title"] = c.Nombre;
+}
+
+<div class="titulo-pagina">
+    <h1>@c.Nombre <span class="texto-suave">· @c.Planta</span></h1>
+    <div class="acciones">
+        @if (c.Activo)
+        {
+            <a class="boton boton-primario" asp-action="Programar" asp-route-id="@c.Id">Programar ciclo</a>
+        }
+        <a class="boton boton-secundario" asp-action="Editar" asp-route-id="@c.Id">Editar</a>
+        <a class="boton boton-secundario" asp-action="Index">Volver a cuadrillas</a>
+    </div>
+</div>
+
+@if (!c.Activo)
+{
+    <div class="aviso aviso-alerta" role="status">
+        Esta cuadrilla está dada de baja: no se puede programar ni sumarle integrantes.
+    </div>
+}
+
+<div class="tarjeta">
+    <h2>Ciclo</h2>
+
+    @if (c.ProgramacionVigente is not { } vigente)
+    {
+        <div class="aviso aviso-alerta" role="status">
+            <strong>Sin ciclo programado.</strong> Mientras no lo tenga, sus integrantes salen en
+            el tareo como «sin horario». Programe su ciclo para poder calcular.
+        </div>
+    }
+    else
+    {
+        <dl class="panel-datos">
+            <div>
+                <dt>Ciclo</dt>
+                <dd>
+                    <strong>@vigente.Ciclo</strong>
+                    <br /><small class="texto-suave">@vigente.DiasDelCiclo días en total</small>
+                </dd>
+            </div>
+            <div>
+                <dt>Rige desde</dt>
+                <dd>
+                    @vigente.FechaInicio.ToString("dd/MM/yyyy")
+                    @if (vigente.FechaAncla != vigente.FechaInicio)
+                    {
+                        <br /><small class="texto-suave">
+                            Ciclo contado desde el @vigente.FechaAncla.ToString("dd/MM/yyyy") (rotación corrida)
+                        </small>
+                    }
+                </dd>
+            </div>
+            <div>
+                <dt>Hoy (@Model.Hoy.ToString("dd/MM"))</dt>
+                <dd>@(c.TurnoHoy ?? "Todavía no rige")</dd>
+            </div>
+            <div>
+                <dt>Próximas rotaciones</dt>
+                <dd>
+                    @if (c.ProximosCambios.Count == 0)
+                    {
+                        <span class="texto-suave">Ninguna en los próximos meses</span>
+                    }
+                    else
+                    {
+                        <ul class="lista-detalle">
+                            @foreach (var cambio in c.ProximosCambios)
+                            {
+                                <li>@cambio.Fecha.ToString("ddd dd/MM/yyyy") → <strong>@cambio.TurnoCodigo</strong> @cambio.TurnoNombre</li>
+                            }
+                        </ul>
+                    }
+                </dd>
+            </div>
+        </dl>
+
+        @if (c.Activo)
+        {
+            <form method="post" asp-action="CorrerRotacion">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="CuadrillaId" value="@c.Id" />
+                <h3>¿Rotaron antes o después de lo programado?</h3>
+                <p class="nota-compacta">
+                    Corre el mismo ciclo unos días desde una fecha: <strong>-1</strong> si rotaron
+                    un día antes, <strong>1</strong> si un día después. Lo anterior a la fecha no
+                    cambia. Si fue solo esa vez, vuelva a correrlo en sentido contrario desde la
+                    rotación siguiente.
+                </p>
+                <div class="barra-filtros">
+                    <div class="campo">
+                        <label for="Desde">Desde</label>
+                        <input type="date" id="Desde" name="Desde" value="@Model.Hoy.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="campo">
+                        <label for="Dias">Días</label>
+                        <input type="number" id="Dias" name="Dias" min="-60" max="60" value="-1" required />
+                    </div>
+                    <button type="submit" class="boton boton-secundario"
+                            data-confirmar="¿Correr la rotación de @c.Nombre? Después recalcule los periodos abiertos.">
+                        Correr la rotación
+                    </button>
+                </div>
+            </form>
+        }
+    }
+</div>
+
+<div class="tarjeta">
+    <h2>Integrantes hoy (@Model.Integrantes.Count)</h2>
+
+    @if (Model.Integrantes.Count == 0)
+    {
+        <div class="sin-resultados">Nadie integra esta cuadrilla hoy.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>Documento</th>
+                        <th>Integra desde</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var integrante in Model.Integrantes)
+                    {
+                        <tr>
+                            <td>@integrante.Nombre</td>
+                            <td>@integrante.NumeroDocumento</td>
+                            <td>@integrante.Desde.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <a asp-controller="Trabajadores" asp-action="Historial" asp-route-id="@integrante.TrabajadorId">Historial</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="nota-pie">
+        Para sacar a alguien de la cuadrilla, cámbielo en su ficha a otra cuadrilla o a un turno
+        fijo, con «Turno rige desde» la fecha en que dejó de rotar con el grupo.
+    </p>
+
+    @if (c.Activo && Model.Candidatos.Count > 0)
+    {
+        <form method="post" asp-action="SumarIntegrantes">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="CuadrillaId" value="@c.Id" />
+
+            <h3>Sumar integrantes</h3>
+            <p class="nota-compacta">
+                Trabajadores de @c.Planta que hoy no integran esta cuadrilla. Sumarlos es lo mismo
+                que elegir la cuadrilla en la ficha de cada uno, con «Turno rige desde» la fecha
+                de abajo. Si uno no puede sumarse, no se suma nadie y el aviso dice por qué.
+            </p>
+
+            <div class="barra-filtros">
+                <div class="campo">
+                    <label for="DesdeIntegrantes">Integran desde</label>
+                    <input type="date" id="DesdeIntegrantes" name="Desde" value="@Model.Hoy.ToString("yyyy-MM-dd")" required />
+                </div>
+            </div>
+
+            <partial name="_FiltroTabla"
+                     model='new FiltroTablaVm { IdTabla = "tabla-candidatos", IdConteo = "conteo-candidatos", Sustantivo = "trabajador(es)", Filas = Model.Candidatos.Count, Ejemplo = "Apellidos, nombres o documento…" }' />
+
+            <div class="tabla-contenedor">
+                <table class="tabla" id="tabla-candidatos">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Trabajador</th>
+                            <th>Documento</th>
+                            <th>Hoy tiene</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var candidato in Model.Candidatos)
+                        {
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="TrabajadorIds" value="@candidato.TrabajadorId"
+                                           id="candidato-@candidato.TrabajadorId" />
+                                </td>
+                                <td><label for="candidato-@candidato.TrabajadorId">@candidato.Nombre</label></td>
+                                <td>@candidato.NumeroDocumento</td>
+                                <td>@(candidato.AsignacionActual ?? "Sin turno")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="paginacion">
+                <span class="conteo" id="conteo-candidatos">@Model.Candidatos.Count trabajador(es)</span>
+            </div>
+
+            <div class="acciones">
+                <button type="submit" class="boton boton-primario">Sumar a la cuadrilla</button>
+            </div>
+        </form>
+    }
+</div>
+
+<div class="tarjeta">
+    <h2>Historial de programaciones</h2>
+
+    @if (Model.Programaciones.Count == 0)
+    {
+        <div class="sin-resultados">Todavía no se programó ningún ciclo.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th>Ciclo</th>
+                        <th>Contado desde</th>
+                        <th>Estado</th>
+                        <th>Registró</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Programaciones)
+                    {
+                        <tr>
+                            <td>@p.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>@(p.FechaFin?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>@p.Ciclo</td>
+                            <td>@p.FechaAncla.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (!p.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-incompleto" title="Reemplazada entera por otra programación desde la misma fecha o una anterior">Reemplazada</span>
+                                }
+                                else if (p.FechaFin is null)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Vigente</span>
+                                }
+                                else
+                                {
+                                    <span class="texto-suave">Cerrada</span>
+                                }
+                            </td>
+                            <td>
+                                @p.RegistradoPor
+                                <br /><small class="texto-suave">@p.RegistradoEn.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+    <script src="~/js/filtro-tabla.js" asp-append-version="true"></script>
+}

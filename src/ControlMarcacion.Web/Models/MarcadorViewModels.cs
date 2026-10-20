@@ -31,7 +31,13 @@ public sealed class EditarMarcadorVm
 
     public bool EstaEnUso => AsignacionesTotales > 0;
 
+    /// <summary>
+    /// Equipos activos entre los que elegir. Vacío significa que todavía no hay ningún
+    /// aparato registrado, y entonces el formulario no tiene nada que ofrecer.
+    /// </summary>
     [BindNever]
     [ValidateNever]
-    public IReadOnlyList<OpcionDto> Plantas { get; set; } = [];
+    public IReadOnlyList<EquipoOpcionDto> Equipos { get; set; } = [];
+
+    public bool HayEquipos => Equipos.Count > 0;
 }

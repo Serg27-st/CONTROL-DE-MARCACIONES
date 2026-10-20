@@ -1,4 +1,6 @@
 using ControlMarcacion.Domain.Personal;
+using ControlMarcacion.Domain.Comun;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia.Repositorios;
@@ -10,6 +12,11 @@ internal sealed class TrabajadorRepository(MarcacionDbContext contexto) : ITraba
             .Include(t => t.AsignacionesMarcador)
             .Include(t => t.AsignacionesTurno)
             .Include(t => t.AsignacionesSueldo)
+            .Include(t => t.AsignacionesArea)
+            // Las escrituras necesitan toda la historia para impedir que una corrección
+            // del vínculo abierto se solape con un periodo cerrado anterior.
+            .Include(t => t.PeriodosLaborales)
+                .ThenInclude(p => p.AsignacionesPlanta)
             .FirstOrDefaultAsync(t => t.Id == id, cancelacion);
 
     public async Task<long?> IdPorDocumentoAsync(
@@ -37,6 +44,7 @@ internal sealed class TrabajadorRepository(MarcacionDbContext contexto) : ITraba
                 cancelacion);
 
     public Task<bool> IdMarcadorEnUsoAsync(
+        long equipoId,
         string idMarcador,
         DateOnly desde,
         DateOnly? hasta,
@@ -45,7 +53,7 @@ internal sealed class TrabajadorRepository(MarcacionDbContext contexto) : ITraba
         contexto.AsignacionesMarcador
             .AsNoTracking()
             .AnyAsync(
-                a => a.IdMarcador == idMarcador
+                a => a.EquipoId == equipoId && a.IdMarcador == idMarcador
                      && (excluyendoTrabajadorId == null || a.TrabajadorId != excluyendoTrabajadorId)
                      // Dos rangos se solapan si cada uno empieza antes de que termine el otro.
                      // Un FechaFin nulo significa "sigue vigente", así que nunca termina.
@@ -57,8 +65,27 @@ internal sealed class TrabajadorRepository(MarcacionDbContext contexto) : ITraba
         await contexto.Trabajadores.AddAsync(trabajador, cancelacion).ConfigureAwait(false);
 
     public void Actualizar(Trabajador trabajador) =>
-        contexto.Trabajadores.Update(trabajador);
+        // ObtenerPorIdAsync devuelve un agregado seguido. Marcar solo la raíz evita que
+        // Update(graph) reescriba periodos históricos cerrados que se cargaron únicamente
+        // para validar solapamientos; EF detecta por separado los hijos realmente cambiados.
+        contexto.Entry(trabajador).State = EntityState.Modified;
 
     public Task<int> GuardarCambiosAsync(CancellationToken cancelacion = default) =>
         contexto.SaveChangesAsync(cancelacion);
+
+    public async Task<int> GuardarReingresoAsync(CancellationToken cancelacion = default)
+    {
+        try
+        {
+            return await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        }
+        catch (DbUpdateException excepcion)
+            when (excepcion.InnerException is SqliteException { SqliteErrorCode: 19 })
+        {
+            throw new ReglaNegocioException(
+                "No se pudo registrar el reingreso porque los datos laborales cambiaron " +
+                "al mismo tiempo. Actualice el historial y verifique si otro usuario ya " +
+                "abrió el vínculo.");
+        }
+    }
 }

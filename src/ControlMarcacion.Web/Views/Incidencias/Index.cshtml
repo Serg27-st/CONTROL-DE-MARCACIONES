@@ -1,0 +1,232 @@
+@model BandejaIncidenciasVm
+@{
+    ViewData["Title"] = "Incidencias de asistencia";
+
+    var r = Model.Resultado;
+}
+
+<div class="titulo-pagina">
+    <h1>Incidencias de asistencia</h1>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Los días que el sistema <strong>no puede resolver solo</strong>. Ninguno de estos se
+        convierte en falta por su cuenta: ante la duda el tareo no decide, espera a que una
+        persona lo haga. Regularizar aporta la hora que el marcador no registró —la
+        marcación original no se toca nunca— y el día se recalcula como la jornada que
+        realmente ocurrió.
+    </p>
+
+    <form method="get" asp-action="Index" class="barra-filtros">
+        <div class="campo">
+            <label for="periodoId">Periodo</label>
+            <select id="periodoId" name="periodoId">
+                <option value="">Todos</option>
+                @foreach (var p in Model.Periodos)
+                {
+                    <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">@p.Nombre</option>
+                }
+            </select>
+        </div>
+
+        <div class="campo">
+            <label for="tipo">Incidencia</label>
+            <select id="tipo" name="tipo">
+                <option value="">Todas</option>
+                @foreach (var t in Enum.GetValues<TipoIncidencia>())
+                {
+                    <option value="@((int)t)" selected="@(Model.Tipo == t)">
+                        @BandejaIncidenciasVm.Nombre(t)
+                    </option>
+                }
+            </select>
+        </div>
+
+        <div class="campo">
+            <label for="soloPendientes">Mostrar</label>
+            <select id="soloPendientes" name="soloPendientes">
+                <option value="true" selected="@Model.SoloPendientes">Solo lo pendiente</option>
+                <option value="false" selected="@(!Model.SoloPendientes)">También lo resuelto</option>
+            </select>
+        </div>
+
+        <button type="submit" class="boton boton-primario">Aplicar</button>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (r.TotalElementos == 0)
+    {
+        <div class="sin-resultados">
+            @if (Model.SoloPendientes)
+            {
+                <text>No hay nada pendiente con estos filtros. El periodo está listo por este lado.</text>
+            }
+            else
+            {
+                <text>No hay incidencias registradas con estos filtros.</text>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Trabajador</th>
+                        <th>Turno</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Incidencia</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in r.Elementos)
+                    {
+                        <tr>
+                            <td>@i.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @i.Trabajador
+                                @if (i.IdMarcador is not null)
+                                {
+                                    <br />
+                                    <small class="texto-suave">@i.IdMarcador · @i.Equipo</small>
+                                }
+                            </td>
+                            <td>
+                                @if (i.Turno is null)
+                                {
+                                    <span class="texto-suave">Sin turno</span>
+                                }
+                                else
+                                {
+                                    @i.Turno
+                                    <br />
+                                    <small class="texto-suave">
+                                        @i.HoraInicioTurno?.ToString("HH\\:mm") – @i.HoraFinTurno?.ToString("HH\\:mm")
+                                    </small>
+                                }
+                            </td>
+                            <td>@(i.EntradaReal?.ToString("HH:mm") ?? "—")</td>
+                            <td>@(i.SalidaReal?.ToString("HH:mm") ?? "—")</td>
+                            <td>
+                                <strong>@BandejaIncidenciasVm.Nombre(i.TipoIncidencia)</strong>
+                                <br />
+                                <small class="texto-suave">@BandejaIncidenciasVm.QueHacer(i.TipoIncidencia)</small>
+                            </td>
+                            <td>
+                                @if (i.EsperaResolucion)
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Regularización pendiente</span>
+                                }
+                                else if (i.EstadoJustificacion == EstadoJustificacion.Aprobada)
+                                {
+                                    <span class="etiqueta etiqueta-justificada">Resuelta</span>
+                                }
+                                else if (i.EstadoJustificacion == EstadoJustificacion.Rechazada)
+                                {
+                                    <span class="etiqueta etiqueta-falta">Rechazada</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Pendiente</span>
+                                }
+
+                                @if (!i.PeriodoAbierto)
+                                {
+                                    <br />
+                                    <small class="texto-suave">Periodo @i.PeriodoCodigo cerrado</small>
+                                }
+                            </td>
+                            <td>
+                                @if (i.EsperaResolucion && Model.PuedeResolver && i.PeriodoAbierto)
+                                {
+                                    <form method="post" asp-action="Resolver" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@i.JustificacionId" />
+                                        <input type="hidden" name="periodoId" value="@Model.PeriodoId" />
+                                        <input type="hidden" name="aprueba" value="true" />
+                                        <button type="submit" class="boton boton-primario boton-chico">Aprobar</button>
+                                    </form>
+
+                                    <details class="en-linea">
+                                        <summary class="boton boton-secundario boton-chico">Rechazar</summary>
+                                        <form method="post" asp-action="Resolver">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@i.JustificacionId" />
+                                            <input type="hidden" name="periodoId" value="@Model.PeriodoId" />
+                                            <input type="hidden" name="aprueba" value="false" />
+                                            <label for="motivo-@i.TareoId">Motivo del rechazo</label>
+                                            <input id="motivo-@i.TareoId" name="motivo" required
+                                                   maxlength="500"
+                                                   placeholder="Por qué no se concede" />
+                                            <button type="submit" class="boton boton-secundario boton-chico">
+                                                Confirmar rechazo
+                                            </button>
+                                        </form>
+                                    </details>
+                                }
+                                else if (i.SePuedeRegularizar)
+                                {
+                                    <details>
+                                        <summary class="boton boton-primario boton-chico">Regularizar</summary>
+                                        <form method="post" asp-action="Regularizar">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="periodoId" value="@Model.PeriodoId" />
+                                            <input type="hidden" name="TrabajadorId" value="@i.TrabajadorId" />
+                                            <input type="hidden" name="Fecha" value="@i.Fecha.ToString("yyyy-MM-dd")" />
+                                            <input type="hidden" name="TipoIncidencia" value="@((int?)i.TipoIncidencia)" />
+
+                                            <p class="texto-suave">
+                                                Marcaciones del equipo:
+                                                entrada @(i.EntradaReal?.ToString("dd/MM HH:mm") ?? "no registrada"),
+                                                salida @(i.SalidaReal?.ToString("dd/MM HH:mm") ?? "no registrada").
+                                                Se conservan sin cambios.
+                                            </p>
+
+                                            <label for="ent-@i.TareoId">Entrada verificada</label>
+                                            <input id="ent-@i.TareoId" type="datetime-local"
+                                                   name="EntradaRegularizada" />
+
+                                            <label for="sal-@i.TareoId">Salida verificada</label>
+                                            <input id="sal-@i.TareoId" type="datetime-local"
+                                                   name="SalidaRegularizada" />
+
+                                            <label for="mot-@i.TareoId">Motivo</label>
+                                            <input id="mot-@i.TareoId" name="Motivo" required
+                                                   minlength="5" maxlength="500"
+                                                   placeholder="Quién lo verificó y cómo" />
+
+                                            <button type="submit" class="boton boton-primario boton-chico">
+                                                Registrar regularización
+                                            </button>
+                                        </form>
+                                    </details>
+                                }
+                                else
+                                {
+                                    <span class="texto-suave">—</span>
+                                }
+                            </td>
+                        </tr>
+
+                        @if (!string.IsNullOrWhiteSpace(i.Observacion))
+                        {
+                            <tr class="fila-observacion">
+                                <td colspan="8"><small class="texto-suave">@i.Observacion</small></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_Paginacion"
+                 model='PaginacionVm.De(r, "Index", "incidencia(s)", Model.RutaFiltros())' />
+    }
+</div>

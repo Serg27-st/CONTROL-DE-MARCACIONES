@@ -8,9 +8,11 @@ using ControlMarcacion.Application.Personal;
 using ControlMarcacion.Application.Reportes;
 using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Application.Comun;
+using ControlMarcacion.Application.MarcacionesProvisionales;
 using ControlMarcacion.Application.Solicitudes;
 using ControlMarcacion.Infrastructure.Catalogos;
 using ControlMarcacion.Infrastructure.Marcaciones;
+using ControlMarcacion.Infrastructure.MarcacionesProvisionales;
 using ControlMarcacion.Infrastructure.Reportes;
 using ControlMarcacion.Infrastructure.Seguridad;
 using ControlMarcacion.Domain.Personal;
@@ -73,10 +75,13 @@ public static class InyeccionDependencias
         if (configuracion is not null)
         {
             servicios.Configure<OpcionesMarcador>(configuracion.GetSection(OpcionesMarcador.Seccion));
+            servicios.Configure<OpcionesLectorBkTransaction>(
+                configuracion.GetSection(OpcionesLectorBkTransaction.Seccion));
         }
         else
         {
             servicios.Configure<OpcionesMarcador>(_ => { });
+            servicios.Configure<OpcionesLectorBkTransaction>(_ => { });
         }
 
         servicios.AddScoped<ITrabajadorRepository, TrabajadorRepository>();
@@ -84,10 +89,13 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         servicios.AddScoped<IConsultaCatalogos, ConsultaCatalogos>();
         servicios.AddScoped<IServicioCatalogos, ServicioCatalogos>();
         servicios.AddScoped<IServicioTurnos, ServicioTurnos>();
+        servicios.AddScoped<IServicioCuadrillas, ServicioCuadrillas>();
         servicios.AddScoped<IServicioMarcadores, ServicioMarcadores>();
+        servicios.AddScoped<IServicioEquipos, ServicioEquipos>();
         servicios.AddScoped<IConsultaAuditoria, ConsultaAuditoria>();
         servicios.AddScoped<IServicioTiposAusencia, ServicioTiposAusencia>();
         servicios.AddScoped<IServicioCalculoTareo, ServicioCalculoTareo>();
+        servicios.AddScoped<IServicioDescansosSustitutorios, ServicioDescansosSustitutorios>();
         servicios.AddScoped<IServicioPeriodos, ServicioPeriodos>();
         servicios.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
         servicios.AddScoped<IServicioJustificaciones, ServicioJustificaciones>();
@@ -101,8 +109,15 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         // una futura conexión directa al equipo no obligue a tocar el servicio de importación.
         servicios.AddScoped<LectorTxtZkteco>();
         servicios.AddScoped<LectorRespaldoZkteco>();
+        servicios.AddScoped<LectorRespaldoZktecoSdk>();
+        servicios.AddScoped<ComparadorLecturasBkTransaction>();
         servicios.AddScoped<IFuenteDeMarcaciones, LectorMarcadorAutomatico>();
         servicios.AddScoped<IServicioImportacion, ServicioImportacion>();
+
+        // Módulo provisional — eliminar estas líneas cuando el motor principal cubra este flujo.
+        servicios.AddScoped<IServicioImportacionProvisional, ServicioImportacionProvisional>();
+        servicios.AddScoped<IServicioConsultaMarcacionProvisional, ServicioConsultaMarcacionProvisional>();
+        servicios.AddScoped<IExportadorMarcacionesProvisionales, ExportadorMarcacionesProvisionales>();
 
         // Orquestador de la portada: vive en Application porque solo compone servicios de
         // caso de uso, sin tocar el DbContext.

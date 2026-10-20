@@ -1,0 +1,110 @@
+@model EditarEquipoVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nuevo equipo marcador" : "Editar equipo marcador";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al catálogo</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+    <input type="hidden" asp-for="MarcadoresTotales" />
+    <input type="hidden" asp-for="Importaciones" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código del equipo</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="30" placeholder="DET-AL" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+                <small class="texto-suave">
+                    Código corto con el que se elige el aparato en pantalla. Es suyo, no de las
+                    personas: los códigos del personal se dan de alta en Marcadores.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="150"
+                       placeholder="Puerta principal A–L" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Planta</label>
+                <select asp-for="Datos.PlantaId" class="select-buscable"
+                        disabled="@Model.EstaEnUso"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+
+                @if (Model.EstaEnUso)
+                {
+                    @* Un select deshabilitado no se envía: sin esto, guardar dejaría la
+                       planta en 0 y el servidor rechazaría el formulario. *@
+                    <input type="hidden" asp-for="Datos.PlantaId" />
+                }
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Serie">Número de serie</label>
+                <input asp-for="Datos.Serie" type="text" maxlength="60"
+                       placeholder="VGU6251600671" />
+                <span class="error-campo" asp-validation-for="Datos.Serie"></span>
+                <small class="texto-suave">
+                    Opcional, pero recomendado: es lo que permite <strong>rechazar un archivo
+                    que no salió de este equipo</strong>. El respaldo binario la trae en la
+                    cabecera y el TXT en el nombre (<code>SERIE_attlog.txt</code>). Puede
+                    dejarla vacía ahora y completarla al ver el primer archivo.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Descripcion">Descripción</label>
+                <input asp-for="Datos.Descripcion" type="text" maxlength="150"
+                       placeholder="Ubicación o referencia del aparato" />
+                <span class="error-campo" asp-validation-for="Datos.Descripcion"></span>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activo</label>
+            </div>
+        </div>
+
+        @if (Model.EstaEnUso)
+        {
+            <div class="aviso aviso-error" role="status">
+                Este equipo ya tiene
+                <strong>@Model.MarcadoresTotales marcador(es)</strong> registrados y
+                <strong>@Model.Importaciones archivo(s)</strong> cargados, así que su planta
+                ya no se puede cambiar: los marcadores la heredan, y mudar el aparato
+                arrastraría a otra planta a todo el personal que los tiene asignado. Si el
+                equipo se mudó de verdad, dé de baja este registro y cree uno nuevo — así las
+                marcaciones viejas siguen apuntando al sitio donde de verdad ocurrieron.
+            </div>
+        }
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

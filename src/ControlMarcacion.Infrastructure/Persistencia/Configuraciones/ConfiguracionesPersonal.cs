@@ -82,6 +82,13 @@ public class PeriodoLaboralConfiguracion : IEntityTypeConfiguration<PeriodoLabor
         // La pantalla de historial pide los vínculos de un trabajador ordenados por fecha.
         builder.HasIndex(p => new { p.TrabajadorId, p.FechaIngreso });
 
+        // Defensa física para concurrencia: una persona puede conservar todos sus
+        // periodos cerrados, pero no dos vínculos abiertos a la vez.
+        builder.HasIndex(p => p.TrabajadorId)
+            .IsUnique()
+            .HasFilter("[fecha_cese] IS NULL")
+            .HasDatabaseName("UQ_periodo_laboral_abierto");
+
         // Restrict y no Cascade: la empresa es un catálogo con dos filas que nadie borra,
         // y un cascade desde ahí arrastraría el historial laboral completo.
         builder.HasOne<Empresa>()
@@ -89,7 +96,39 @@ public class PeriodoLaboralConfiguracion : IEntityTypeConfiguration<PeriodoLabor
             .HasForeignKey(p => p.EmpresaId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasMany(p => p.AsignacionesPlanta)
+            .WithOne(a => a.PeriodoLaboral)
+            .HasForeignKey(a => a.PeriodoLaboralId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Ignore(p => p.EstaAbierto);
+    }
+}
+
+public class AsignacionPlantaConfiguracion : IEntityTypeConfiguration<AsignacionPlanta>
+{
+    public void Configure(EntityTypeBuilder<AsignacionPlanta> builder)
+    {
+        builder.ToTable("AsignacionPlanta");
+        builder.HasKey(a => a.Id);
+
+        builder.HasIndex(a => new { a.PeriodoLaboralId, a.FechaInicio, a.FechaFin });
+
+        // El solapamiento general se protege en dominio/aplicación. Este índice cubre la
+        // carrera más peligrosa: dos asignaciones abiertas concurrentes para el vínculo.
+        builder.HasIndex(a => a.PeriodoLaboralId)
+            .IsUnique()
+            .HasFilter("[fecha_fin] IS NULL")
+            .HasDatabaseName("UQ_asignacion_planta_abierta");
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_asignacion_planta_fechas",
+            "[fecha_fin] IS NULL OR [fecha_fin] >= [fecha_inicio]"));
+
+        builder.HasOne(a => a.Planta)
+            .WithMany()
+            .HasForeignKey(a => a.PlantaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -103,15 +142,33 @@ public class AsignacionMarcadorConfiguracion : IEntityTypeConfiguration<Asignaci
         // Texto, para conservar los ceros a la izquierda ("00123").
         builder.Property(a => a.IdMarcador).HasMaxLength(30).IsRequired();
 
-        // Índice clave de la ingesta: por cada marcación del TXT hay que resolver
-        // qué trabajador tenía ese ID en esa fecha.
-        builder.HasIndex(a => new { a.IdMarcador, a.FechaInicio, a.FechaFin });
+        // Índice clave de la ingesta: por cada marcación del archivo hay que resolver qué
+        // trabajador tenía ese ID, EN ESE EQUIPO, en esa fecha. El equipo va primero
+        // porque una carga siempre viene de un solo aparato: filtra la mitad del padrón
+        // antes de mirar el código.
+        builder.HasIndex(a => new { a.EquipoId, a.IdMarcador, a.FechaInicio, a.FechaFin });
         builder.HasIndex(a => new { a.TrabajadorId, a.FechaInicio });
 
         builder.HasIndex(a => a.TrabajadorId)
             .IsUnique()
             .HasFilter("[fecha_fin] IS NULL")
             .HasDatabaseName("UQ_asignacion_marcador_abierta");
+
+        // ---------------------------------------------------------------------------
+        // Un identificador de un equipo no puede estar asignado a dos personas a la vez.
+        // ⚠️ El filtro va con los nombres de las COLUMNAS (snake_case), no los de las
+        // propiedades: el SQL viaja literal y con "[FechaFin]" el índice nunca llega a
+        // crearse — ya pasó una vez con las tres asignaciones abiertas.
+        // ---------------------------------------------------------------------------
+        builder.HasIndex(a => new { a.EquipoId, a.IdMarcador })
+            .IsUnique()
+            .HasFilter("[fecha_fin] IS NULL")
+            .HasDatabaseName("UQ_asignacion_marcador_equipo_codigo_abierta");
+
+        builder.HasOne(a => a.Equipo)
+            .WithMany()
+            .HasForeignKey(a => a.EquipoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -121,6 +178,7 @@ public class AsignacionTurnoConfiguracion : IEntityTypeConfiguration<AsignacionT
     {
         builder.ToTable("AsignacionTurno");
         builder.HasKey(a => a.Id);
+
 
         // El motor resuelve el turno vigente para cada trabajador y cada día del periodo:
         // sin este índice, el cálculo mensual se arrastra.
@@ -155,7 +213,21 @@ public class AsignacionTurnoConfiguracion : IEntityTypeConfiguration<AsignacionT
         builder.HasOne(a => a.Turno)
             .WithMany()
             .HasForeignKey(a => a.TurnoId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(a => a.Cuadrilla)
+            .WithMany()
+            .HasForeignKey(a => a.CuadrillaId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Turno fijo o cuadrilla: exactamente uno. La validación con mensaje vive en
+        // ServicioTrabajadores; esta es la última palabra de la base. Mismo cuidado que el
+        // HasFilter de arriba: el SQL va con nombres de COLUMNA.
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_asignacion_turno_turno_o_cuadrilla",
+            "([turno_id] IS NULL) <> ([cuadrilla_id] IS NULL)"));
     }
 }
 
@@ -174,5 +246,30 @@ public class AsignacionSueldoConfiguracion : IEntityTypeConfiguration<Asignacion
             .IsUnique()
             .HasFilter("[fecha_fin] IS NULL")
             .HasDatabaseName("UQ_asignacion_sueldo_abierta");
+    }
+}
+
+public class AsignacionAreaConfiguracion : IEntityTypeConfiguration<AsignacionArea>
+{
+    public void Configure(EntityTypeBuilder<AsignacionArea> builder)
+    {
+        builder.ToTable("AsignacionArea");
+        builder.HasKey(a => a.Id);
+
+        // Como la leen los reportes: las asignaciones de estos trabajadores que se solapan
+        // con el rango.
+        builder.HasIndex(a => new { a.TrabajadorId, a.FechaInicio, a.FechaFin });
+
+        // La cuarta vigencia del trabajador, con la misma defensa que las otras tres.
+        // ⚠️ El filtro va con el nombre de la COLUMNA (snake_case): el SQL viaja literal.
+        builder.HasIndex(a => a.TrabajadorId)
+            .IsUnique()
+            .HasFilter("[fecha_fin] IS NULL")
+            .HasDatabaseName("UQ_asignacion_area_abierta");
+
+        builder.HasOne(a => a.Area)
+            .WithMany()
+            .HasForeignKey(a => a.AreaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

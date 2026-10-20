@@ -1,0 +1,87 @@
+@model ReingresarTrabajadorVm
+@{
+    ViewData["Title"] = "Reingresar trabajador";
+}
+
+<div class="titulo-pagina">
+    <h1>Reingresar trabajador</h1>
+    <a class="boton boton-secundario"
+       asp-action="Historial"
+       asp-route-id="@Model.Datos.TrabajadorId">Volver al historial</a>
+</div>
+
+<div class="tarjeta">
+    <p>
+        <strong>@Model.ApellidosYNombres</strong><br />
+        Documento @Model.NumeroDocumento
+    </p>
+    @if (Model.UltimoCese is { } cese)
+    {
+        <p class="texto-suave">Último vínculo cerrado el @cese.ToString("dd/MM/yyyy").</p>
+    }
+</div>
+
+<form method="post" asp-action="RegistrarReingreso">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.TrabajadorId" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo registrar el reingreso. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Nuevo vínculo laboral</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.FechaIngreso">Nueva fecha de ingreso</label>
+                <input asp-for="Datos.FechaIngreso" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaIngreso"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.EmpresaId">Empresa</label>
+                <select asp-for="Datos.EmpresaId" class="select-buscable">
+                    <option value="">Seleccione</option>
+                    @foreach (var empresa in Model.Empresas)
+                    {
+                        <option value="@empresa.Id">@empresa.Nombre</option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.EmpresaId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Planta inicial</label>
+                <select asp-for="Datos.PlantaId" class="select-buscable">
+                    <option value="">Seleccione</option>
+                    @foreach (var planta in Model.Plantas)
+                    {
+                        <option value="@planta.Id">@planta.Nombre</option>
+                    }
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            El reingreso abre un vínculo nuevo. No modifica los periodos anteriores ni
+            asigna automáticamente turno, marcador, sueldo o área.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Registrar reingreso</button>
+        <a class="boton boton-secundario"
+           asp-action="Historial"
+           asp-route-id="@Model.Datos.TrabajadorId">Cancelar</a>
+    </div>
+</form>

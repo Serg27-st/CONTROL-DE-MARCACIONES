@@ -19,7 +19,13 @@ public sealed record JustificacionListaDto(
     string? EstadoAnterior,
     string Motivo,
     string RegistradoPorUsuario,
-    DateTime RegistradoEn)
+    DateTime RegistradoEn,
+    EstadoJustificacion Estado,
+    DateTime? EntradaRegularizada,
+    DateTime? SalidaRegularizada,
+    string? ResueltaPorUsuario,
+    DateTime? ResueltaEn,
+    string? MotivoResolucion)
 {
     /// <summary>
     /// Solo se retira desde aquí una justificación manual. La generada por una solicitud
@@ -27,6 +33,24 @@ public sealed record JustificacionListaDto(
     /// motivo de anulación viaje con ella.
     /// </summary>
     public bool EsRetirableAqui => Origen == OrigenJustificacion.Manual;
+
+    /// <summary>
+    /// La justificación está surtiendo efecto sobre el tareo.
+    /// </summary>
+    /// <remarks>
+    /// Es la pregunta que esta pantalla tiene que contestar de un vistazo y no contestaba:
+    /// el listado mostraba <b>igual</b> una regularización pedida y una ya aplicada, así que
+    /// quien la registró no tenía dónde ver si se la habían autorizado, y quien auditaba veía
+    /// una fila que parecía estar cambiando el día sin estarlo.
+    /// </remarks>
+    public bool Aplica => Estado == EstadoJustificacion.Aprobada;
+
+    /// <summary>Espera que alguien la autorice.</summary>
+    public bool EsperaResolucion => Estado == EstadoJustificacion.Solicitada;
+
+    /// <summary>Lleva una hora verificada que el marcador no registró.</summary>
+    public bool EsRegularizacion =>
+        EntradaRegularizada is not null || SalidaRegularizada is not null;
 }
 
 /// <summary>Alta de una justificación manual.</summary>

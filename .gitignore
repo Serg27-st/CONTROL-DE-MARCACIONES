@@ -54,6 +54,22 @@ logs/
 ## Base de datos local
 *.mdf
 *.ldf
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+# SQLite agrega estos sufijos al nombre completo del archivo principal. Los patrones
+# anteriores no cubren, por ejemplo, una base llamada copia.db.bak-shm.
+*-wal
+*-shm
+*-journal
+*.bak
+*.backup
+
+# Manifiestos sin datos sensibles pueden versionarse; las bases inventariadas se conservan
+# fuera del repositorio según el runbook de PHASE 7A.
 
 ## Sistema operativo
 Thumbs.db

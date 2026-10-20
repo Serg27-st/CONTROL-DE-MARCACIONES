@@ -1,0 +1,155 @@
+@model ListaEquiposVm
+@{
+    ViewData["Title"] = "Equipos marcadores";
+}
+
+<div class="titulo-pagina">
+    <h1>Equipos marcadores</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nuevo equipo</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Cada equipo es un <strong>aparato ZKTeco físico</strong> instalado en una planta. Es
+        el catálogo que hay que llenar primero: los códigos de marcador pertenecen a un
+        aparato, y la pantalla de carga exige declarar de cuál salió cada archivo.
+        <br />
+        Por eso una misma planta puede tener dos equipos —uno para apellidos A–L y otro para
+        M–Z— <strong>ambos numerados del 1 al 100</strong> sin que sus marcaciones se
+        confundan: el código identifica a una persona dentro de su aparato, no en todo el
+        sistema.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="rejilla">
+            <div class="campo">
+                <label for="Busqueda">Buscar</label>
+                <input type="text" id="Busqueda" name="Busqueda" value="@Model.Filtro.Busqueda"
+                       placeholder="Código, nombre o serie" />
+            </div>
+
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId" class="select-buscable"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre", Model.Filtro.PlantaId))">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input type="checkbox" id="IncluirInactivos" name="IncluirInactivos"
+                       value="true" checked="@Model.Filtro.IncluirInactivos" />
+                <label for="IncluirInactivos">Mostrar también los dados de baja</label>
+            </div>
+        </div>
+
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Aplicar</button>
+            <a class="boton boton-secundario" asp-action="Index">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Equipos.Count == 0)
+    {
+        <div class="sin-resultados">
+            @if (string.IsNullOrWhiteSpace(Model.Filtro.Busqueda) && Model.Filtro.PlantaId is null)
+            {
+                <text>
+                    No hay ningún equipo registrado. Registre aquí cada aparato ZKTeco antes de
+                    dar de alta sus códigos en Marcadores o de cargar sus archivos.
+                </text>
+            }
+            else
+            {
+                <text>No hay equipos que coincidan con el filtro.</text>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Planta</th>
+                        <th>Empresa</th>
+                        <th>Serie</th>
+                        <th>Marcadores</th>
+                        <th>Archivos</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in Model.Equipos)
+                    {
+                        <tr>
+                            <td><code>@e.Codigo</code></td>
+                            <td>@e.Nombre</td>
+                            <td>@e.Planta</td>
+                            <td>@e.Empresa</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(e.Serie))
+                                {
+                                    <span class="texto-suave" title="Sin serie no se puede comprobar que un archivo salió de este equipo">Sin declarar</span>
+                                }
+                                else
+                                {
+                                    <code>@e.Serie</code>
+                                }
+                            </td>
+                            <td>
+                                @if (e.MarcadoresActivos == 0)
+                                {
+                                    <span class="texto-suave">Ninguno</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-puntual">@e.MarcadoresActivos activo(s)</span>
+                                }
+                            </td>
+                            <td>@(e.Importaciones == 0 ? "—" : e.Importaciones.ToString())</td>
+                            <td>
+                                @if (e.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">De baja</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Editar" asp-route-id="@e.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" class="en-linea-sep">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@e.Id" />
+                                    <input type="hidden" name="activo" value="@((!e.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario boton-chico"
+                                            data-confirmar="@(e.Activo
+                                                ? $"¿Dar de baja el equipo '{e.Nombre}'? Sus archivos ya no se podrán cargar."
+                                                : $"¿Reactivar el equipo '{e.Nombre}'?")">
+                                        @(e.Activo ? "Dar de baja" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Equipos.Count equipo(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

@@ -102,14 +102,18 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
             new Empresa
             {
                 Id = 2, ClienteId = 1, Codigo = "CAO",
-                RazonSocial = "CA Outsourcing", Ruc = "00000000002",
+                RazonSocial = "CA OUTSOURCING SAC", Ruc = "00000000002",
                 Activo = true, CreadoEn = Origen
             });
 
+        // Nombres tal como los escriben los padrones de cada planta (18/09/2026): son la
+        // columna UNIDAD con la que llega cada trabajador en la carga masiva. INTRACAN/FEM
+        // es la antigua "Planta 20 mil" —todo su personal marca en el aparato de 20 mil—,
+        // y "PLANTA 1" es la antigua "Planta 01". Los códigos no cambian.
         modelBuilder.Entity<Planta>().HasData(
-            new Planta { Id = 1, EmpresaId = 1, Codigo = "DET", Nombre = "Planta Detergentes", Activo = true, CreadoEn = Origen },
-            new Planta { Id = 2, EmpresaId = 1, Codigo = "P20M", Nombre = "Planta 20 mil", Activo = true, CreadoEn = Origen },
-            new Planta { Id = 3, EmpresaId = 2, Codigo = "P01", Nombre = "Planta 01", Activo = true, CreadoEn = Origen },
+            new Planta { Id = 1, EmpresaId = 1, Codigo = "DET", Nombre = "PLANTA DETERGENTES LURÍN", Activo = true, CreadoEn = Origen },
+            new Planta { Id = 2, EmpresaId = 1, Codigo = "P20M", Nombre = "PLANTA INTRACAN/FEM", Activo = true, CreadoEn = Origen },
+            new Planta { Id = 3, EmpresaId = 2, Codigo = "P01", Nombre = "PLANTA 1", Activo = true, CreadoEn = Origen },
             new Planta { Id = 4, EmpresaId = 2, Codigo = "SULF", Nombre = "Planta Sulfonación", Activo = true, CreadoEn = Origen });
 
         // ⚠️ PROVISIONAL: GCA aún no entregó la estructura real de áreas, secciones y
@@ -118,55 +122,129 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
         // obligatorios y no se podría registrar a nadie.
         // Reemplazar por la estructura real; el mantenimiento de catálogos permitirá
         // hacerlo desde la aplicación.
-        // Las cuatro primeras siguen siendo provisionales, una por planta, hasta que GCA
-        // entregue la estructura de las otras tres. Las de la 10 en adelante son las áreas
-        // REALES de Planta Detergentes, tomadas de la columna AREA de su "RESUMEN FIN DE
-        // MES": son las que el tareo final imprime, y no se derivan del centro de costo —un
-        // mismo CECO aparece con varias áreas.
+        // Áreas REALES, tomadas de la columna ÁREA de los padrones que enviaron los
+        // coordinadores el 18/09/2026, con el texto tal como lo escriben (la carga masiva
+        // compara sin tildes ni mayúsculas). Reemplazan a las anteriores —las genéricas
+        // "Producción" y las del "RESUMEN FIN DE MES" de Detergentes—, que quedan
+        // inactivas y no se borran: puede haber fichas que todavía las referencien.
+        // Son el texto que imprime la columna AREA del tareo final. Se parecen a la
+        // descripción del centro de costo pero no se derivan de él: en el padrón un mismo
+        // CECO aparece con varias áreas.
+        // Planta Sulfonación (Id 4) no envió padrón: conserva su área genérica.
         modelBuilder.Entity<Area>().HasData(
-            new Area { Id = 1, PlantaId = 1, Codigo = "PROD", Nombre = "Producción", Activo = true, CreadoEn = Origen },
-            new Area { Id = 2, PlantaId = 2, Codigo = "PROD", Nombre = "Producción", Activo = true, CreadoEn = Origen },
-            new Area { Id = 3, PlantaId = 3, Codigo = "PROD", Nombre = "Producción", Activo = true, CreadoEn = Origen },
+            new Area { Id = 1, PlantaId = 1, Codigo = "PROD", Nombre = "Producción", Activo = false, CreadoEn = Origen },
+            new Area { Id = 2, PlantaId = 2, Codigo = "PROD", Nombre = "Producción", Activo = false, CreadoEn = Origen },
+            new Area { Id = 3, PlantaId = 3, Codigo = "PROD", Nombre = "Producción", Activo = false, CreadoEn = Origen },
             new Area { Id = 4, PlantaId = 4, Codigo = "PROD", Nombre = "Producción", Activo = true, CreadoEn = Origen },
 
-            new Area { Id = 10, PlantaId = 1, Codigo = "ENV", Nombre = "ENVASADO", Activo = true, CreadoEn = Origen },
-            new Area { Id = 11, PlantaId = 1, Codigo = "LAV", Nombre = "LAVAVAJILLAS", Activo = true, CreadoEn = Origen },
-            new Area { Id = 12, PlantaId = 1, Codigo = "PROC", Nombre = "PROCESOS", Activo = true, CreadoEn = Origen },
-            new Area { Id = 13, PlantaId = 1, Codigo = "SUPPRO", Nombre = "SUP. PRODUCCION", Activo = true, CreadoEn = Origen },
-            new Area { Id = 14, PlantaId = 1, Codigo = "VOL", Nombre = "VOLANTES", Activo = true, CreadoEn = Origen },
-            new Area { Id = 15, PlantaId = 1, Codigo = "INSSSO", Nombre = "INSP. SSOMA", Activo = true, CreadoEn = Origen },
-            new Area { Id = 16, PlantaId = 1, Codigo = "CRRHH", Nombre = "COORD. RRHH", Activo = true, CreadoEn = Origen },
-            new Area { Id = 17, PlantaId = 1, Codigo = "SUPSSO", Nombre = "SUP. SSOMA", Activo = true, CreadoEn = Origen });
+            new Area { Id = 10, PlantaId = 1, Codigo = "ENV", Nombre = "ENVASADO", Activo = false, CreadoEn = Origen },
+            new Area { Id = 11, PlantaId = 1, Codigo = "LAV", Nombre = "LAVAVAJILLAS", Activo = false, CreadoEn = Origen },
+            new Area { Id = 12, PlantaId = 1, Codigo = "PROC", Nombre = "PROCESOS", Activo = false, CreadoEn = Origen },
+            new Area { Id = 13, PlantaId = 1, Codigo = "SUPPRO", Nombre = "SUP. PRODUCCION", Activo = false, CreadoEn = Origen },
+            new Area { Id = 14, PlantaId = 1, Codigo = "VOL", Nombre = "VOLANTES", Activo = false, CreadoEn = Origen },
+            new Area { Id = 15, PlantaId = 1, Codigo = "INSSSO", Nombre = "INSP. SSOMA", Activo = false, CreadoEn = Origen },
+            new Area { Id = 16, PlantaId = 1, Codigo = "CRRHH", Nombre = "COORD. RRHH", Activo = false, CreadoEn = Origen },
+            new Area { Id = 17, PlantaId = 1, Codigo = "SUPSSO", Nombre = "SUP. SSOMA", Activo = false, CreadoEn = Origen },
 
+            // PLANTA DETERGENTES LURÍN (Consulting Advisers).
+            new Area { Id = 20, PlantaId = 1, Codigo = "ENVDET", Nombre = "Envasado Detergentes Lurín", Activo = true, CreadoEn = Origen },
+            new Area { Id = 21, PlantaId = 1, Codigo = "ENVLAV", Nombre = "Envasado Lavavajillas en pote", Activo = true, CreadoEn = Origen },
+            new Area { Id = 22, PlantaId = 1, Codigo = "ENVPOL", Nombre = "Envasado Polvo/Pulidor", Activo = true, CreadoEn = Origen },
+            new Area { Id = 23, PlantaId = 1, Codigo = "GINDET", Nombre = "Gastos Indirectos Detergentes / Lavavajilla", Activo = true, CreadoEn = Origen },
+            new Area { Id = 24, PlantaId = 1, Codigo = "MANDET", Nombre = "Manufactura Detergentes Lurín", Activo = true, CreadoEn = Origen },
+            new Area { Id = 25, PlantaId = 1, Codigo = "ETIQ", Nombre = "Producción Etiquetado/Codificado", Activo = true, CreadoEn = Origen },
+            new Area { Id = 26, PlantaId = 1, Codigo = "SEGDET", Nombre = "Seguridad Detergentes", Activo = true, CreadoEn = Origen },
+
+            // PLANTA INTRACAN/FEM (Consulting Advisers).
+            new Area { Id = 30, PlantaId = 2, Codigo = "ACAFIB", Nombre = "Acabados fibras, paños y otros", Activo = true, CreadoEn = Origen },
+            new Area { Id = 31, PlantaId = 2, Codigo = "GINDET", Nombre = "Gastos Indirectos Detergentes / Lavavajilla", Activo = true, CreadoEn = Origen },
+            new Area { Id = 32, PlantaId = 2, Codigo = "MANFIB", Nombre = "Manufactura Fibras", Activo = true, CreadoEn = Origen },
+            new Area { Id = 33, PlantaId = 2, Codigo = "ETIQ", Nombre = "Producción Etiquetado/Codificado", Activo = true, CreadoEn = Origen },
+
+            // PLANTA 1 (CA Outsourcing).
+            new Area { Id = 40, PlantaId = 3, Codigo = "CENLUR", Nombre = "Centro Lurin", Activo = true, CreadoEn = Origen },
+            new Area { Id = 41, PlantaId = 3, Codigo = "ENVAER", Nombre = "Envasado de Aerosoles/Insecticidas", Activo = true, CreadoEn = Origen },
+            new Area { Id = 42, PlantaId = 3, Codigo = "ENVLEJ", Nombre = "Envasado de Lejia", Activo = true, CreadoEn = Origen },
+            new Area { Id = 43, PlantaId = 3, Codigo = "ENVLIM", Nombre = "Envasado de Limpiatodo y LavavajillaLiq", Activo = true, CreadoEn = Origen },
+            new Area { Id = 44, PlantaId = 3, Codigo = "ENVSAN", Nombre = "ENVASADO SANITARIOS ACUOSO", Activo = true, CreadoEn = Origen },
+            new Area { Id = 45, PlantaId = 3, Codigo = "ENVWC", Nombre = "Envasado WC liquido", Activo = true, CreadoEn = Origen },
+            new Area { Id = 46, PlantaId = 3, Codigo = "ENVCOS", Nombre = "ENVASES COSMETICOS ACUOSOS", Activo = true, CreadoEn = Origen },
+            new Area { Id = 47, PlantaId = 3, Codigo = "GINLUR", Nombre = "Gastos Indirectos Lurin", Activo = true, CreadoEn = Origen },
+            new Area { Id = 48, PlantaId = 3, Codigo = "GERPRO", Nombre = "Gerencia de Produccion", Activo = true, CreadoEn = Origen },
+            new Area { Id = 49, PlantaId = 3, Codigo = "MANCOS", Nombre = "Manufactura Cosmeticos Acuosos", Activo = true, CreadoEn = Origen },
+            new Area { Id = 50, PlantaId = 3, Codigo = "MANPAS", Nombre = "MANUFACTURA PASTA DENTAL", Activo = true, CreadoEn = Origen },
+            new Area { Id = 51, PlantaId = 3, Codigo = "MANSAN", Nombre = "Manufactura Sanitarios Acuosos", Activo = true, CreadoEn = Origen },
+            new Area { Id = 52, PlantaId = 3, Codigo = "MEZRES", Nombre = "Mezclado de Resinas", Activo = true, CreadoEn = Origen },
+            new Area { Id = 53, PlantaId = 3, Codigo = "OFEINT", Nombre = "OFERTADO INTRALAB", Activo = true, CreadoEn = Origen },
+            new Area { Id = 54, PlantaId = 3, Codigo = "PASWC", Nombre = "PASTILLAS WC", Activo = true, CreadoEn = Origen },
+            new Area { Id = 55, PlantaId = 3, Codigo = "TUBPAS", Nombre = "PROD TUBO PASTA DENTAL", Activo = true, CreadoEn = Origen },
+            new Area { Id = 56, PlantaId = 3, Codigo = "CEPILL", Nombre = "Producción Cepillos dentales", Activo = true, CreadoEn = Origen },
+            new Area { Id = 57, PlantaId = 3, Codigo = "ENSAMB", Nombre = "Producción Ensamblajes", Activo = true, CreadoEn = Origen },
+            new Area { Id = 58, PlantaId = 3, Codigo = "INYECC", Nombre = "Producción Inyección", Activo = true, CreadoEn = Origen },
+            new Area { Id = 59, PlantaId = 3, Codigo = "OFELUR", Nombre = "PRODUCCION OFERTADO LURIN 02", Activo = true, CreadoEn = Origen },
+            new Area { Id = 60, PlantaId = 3, Codigo = "SOPLPE", Nombre = "Producción Soplado PE", Activo = true, CreadoEn = Origen },
+            new Area { Id = 61, PlantaId = 3, Codigo = "SEGIND", Nombre = "SEGURIDAD INDUSTRIAL", Activo = true, CreadoEn = Origen });
+
+        // Las secciones genéricas cuelgan de las áreas "Producción" retiradas: se retiran
+        // con ellas. La de Sulfonación sigue, como su área.
         modelBuilder.Entity<Seccion>().HasData(
-            new Seccion { Id = 1, AreaId = 1, Codigo = "GEN", Nombre = "General", Activo = true, CreadoEn = Origen },
-            new Seccion { Id = 2, AreaId = 2, Codigo = "GEN", Nombre = "General", Activo = true, CreadoEn = Origen },
-            new Seccion { Id = 3, AreaId = 3, Codigo = "GEN", Nombre = "General", Activo = true, CreadoEn = Origen },
+            new Seccion { Id = 1, AreaId = 1, Codigo = "GEN", Nombre = "General", Activo = false, CreadoEn = Origen },
+            new Seccion { Id = 2, AreaId = 2, Codigo = "GEN", Nombre = "General", Activo = false, CreadoEn = Origen },
+            new Seccion { Id = 3, AreaId = 3, Codigo = "GEN", Nombre = "General", Activo = false, CreadoEn = Origen },
             new Seccion { Id = 4, AreaId = 4, Codigo = "GEN", Nombre = "General", Activo = true, CreadoEn = Origen });
 
-        // Los cuatro primeros siguen siendo provisionales y universales (EmpresaId nulo):
-        // se conservan porque CA Outsourcing todavía no entregó sus puestos reales y sin
-        // ellos su ficha de personal se quedaría sin ningún puesto que elegir. Se retiran
-        // cuando llegue su estructura.
-        //
-        // Del 10 en adelante son los puestos REALES de Consulting Advisers, tal como los
-        // exporta su planilla (código de 5 dígitos + denominación). Van con EmpresaId = 1
-        // porque son suyos: es el caso que el campo EmpresaId venía a cubrir.
+        // Catálogo GENERAL de puestos, compartido por las dos empresas (EmpresaId nulo) y
+        // sin sinónimos: una sola fila por puesto, en mayúsculas como los padrones.
+        // Unifica lo que había hasta el 21/09/2026 —los genéricos, los códigos de planilla
+        // de Consulting Advisers y los textos de los padrones de planta, que repetían el
+        // mismo puesto con otra grafía ("Operario", "OPERARIO", "Operario de producción")—.
+        // Los anteriores quedan inactivos, no se borran; ningún trabajador los usaba.
+        // La carga masiva sigue aceptando esas grafías y los códigos de planilla (26001…):
+        // la tabla de equivalencias vive en CargaMasivaTrabajadores.EquivalentePuesto.
         modelBuilder.Entity<Puesto>().HasData(
-            new Puesto { Id = 1, Codigo = "OPER", Nombre = "Operario", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 2, Codigo = "SUPV", Nombre = "Supervisor", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 3, Codigo = "AUX", Nombre = "Auxiliar", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 4, Codigo = "ANAL", Nombre = "Analista", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 1, Codigo = "OPER", Nombre = "OPERARIO", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 2, Codigo = "SUPV", Nombre = "SUPERVISOR", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 3, Codigo = "AUX", Nombre = "AUXILIAR", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 4, Codigo = "ANAL", Nombre = "Analista", Activo = false, CreadoEn = Origen },
 
-            new Puesto { Id = 10, EmpresaId = 1, Codigo = "26001", Nombre = "Operario de producción", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 11, EmpresaId = 1, Codigo = "26002", Nombre = "Operador transpalet", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 12, EmpresaId = 1, Codigo = "26006", Nombre = "Operario de máquina", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 13, EmpresaId = 1, Codigo = "26007", Nombre = "Operario transpalet", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 14, EmpresaId = 1, Codigo = "26104", Nombre = "Coordinador de producción", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 15, EmpresaId = 1, Codigo = "26148", Nombre = "Inspector SSOMA", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 16, EmpresaId = 1, Codigo = "26216", Nombre = "Supervisor", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 17, EmpresaId = 1, Codigo = "26223", Nombre = "Supervisor de producción", Activo = true, CreadoEn = Origen },
-            new Puesto { Id = 18, EmpresaId = 1, Codigo = "26229", Nombre = "Supervisor SSOMA", Activo = true, CreadoEn = Origen });
+            new Puesto { Id = 40, Codigo = "OPEMAQ", Nombre = "OPERARIO DE MÁQUINA", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 41, Codigo = "OPETRA", Nombre = "OPERARIO TRASPALET", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 42, Codigo = "SUPPRO", Nombre = "SUPERVISOR DE PRODUCCIÓN", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 43, Codigo = "SUPSSO", Nombre = "SUPERVISOR SSOMA", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 44, Codigo = "INSSSO", Nombre = "INSPECTOR SSOMA", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 45, Codigo = "COORD", Nombre = "COORDINADOR", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 46, Codigo = "CORRHH", Nombre = "COORDINADOR RRHH", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 47, Codigo = "BATID", Nombre = "BATIDOR", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 48, Codigo = "BOLET", Nombre = "BOLETERA", Activo = true, CreadoEn = Origen },
+            new Puesto { Id = 49, Codigo = "EMPL", Nombre = "EMPLEADO", Activo = true, CreadoEn = Origen },
+
+            // Retirados: códigos de planilla de Consulting Advisers…
+            new Puesto { Id = 10, EmpresaId = 1, Codigo = "26001", Nombre = "Operario de producción", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 11, EmpresaId = 1, Codigo = "26002", Nombre = "Operador transpalet", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 12, EmpresaId = 1, Codigo = "26006", Nombre = "Operario de máquina", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 13, EmpresaId = 1, Codigo = "26007", Nombre = "Operario transpalet", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 14, EmpresaId = 1, Codigo = "26104", Nombre = "Coordinador de producción", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 15, EmpresaId = 1, Codigo = "26148", Nombre = "Inspector SSOMA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 16, EmpresaId = 1, Codigo = "26216", Nombre = "Supervisor", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 17, EmpresaId = 1, Codigo = "26223", Nombre = "Supervisor de producción", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 18, EmpresaId = 1, Codigo = "26229", Nombre = "Supervisor SSOMA", Activo = false, CreadoEn = Origen },
+
+            // …y los textos de los padrones del 18/09/2026, que eran uno por empresa.
+            new Puesto { Id = 20, EmpresaId = 1, Codigo = "CA-OPERARIO", Nombre = "OPERARIO", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 21, EmpresaId = 1, Codigo = "CA-OMAQUINA", Nombre = "O. MAQUINA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 22, EmpresaId = 1, Codigo = "CA-OTRASPALET", Nombre = "O. TRASPALET", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 23, EmpresaId = 1, Codigo = "CA-SSOMA", Nombre = "SSOMA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 24, EmpresaId = 1, Codigo = "CA-COORDINADOR", Nombre = "COORDINADOR", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 25, EmpresaId = 1, Codigo = "CA-BATIDOR", Nombre = "BATIDOR", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 26, EmpresaId = 1, Codigo = "CA-COORDRRHH", Nombre = "COORD. RRHH", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 27, EmpresaId = 1, Codigo = "CA-BOLETERA", Nombre = "BOLETERA", Activo = false, CreadoEn = Origen },
+
+            new Puesto { Id = 30, EmpresaId = 2, Codigo = "CAO-OPERARIO", Nombre = "OPERARIO", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 31, EmpresaId = 2, Codigo = "CAO-MAQUINISTA", Nombre = "MAQUINISTA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 32, EmpresaId = 2, Codigo = "CAO-SUPERVISOR", Nombre = "SUPERVISOR", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 33, EmpresaId = 2, Codigo = "CAO-INSPSSOMA", Nombre = "INSPECTOR SSOMA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 34, EmpresaId = 2, Codigo = "CAO-TRASPALETIS", Nombre = "TRASPALETISTA", Activo = false, CreadoEn = Origen },
+            new Puesto { Id = 35, EmpresaId = 2, Codigo = "CAO-EMPLEADO", Nombre = "EMPLEADO", Activo = false, CreadoEn = Origen });
     }
 
     /// <summary>
@@ -190,12 +268,16 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
     {
         // Las descripciones no vienen en el archivo de SAP (solo trae el código de centro):
         // las entregó GCA aparte, y son las que llenan "Texto Centro" en el tareo final.
+        //
+        // PlantaId dice a qué planta atiende cada centro; Intracloro no tiene planta en el
+        // sistema. Es lo que desempata un código de centro de costo repetido en varios
+        // centros de la misma empresa.
         modelBuilder.Entity<Centro>().HasData(
             new Centro { Id = 1, EmpresaId = 2, Codigo = "066D", Descripcion = "PLANTA INTRACLORO", Activo = true, CreadoEn = Origen },
-            new Centro { Id = 2, EmpresaId = 2, Codigo = "066E", Descripcion = "CENTRO LURÍN", Activo = true, CreadoEn = Origen },
-            new Centro { Id = 3, EmpresaId = 2, Codigo = "066F", Descripcion = "PLANTA SULFONACIÓN", Activo = true, CreadoEn = Origen },
-            new Centro { Id = 4, EmpresaId = 1, Codigo = "066G", Descripcion = "PLANTA DETERGENTES LURÍN", Activo = true, CreadoEn = Origen },
-            new Centro { Id = 5, EmpresaId = 1, Codigo = "066H", Descripcion = "PLANTA INTRACAN/FEM", Activo = true, CreadoEn = Origen });
+            new Centro { Id = 2, EmpresaId = 2, PlantaId = 3, Codigo = "066E", Descripcion = "CENTRO LURÍN", Activo = true, CreadoEn = Origen },
+            new Centro { Id = 3, EmpresaId = 2, PlantaId = 4, Codigo = "066F", Descripcion = "PLANTA SULFONACIÓN", Activo = true, CreadoEn = Origen },
+            new Centro { Id = 4, EmpresaId = 1, PlantaId = 1, Codigo = "066G", Descripcion = "PLANTA DETERGENTES LURÍN", Activo = true, CreadoEn = Origen },
+            new Centro { Id = 5, EmpresaId = 1, PlantaId = 2, Codigo = "066H", Descripcion = "PLANTA INTRACAN/FEM", Activo = true, CreadoEn = Origen });
 
         modelBuilder.Entity<CentroCosto>().HasData(
             new CentroCosto { Id = 1, CentroId = 1, Codigo = "PE21400700", Descripcion = "PRODUCCIÓN PET RECICLADO", Activo = true, CreadoEn = Origen },
@@ -303,7 +385,19 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
             new CentroCosto { Id = 103, CentroId = 5, Codigo = "PE21420505", Descripcion = "ALMACÉN EEIIREP INTRACAN", Activo = true, CreadoEn = Origen },
             new CentroCosto { Id = 104, CentroId = 5, Codigo = "PE21430001", Descripcion = "GERENCIA DE LA PRODUCCIÓN", Activo = true, CreadoEn = Origen },
             new CentroCosto { Id = 105, CentroId = 5, Codigo = "PE21430006", Descripcion = "GASTOS COVID", Activo = true, CreadoEn = Origen },
-            new CentroCosto { Id = 106, CentroId = 5, Codigo = "PE21430011", Descripcion = "SEGURIDAD INDUSTRIAL", Activo = true, CreadoEn = Origen });
+            new CentroCosto { Id = 106, CentroId = 5, Codigo = "PE21430011", Descripcion = "SEGURIDAD INDUSTRIAL", Activo = true, CreadoEn = Origen },
+
+            // No vienen del archivo de SAP: son códigos que los padrones de planta del
+            // 18/09/2026 usan bajo un centro donde SAP no los tenía. Se agregan al centro
+            // de la planta que los usa. Si el código ya existía en otro centro se copia su
+            // descripción de SAP; los dos que no existían en ninguno llevan la del padrón.
+            new CentroCosto { Id = 107, CentroId = 5, Codigo = "PE21400607", Descripcion = "PRODUCCIÓN ETIQUETADO/CODIFICADO", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 108, CentroId = 2, Codigo = "PE21400002", Descripcion = "PASTILLAS WC", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 109, CentroId = 2, Codigo = "PE21400105", Descripcion = "OFERTADO INTRALAB", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 110, CentroId = 2, Codigo = "PE21400705", Descripcion = "ENVASADO WC LIQUIDO", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 111, CentroId = 2, Codigo = "PE21400713", Descripcion = "PASTA DENTAL", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 112, CentroId = 2, Codigo = "PE21400714", Descripcion = "ENV. COSMETIC. ACUOSOS", Activo = true, CreadoEn = Origen },
+            new CentroCosto { Id = 113, CentroId = 2, Codigo = "PE21400716", Descripcion = "MANUFACTURA COSMETICOS ACUOSOS", Activo = true, CreadoEn = Origen });
     }
 
     private static void SembrarTurnos(ModelBuilder modelBuilder)
@@ -383,6 +477,49 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
         // no como condición en el código: extenderlo a otra planta será un INSERT.
         modelBuilder.Entity<TurnoPlanta>().HasData(
             new TurnoPlanta { Id = 1, TurnoId = 3, PlantaId = 3, Activo = true, CreadoEn = Origen });
+
+        // La versión abierta de cada turno: el horario que rige hoy, con vigencia desde una
+        // fecha anterior a todo dato real. El cálculo resuelve el horario por la versión
+        // vigente a la fecha que calcula, así que un turno SIN versión se calcularía con los
+        // valores de hoy — justo el defecto que la vigencia viene a cerrar—. Por eso se
+        // siembran las cinco aquí y no solo en la migración: las pruebas crean la base con
+        // EnsureCreated, que no ejecuta migraciones.
+        SembrarVersionesDeTurno(modelBuilder, AnticipacionEntrada, AnticipacionSalida);
+    }
+
+    private static void SembrarVersionesDeTurno(
+        ModelBuilder modelBuilder,
+        int anticipacionEntrada,
+        int anticipacionSalida)
+    {
+        (long Id, long TurnoId, TimeOnly Inicio, TimeOnly Fin, DiasSemana Dias)[] versiones =
+        [
+            (1, 1, new TimeOnly(7, 0), new TimeOnly(19, 0), DiasSemana.LunesASabado),
+            (2, 2, new TimeOnly(19, 0), new TimeOnly(7, 0), DiasSemana.LunesASabado),
+            (3, 3, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Sabado),
+            (4, 4, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Domingo),
+            (5, 5, new TimeOnly(7, 0), new TimeOnly(19, 0), DiasSemana.Domingo)
+        ];
+
+        modelBuilder.Entity<VersionTurno>().HasData(
+            versiones.Select(v => new VersionTurno
+            {
+                Id = v.Id,
+                TurnoId = v.TurnoId,
+                FechaInicio = VersionTurno.VigenciaOriginal,
+                FechaFin = null,
+                HoraInicio = v.Inicio,
+                HoraFin = v.Fin,
+                MinutosRefrigerio = 0,
+                MinutosTolerancia = 5,
+                MinutosJornadaOrdinaria = 480,
+                MinutosAnticipacionEntrada = anticipacionEntrada,
+                MinutosAnticipacionSalida = anticipacionSalida,
+                MinutosGraciaSalida = 0,
+                DiasAplicables = v.Dias,
+                Activo = true,
+                CreadoEn = Origen
+            }).ToArray());
     }
 
     private static void SembrarCatalogos(ModelBuilder modelBuilder)
@@ -407,7 +544,13 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
             new TipoAusencia { Id = 1, Codigo = "VAC", Nombre = "Vacaciones", Comportamiento = ComportamientoAusencia.JustificadaRemunerada, ComputaComoAsistencia = true, Activo = true, CreadoEn = Origen },
             new TipoAusencia { Id = 2, Codigo = "DM", Nombre = "Descanso médico", Comportamiento = ComportamientoAusencia.Subsidiada, ComputaComoAsistencia = true, RequiereSustento = true, MaximoDiasPorAnioCalendario = 20, Activo = true, CreadoEn = Origen },
             new TipoAusencia { Id = 3, Codigo = "LCG", Nombre = "Licencia con goce", Comportamiento = ComportamientoAusencia.JustificadaRemunerada, ComputaComoAsistencia = true, Activo = true, CreadoEn = Origen },
-            new TipoAusencia { Id = 4, Codigo = "LSG", Nombre = "Licencia sin goce", Comportamiento = ComportamientoAusencia.JustificadaNoRemunerada, ComputaComoAsistencia = true, Activo = true, CreadoEn = Origen },
+            // ⚠️ LSG es el único tipo con ComputaComoAsistencia en falso: la licencia sin
+            // goce justifica la falta pero NO paga el día. Venía en verdadero y el motor le
+            // abonaba la jornada ordinaria completa. Hoy el pago lo decide además el
+            // comportamiento (JustificacionAplicable.PagaJornadaOrdinaria), así que volver a
+            // marcar la casilla desde la pantalla ya no vuelve a pagarla; la semilla se
+            // corrige igual para que el catálogo diga lo que el sistema hace.
+            new TipoAusencia { Id = 4, Codigo = "LSG", Nombre = "Licencia sin goce", Comportamiento = ComportamientoAusencia.JustificadaNoRemunerada, ComputaComoAsistencia = false, Activo = true, CreadoEn = Origen },
             new TipoAusencia { Id = 5, Codigo = "PER", Nombre = "Permiso", Comportamiento = ComportamientoAusencia.PermisoParcial, ComputaComoAsistencia = true, EsPorHoras = true, Activo = true, CreadoEn = Origen },
             new TipoAusencia { Id = 6, Codigo = "LPAT", Nombre = "Licencia paternal", Comportamiento = ComportamientoAusencia.JustificadaRemunerada, ComputaComoAsistencia = true, RequiereSustento = true, MaximoDiasPorEvento = 10, Activo = true, CreadoEn = Origen },
             new TipoAusencia { Id = 7, Codigo = "LMAT", Nombre = "Licencia por maternidad", Comportamiento = ComportamientoAusencia.JustificadaRemunerada, ComputaComoAsistencia = true, RequiereSustento = true, MaximoDiasPorEvento = 98, Activo = true, CreadoEn = Origen },

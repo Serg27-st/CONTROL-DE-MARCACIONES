@@ -17,6 +17,7 @@
         TipoJustificacion.Tardanza => "Tardanza",
         TipoJustificacion.MarcacionIncompleta => "Marcación incompleta",
         TipoJustificacion.SalidaAnticipada => "Salida anticipada",
+        TipoJustificacion.PermisoParcial => "Permiso por horas",
         _ => tipo.ToString()
     };
 }
@@ -90,6 +91,7 @@
                         <th>Trabajador</th>
                         <th>Periodo</th>
                         <th>Fecha</th>
+                        <th>Estado</th>
                         <th>Origen</th>
                         <th>Tipo</th>
                         <th>Tipo de ausencia</th>
@@ -107,6 +109,39 @@
                             <td>@j.PeriodoCodigo</td>
                             <td>@j.Fecha.ToString("dd/MM/yyyy")</td>
                             <td>
+                                @*
+                                    Lo primero que hay que poder ver: si esta fila está
+                                    cambiando el tareo o solo lo pide. Sin esta columna, una
+                                    regularización solicitada se veía idéntica a una aplicada.
+                                *@
+                                @if (j.Aplica)
+                                {
+                                    <span class="etiqueta etiqueta-justificada">Aplicada</span>
+                                }
+                                else if (j.EsperaResolucion)
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Esperando autorización</span>
+                                    <br />
+                                    <small class="texto-suave">Todavía no cambia el tareo</small>
+                                }
+                                else if (j.Estado == EstadoJustificacion.Rechazada)
+                                {
+                                    <span class="etiqueta etiqueta-falta">Rechazada</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-sin-horario">Retirada</span>
+                                }
+
+                                @if (j.ResueltaPorUsuario is not null)
+                                {
+                                    <br />
+                                    <small class="texto-suave" title="@j.MotivoResolucion">
+                                        @j.ResueltaPorUsuario · @j.ResueltaEn?.ToString("dd/MM/yyyy HH:mm")
+                                    </small>
+                                }
+                            </td>
+                            <td>
                                 @if (j.Origen == OrigenJustificacion.Solicitud)
                                 {
                                     <span class="etiqueta etiqueta-justificada">
@@ -118,7 +153,33 @@
                                     <span class="etiqueta etiqueta-incompleto">Manual</span>
                                 }
                             </td>
-                            <td>@NombreTipo(j.Tipo)</td>
+                            <td>
+                                @NombreTipo(j.Tipo)
+
+                                @*
+                                    En una regularización, la corrección ES la hora. Sin
+                                    mostrarla, la fila dice «marcación regularizada» y no qué
+                                    se corrigió, que es lo único que se viene a auditar aquí.
+                                *@
+                                @if (j.EsRegularizacion)
+                                {
+                                    <br />
+                                    <small class="texto-suave">
+                                        @if (j.EntradaRegularizada is { } entrada)
+                                        {
+                                            <text>entrada @entrada.ToString("dd/MM HH:mm")</text>
+                                        }
+                                        @if (j.EntradaRegularizada is not null && j.SalidaRegularizada is not null)
+                                        {
+                                            <text> · </text>
+                                        }
+                                        @if (j.SalidaRegularizada is { } salida)
+                                        {
+                                            <text>salida @salida.ToString("dd/MM HH:mm")</text>
+                                        }
+                                    </small>
+                                }
+                            </td>
                             <td>@(j.TipoAusencia ?? "—")</td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(j.EstadoAnterior))
@@ -138,7 +199,18 @@
                                 </small>
                             </td>
                             <td>
-                                @if (j.EsRetirableAqui)
+                                @if (j.EsperaResolucion && string.Equals(j.RegistradoPorUsuario, User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <form method="post" asp-action="Cancelar" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@j.Id" />
+                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                data-confirmar="@($"¿Retirar la regularización de {j.Trabajador} del {j.Fecha:dd/MM/yyyy}? El día vuelve a quedar libre para pedir otra.")">
+                                            Retirar pedido
+                                        </button>
+                                    </form>
+                                }
+                                else if (j.EsRetirableAqui)
                                 {
                                     <form method="post" asp-action="Eliminar" class="en-linea">
                                         @Html.AntiForgeryToken()

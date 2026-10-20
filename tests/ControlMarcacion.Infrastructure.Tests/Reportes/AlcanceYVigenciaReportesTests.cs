@@ -341,7 +341,147 @@ public sealed class AlcanceYVigenciaReportesTests : IDisposable
         var cargadaEn = await AgregarMarcacionAsync(trabajadorId, new DateOnly(2026, 8, 12));
 
         await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 10), EstadoTareo.Puntual,
-            calculadoEn: cargadaEn.AddHours(-2));
+            calculadoEn: cargadaEn.AddHours(1));
+
+        var metadatos = await servicio.ObtenerMetadatosAsync(
+            FiltroPeriodo(), "prueba", CancellationToken.None);
+
+        metadatos.Calculo.EstaAlDia.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// Una rotación anotada después del cálculo, con fecha dentro del rango, lo desactualiza.
+    /// </summary>
+    /// <remarks>
+    /// Es lo que habilita «Rige desde» en el turno: cambiar el turno de días ya calculados.
+    /// El turno decide qué marcas son la jornada y contra qué horario se comparan, así que
+    /// el tareo de esos días queda viejo hasta recalcular.
+    /// </remarks>
+    [Fact]
+    public async Task Un_cambio_de_turno_que_rige_en_el_rango_desactualiza_el_reporte()
+    {
+        var trabajadorId = await CrearTrabajadorAsync(
+            "10000015", "ROTOENJULIO", ingreso: new DateOnly(2020, 1, 1));
+
+        var registradaEn = await AgregarAsignacionTurnoAsync(trabajadorId, new DateOnly(2026, 7, 20));
+
+        await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 20), EstadoTareo.Puntual,
+            calculadoEn: registradaEn.AddHours(-2));
+
+        var metadatos = await servicio.ObtenerMetadatosAsync(
+            FiltroPeriodo(), "prueba", CancellationToken.None);
+
+        metadatos.Calculo.Desactualizado.ShouldBeTrue();
+        metadatos.Calculo.MotivoUltimoCambio.ShouldBe("un cambio de turno que rige en esas fechas");
+    }
+
+    [Fact]
+    public async Task Un_cambio_de_turno_que_rige_despues_del_rango_no_lo_desactualiza()
+    {
+        var trabajadorId = await CrearTrabajadorAsync(
+            "10000016", "ROTAENAGOSTO", ingreso: new DateOnly(2020, 1, 1));
+
+        var registradaEn = await AgregarAsignacionTurnoAsync(trabajadorId, new DateOnly(2026, 8, 3));
+
+        await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 20), EstadoTareo.Puntual,
+            calculadoEn: registradaEn.AddHours(1));
+
+        var metadatos = await servicio.ObtenerMetadatosAsync(
+            FiltroPeriodo(), "prueba", CancellationToken.None);
+
+        metadatos.Calculo.EstaAlDia.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// Editar un turno que alguien tiene en el rango —fijar la gracia de salida, por
+    /// ejemplo— desactualiza el reporte.
+    /// </summary>
+    /// <remarks>
+    /// El turno no tiene vigencia por fecha: cambiar su horario o su gracia cambia el
+    /// cálculo de todos los días de quienes lo tienen, y el tareo de esos días queda viejo
+    /// hasta recalcular.
+    /// </remarks>
+    [Fact]
+    public async Task Editar_un_turno_asignado_en_el_rango_desactualiza_el_reporte()
+    {
+        var trabajadorId = await CrearTrabajadorAsync(
+            "10000017", "CONGRACIA", ingreso: new DateOnly(2020, 1, 1));
+
+        var asignadaEn = await AgregarAsignacionTurnoAsync(trabajadorId, new DateOnly(2020, 1, 1));
+
+        await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 20), EstadoTareo.Puntual,
+            calculadoEn: asignadaEn);
+
+        var nocturno = await contexto.Turnos.SingleAsync(t => t.Id == 2, CancellationToken.None);
+        nocturno.MinutosGraciaSalida = 15;
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        var metadatos = await servicio.ObtenerMetadatosAsync(
+            FiltroPeriodo(), "prueba", CancellationToken.None);
+
+        metadatos.Calculo.Desactualizado.ShouldBeTrue();
+        metadatos.Calculo.MotivoUltimoCambio.ShouldBe("una edición de un turno que rige en esas fechas");
+    }
+
+    /// <summary>
+    /// Programar o correr el ciclo de una cuadrilla con fecha dentro del rango cambia el
+    /// turno de sus integrantes en días ya calculados.
+    /// </summary>
+    [Fact]
+    public async Task Un_cambio_en_la_programacion_de_una_cuadrilla_desactualiza_el_reporte()
+    {
+        var trabajadorId = await CrearTrabajadorAsync(
+            "10000019", "ENCUADRILLA", ingreso: new DateOnly(2020, 1, 1));
+
+        var cuadrilla = new Cuadrilla { Codigo = "A", Nombre = "Cuadrilla A", PlantaId = PlantaP01 };
+        await contexto.Cuadrillas.AddAsync(cuadrilla, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        var asignacion = new AsignacionTurno
+        {
+            TrabajadorId = trabajadorId,
+            CuadrillaId = cuadrilla.Id,
+            FechaInicio = new DateOnly(2020, 1, 1)
+        };
+        await contexto.AsignacionesTurno.AddAsync(asignacion, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 20), EstadoTareo.Puntual,
+            calculadoEn: asignacion.CreadoEn);
+
+        var programacion = new ProgramacionCuadrilla
+        {
+            CuadrillaId = cuadrilla.Id,
+            FechaInicio = new DateOnly(2026, 7, 20),
+            FechaAncla = new DateOnly(2026, 7, 20)
+        };
+        programacion.Tramos.Add(new TramoRotacion { Orden = 1, TurnoId = 2, Dias = 14 });
+
+        await contexto.ProgramacionesCuadrilla.AddAsync(programacion, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        var metadatos = await servicio.ObtenerMetadatosAsync(
+            FiltroPeriodo(), "prueba", CancellationToken.None);
+
+        metadatos.Calculo.Desactualizado.ShouldBeTrue();
+        metadatos.Calculo.MotivoUltimoCambio.ShouldBe("un cambio en la programación de una cuadrilla en esas fechas");
+    }
+
+    [Fact]
+    public async Task Editar_un_turno_que_nadie_tiene_en_el_rango_no_desactualiza_el_reporte()
+    {
+        var trabajadorId = await CrearTrabajadorAsync(
+            "10000018", "SINSABATINO", ingreso: new DateOnly(2020, 1, 1));
+
+        var asignadaEn = await AgregarAsignacionTurnoAsync(trabajadorId, new DateOnly(2020, 1, 1));
+
+        await AgregarTareoAsync(trabajadorId, new DateOnly(2026, 7, 20), EstadoTareo.Puntual,
+            calculadoEn: asignadaEn);
+
+        // El sabatino (3) no lo tiene nadie.
+        var sabatino = await contexto.Turnos.SingleAsync(t => t.Id == 3, CancellationToken.None);
+        sabatino.MinutosGraciaSalida = 15;
+        await contexto.SaveChangesAsync(CancellationToken.None);
 
         var metadatos = await servicio.ObtenerMetadatosAsync(
             FiltroPeriodo(), "prueba", CancellationToken.None);
@@ -410,6 +550,7 @@ public sealed class AlcanceYVigenciaReportesTests : IDisposable
             MotivoCese = cese is null ? null : MotivoCese.RenunciaVoluntaria
         };
 
+        trabajador.AbrirVinculo("prueba");
         await contexto.Trabajadores.AddAsync(trabajador, CancellationToken.None);
         await contexto.SaveChangesAsync(CancellationToken.None);
 
@@ -440,6 +581,20 @@ public sealed class AlcanceYVigenciaReportesTests : IDisposable
     }
 
     /// <summary>
+    /// Abre una asignación de turno nocturno desde <paramref name="desde"/> y devuelve la
+    /// marca de creación que le puso el contexto, por lo mismo que <see cref="AgregarMarcacionAsync"/>.
+    /// </summary>
+    private async Task<DateTime> AgregarAsignacionTurnoAsync(long trabajadorId, DateOnly desde)
+    {
+        var asignacion = new AsignacionTurno { TrabajadorId = trabajadorId, TurnoId = 2, FechaInicio = desde };
+
+        await contexto.AsignacionesTurno.AddAsync(asignacion, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        return asignacion.CreadoEn;
+    }
+
+    /// <summary>
     /// Carga una marcación y devuelve <b>la marca de creación que le puso el contexto</b>.
     /// </summary>
     /// <remarks>
@@ -449,6 +604,14 @@ public sealed class AlcanceYVigenciaReportesTests : IDisposable
     /// </remarks>
     private async Task<DateTime> AgregarMarcacionAsync(long trabajadorId, DateOnly fecha)
     {
+        await contexto.AsignacionesMarcador.AddAsync(new AsignacionMarcador
+        {
+            TrabajadorId = trabajadorId,
+            IdMarcador = "001",
+            FechaInicio = new DateOnly(2020, 1, 1)
+        }, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
         var importacion = new ImportacionMarcador
         {
             NombreArchivo = "attlog.txt",
@@ -462,7 +625,6 @@ public sealed class AlcanceYVigenciaReportesTests : IDisposable
 
         var marcacion = new MarcacionCruda
         {
-            TrabajadorId = trabajadorId,
             IdMarcador = "001",
             FechaHora = fecha.ToDateTime(new TimeOnly(7, 0)),
             ImportacionId = importacion.Id

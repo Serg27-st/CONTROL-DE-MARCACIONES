@@ -40,7 +40,12 @@ internal static class RespaldoDePrueba
     /// <param name="Fecha">Fecha y hora de la marcación.</param>
     /// <param name="Verificacion">Modo de verificación.</param>
     /// <param name="Tipo">Tipo de marcación.</param>
-    public sealed record Marca(uint Id, DateTime Fecha, byte Verificacion = 1, byte Tipo = 1);
+    public sealed record Marca(
+        uint Id,
+        DateTime Fecha,
+        byte Verificacion = 1,
+        byte Tipo = 1,
+        ushort Evento = 3);
 
     /// <summary>
     /// Codifica una fecha como la codifica el equipo.
@@ -111,8 +116,8 @@ internal static class RespaldoDePrueba
         offset += 4;
         registro[offset++] = marca.Verificacion;                           // campo 3 (1)
         registro[offset++] = marca.Tipo;                                   // campo 4 (1)
-        registro[offset++] = 3;                                            // campo 5 (1)
-        registro[offset++] = 0;                                            // campo 6 (1)
+        registro[offset++] = (byte)(marca.Evento & 0xff);                   // campo 5 (1)
+        registro[offset++] = (byte)(marca.Evento >> 8);                     // campo 6 (1)
         BitConverter.GetBytes(CodificarTiempo(marca.Fecha)).CopyTo(registro, offset); // campo 7
 
         return registro;

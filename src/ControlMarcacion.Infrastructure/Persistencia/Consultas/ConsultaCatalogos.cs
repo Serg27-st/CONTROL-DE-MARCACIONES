@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia.Consultas;
 
-internal sealed class ConsultaCatalogos(MarcacionDbContext contexto) : IConsultaCatalogos
+internal sealed class ConsultaCatalogos(
+    MarcacionDbContext contexto,
+    IProveedorAlcancePlantas alcance) : IConsultaCatalogos
 {
     public async Task<IReadOnlyList<TipoDocumentoOpcionDto>> TiposDocumentoAsync(
         CancellationToken cancelacion = default) =>
@@ -127,48 +129,76 @@ internal sealed class ConsultaCatalogos(MarcacionDbContext contexto) : IConsulta
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-    public async Task<IReadOnlyList<OpcionTextoDto>> MarcadoresAsync(
-        long? plantaId,
-        string? incluirCodigo = null,
+    public async Task<IReadOnlyList<CuadrillaOpcionDto>> CuadrillasActivasAsync(
+        CancellationToken cancelacion = default) =>
+        await contexto.Cuadrillas
+            .AsNoTracking()
+            .Where(c => c.Activo)
+            .OrderBy(c => c.Planta!.Nombre)
+            .ThenBy(c => c.Nombre)
+            .Select(c => new CuadrillaOpcionDto(c.Id, c.Codigo, c.Nombre, c.PlantaId, c.Planta!.Nombre, c.Activo))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    public async Task<CuadrillaOpcionDto?> CuadrillaPorIdAsync(long id, CancellationToken cancelacion = default) =>
+        await contexto.Cuadrillas
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new CuadrillaOpcionDto(c.Id, c.Codigo, c.Nombre, c.PlantaId, c.Planta!.Nombre, c.Activo))
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<EquipoOpcionDto>> EquiposActivosAsync(
         CancellationToken cancelacion = default)
     {
-        var forzado = string.IsNullOrWhiteSpace(incluirCodigo) ? null : incluirCodigo.Trim();
-
-        return await contexto.Marcadores
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+        var consulta = contexto.EquiposMarcador
             .AsNoTracking()
-            .Where(m => (m.Activo && (plantaId == null || m.PlantaId == plantaId))
-                // El código que el trabajador ya tiene asignado entra siempre, aunque
-                // esté inactivo o sea de otra planta: ver IConsultaCatalogos.
-                || (forzado != null && m.Codigo == forzado))
-            .OrderBy(m => m.Codigo)
-            .Select(m => new OpcionTextoDto(
-                m.Codigo,
-                m.Descripcion == null ? m.Codigo : m.Codigo + " - " + m.Descripcion))
+            .Where(e => e.Activo);
+
+        if (plantasVisibles is not null)
+        {
+            consulta = consulta.Where(e => plantasVisibles.Contains(e.PlantaId));
+        }
+
+        return await consulta
+            .OrderBy(e => e.Planta!.Nombre)
+            .ThenBy(e => e.Nombre)
+            .Select(e => new EquipoOpcionDto(
+                e.Id,
+                e.Codigo,
+                e.Nombre,
+                e.PlantaId,
+                e.Planta!.Nombre))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
     }
 
-    public async Task<MarcadorCatalogoDto?> MarcadorPorCodigoAsync(
+    public async Task<IReadOnlyList<MarcadorCatalogoDto>> MarcadoresPorCodigoAsync(
         string codigo,
+        long plantaId,
         CancellationToken cancelacion = default)
     {
         if (string.IsNullOrWhiteSpace(codigo))
         {
-            return null;
+            return [];
         }
 
         var buscado = codigo.Trim();
 
         return await contexto.Marcadores
             .AsNoTracking()
-            .Where(m => m.Codigo == buscado)
+            .Where(m => m.Codigo == buscado && m.PlantaId == plantaId)
+            .OrderBy(m => m.Equipo!.Nombre)
             .Select(m => new MarcadorCatalogoDto(
                 m.Id,
                 m.Codigo,
+                m.EquipoId,
+                m.Equipo!.Nombre,
                 m.PlantaId,
                 m.Planta!.Nombre,
                 m.Activo))
-            .FirstOrDefaultAsync(cancelacion)
+            .ToListAsync(cancelacion)
             .ConfigureAwait(false);
     }
 }

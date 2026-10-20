@@ -1,3 +1,4 @@
+using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Marcaciones;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -21,13 +22,20 @@ public class MarcacionCrudaConfiguracion : IEntityTypeConfiguration<MarcacionCru
         // Es la defensa REAL contra recargar dos veces el mismo TXT. No lo sustituyas
         // por una validación en C#: entre la comprobación y el INSERT hay una ventana,
         // y una carga concurrente duplicaría marcaciones que luego inflan horas extras.
+        //
+        // ⚠️ EquipoId forma parte de la clave, y no es opcional. Sin él, dos aparatos que
+        // numeran a su gente desde el 1 producen marcaciones legítimamente distintas —el
+        // usuario 14 del A-L y el 14 del M-Z, a la misma hora— que el índice tomaría por
+        // repetidas y descartaría en silencio, contadas como "duplicadas" en el resumen
+        // de la carga. Se pierde media planta sin un solo error a la vista.
         // ---------------------------------------------------------------------------
-        builder.HasIndex(m => new { m.TrabajadorId, m.FechaHora, m.IdMarcador })
+        builder.HasIndex(m => new { m.EquipoId, m.IdMarcador, m.FechaHora })
             .IsUnique()
-            .HasDatabaseName("UQ_marcacion_cruda_trabajador_fecha_marcador");
+            .HasDatabaseName("UQ_marcacion_cruda_equipo_marcador_fecha");
 
-        // El motor de cálculo siempre consulta así: trabajador + rango de fechas.
-        builder.HasIndex(m => new { m.TrabajadorId, m.FechaHora });
+        // El motor de cálculo consulta por el índice único de arriba —aparato, número y
+        // rango de fechas—: la marcación ya no guarda el trabajador, se atribuye al calcular
+        // (ver AtribucionMarcaciones).
 
         // Barridos por rango para reportes de marcaciones crudas.
         builder.HasIndex(m => m.FechaHora);
@@ -41,6 +49,11 @@ public class MarcacionCrudaConfiguracion : IEntityTypeConfiguration<MarcacionCru
             .WithMany()
             .HasForeignKey(m => m.ImportacionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(m => m.Equipo)
+            .WithMany()
+            .HasForeignKey(m => m.EquipoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -53,6 +66,8 @@ public class ImportacionMarcadorConfiguracion : IEntityTypeConfiguration<Importa
 
         builder.Property(i => i.NombreArchivo).HasMaxLength(260).IsRequired();
         builder.Property(i => i.HashContenido).HasMaxLength(64).IsRequired();
+        builder.Property(i => i.SerieArchivo).HasMaxLength(60);
+        builder.Property(i => i.OrigenVerificado).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(i => i.CargadoPorUsuario).HasMaxLength(60).IsRequired();
         builder.Property(i => i.MotivoAnulacion).HasMaxLength(300);
         builder.Property(i => i.AnuladaPorUsuario).HasMaxLength(60);
@@ -70,6 +85,15 @@ public class ImportacionMarcadorConfiguracion : IEntityTypeConfiguration<Importa
             .WithOne()
             .HasForeignKey(e => e.ImportacionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(i => i.Equipo)
+            .WithMany()
+            .HasForeignKey(i => i.EquipoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // El calendario de cobertura y el historial se consultan por equipo cuando hay
+        // más de un aparato en la planta: "¿qué días trae el marcador A-L?".
+        builder.HasIndex(i => new { i.EquipoId, i.FechaCarga });
     }
 }
 

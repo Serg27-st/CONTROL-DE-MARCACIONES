@@ -165,6 +165,12 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("calculado_en");
 
+                    b.Property<string>("CoincidenciaFeriadoDescanso")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("coincidencia_feriado_descanso");
+
                     b.Property<DateTime>("CreadoEn")
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_en");
@@ -177,6 +183,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Property<DateTime?>("EntradaReal")
                         .HasColumnType("TEXT")
                         .HasColumnName("entrada_real");
+
+                    b.Property<bool>("EsDescansoProgramado")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("es_descanso_programado");
 
                     b.Property<string>("Estado")
                         .IsRequired()
@@ -191,6 +201,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Property<long?>("JustificacionId")
                         .HasColumnType("INTEGER")
                         .HasColumnName("justificacion_id");
+
+                    b.Property<int>("MarcacionesFueraVentana")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("marcaciones_fuera_ventana");
 
                     b.Property<int>("MinutosExtra25")
                         .HasColumnType("INTEGER")
@@ -246,6 +260,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("INTEGER")
                         .HasColumnName("periodo_id");
 
+                    b.Property<bool>("RequiereValidacion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("requiere_validacion");
+
                     b.Property<DateTime?>("SalidaReal")
                         .HasColumnType("TEXT")
                         .HasColumnName("salida_real");
@@ -255,6 +273,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasMaxLength(20)
                         .HasColumnType("TEXT")
                         .HasColumnName("tipo_dia_no_laborable");
+
+                    b.Property<string>("TipoIncidencia")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tipo_incidencia");
 
                     b.Property<long>("TrabajadorId")
                         .HasColumnType("INTEGER")
@@ -272,6 +295,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("PeriodoId", "Estado")
                         .HasDatabaseName("ix_tareo_diario_periodo_id_estado");
+
+                    b.HasIndex("PeriodoId", "RequiereValidacion")
+                        .HasDatabaseName("ix_tareo_diario_pendientes_de_validacion")
+                        .HasFilter("requiere_validacion = 1");
 
                     b.HasIndex("TrabajadorId", "Fecha")
                         .IsUnique()
@@ -335,6 +362,134 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasDatabaseName("ix_registro_auditoria_tabla_clave_registro_fecha_hora");
 
                     b.ToTable("registro_auditoria", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Cuadrilla", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("nombre");
+
+                    b.Property<long>("PlantaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planta_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cuadrilla");
+
+                    b.HasIndex("PlantaId", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cuadrilla_planta_id_codigo");
+
+                    b.ToTable("cuadrilla", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.EquipoMarcador", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("descripcion");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("nombre");
+
+                    b.Property<long>("PlantaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planta_id");
+
+                    b.Property<string>("Serie")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("serie");
+
+                    b.HasKey("Id")
+                        .HasName("pk_equipo_marcador");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_equipo_marcador_codigo");
+
+                    b.HasIndex("Serie")
+                        .IsUnique()
+                        .HasDatabaseName("uq_equipo_marcador_serie")
+                        .HasFilter("[serie] IS NOT NULL");
+
+                    b.HasIndex("PlantaId", "Activo")
+                        .HasDatabaseName("ix_equipo_marcador_planta_id_activo");
+
+                    b.ToTable("equipo_marcador", (string)null);
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Feriado", b =>
@@ -420,6 +575,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("descripcion");
 
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
                     b.Property<DateTime?>("ModificadoEn")
                         .HasColumnType("TEXT")
                         .HasColumnName("modificado_en");
@@ -436,9 +595,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.HasKey("Id")
                         .HasName("pk_marcador");
 
-                    b.HasIndex("Codigo")
+                    b.HasIndex("EquipoId", "Codigo")
                         .IsUnique()
-                        .HasDatabaseName("ix_marcador_codigo");
+                        .HasDatabaseName("uq_marcador_equipo_codigo");
 
                     b.HasIndex("PlantaId", "Activo")
                         .HasDatabaseName("ix_marcador_planta_id_activo");
@@ -524,6 +683,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("reabierto_por");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
                     b.HasKey("Id")
                         .HasName("pk_periodo");
 
@@ -546,8 +710,63 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Estado = "Abierto",
                             FechaFin = new DateOnly(2026, 7, 31),
                             FechaInicio = new DateOnly(2026, 7, 1),
-                            Nombre = "Julio 2026"
+                            Nombre = "Julio 2026",
+                            Version = 0
                         });
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.ProgramacionCuadrilla", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long>("CuadrillaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cuadrilla_id");
+
+                    b.Property<DateOnly>("FechaAncla")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_ancla");
+
+                    b.Property<DateOnly?>("FechaFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.HasKey("Id")
+                        .HasName("pk_programacion_cuadrilla");
+
+                    b.HasIndex("CuadrillaId", "FechaInicio", "FechaFin")
+                        .HasDatabaseName("ix_programacion_cuadrilla_cuadrilla_id_fecha_inicio_fecha_fin");
+
+                    b.ToTable("programacion_cuadrilla", (string)null);
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Puesto", b =>
@@ -611,7 +830,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Activo = true,
                             Codigo = "OPER",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Nombre = "Operario"
+                            Nombre = "OPERARIO"
                         },
                         new
                         {
@@ -619,7 +838,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Activo = true,
                             Codigo = "SUPV",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Nombre = "Supervisor"
+                            Nombre = "SUPERVISOR"
                         },
                         new
                         {
@@ -627,20 +846,100 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Activo = true,
                             Codigo = "AUX",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Nombre = "Auxiliar"
+                            Nombre = "AUXILIAR"
                         },
                         new
                         {
                             Id = 4L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "ANAL",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "Analista"
                         },
                         new
                         {
-                            Id = 10L,
+                            Id = 40L,
                             Activo = true,
+                            Codigo = "OPEMAQ",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "OPERARIO DE MÁQUINA"
+                        },
+                        new
+                        {
+                            Id = 41L,
+                            Activo = true,
+                            Codigo = "OPETRA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "OPERARIO TRASPALET"
+                        },
+                        new
+                        {
+                            Id = 42L,
+                            Activo = true,
+                            Codigo = "SUPPRO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "SUPERVISOR DE PRODUCCIÓN"
+                        },
+                        new
+                        {
+                            Id = 43L,
+                            Activo = true,
+                            Codigo = "SUPSSO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "SUPERVISOR SSOMA"
+                        },
+                        new
+                        {
+                            Id = 44L,
+                            Activo = true,
+                            Codigo = "INSSSO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "INSPECTOR SSOMA"
+                        },
+                        new
+                        {
+                            Id = 45L,
+                            Activo = true,
+                            Codigo = "COORD",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "COORDINADOR"
+                        },
+                        new
+                        {
+                            Id = 46L,
+                            Activo = true,
+                            Codigo = "CORRHH",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "COORDINADOR RRHH"
+                        },
+                        new
+                        {
+                            Id = 47L,
+                            Activo = true,
+                            Codigo = "BATID",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "BATIDOR"
+                        },
+                        new
+                        {
+                            Id = 48L,
+                            Activo = true,
+                            Codigo = "BOLET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "BOLETERA"
+                        },
+                        new
+                        {
+                            Id = 49L,
+                            Activo = true,
+                            Codigo = "EMPL",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "EMPLEADO"
+                        },
+                        new
+                        {
+                            Id = 10L,
+                            Activo = false,
                             Codigo = "26001",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -649,7 +948,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 11L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26002",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -658,7 +957,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 12L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26006",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -667,7 +966,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 13L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26007",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -676,7 +975,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 14L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26104",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -685,7 +984,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 15L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26148",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -694,7 +993,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 16L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26216",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -703,7 +1002,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 17L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26223",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
@@ -712,11 +1011,137 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 18L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "26229",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
                             Nombre = "Supervisor SSOMA"
+                        },
+                        new
+                        {
+                            Id = 20L,
+                            Activo = false,
+                            Codigo = "CA-OPERARIO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "OPERARIO"
+                        },
+                        new
+                        {
+                            Id = 21L,
+                            Activo = false,
+                            Codigo = "CA-OMAQUINA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "O. MAQUINA"
+                        },
+                        new
+                        {
+                            Id = 22L,
+                            Activo = false,
+                            Codigo = "CA-OTRASPALET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "O. TRASPALET"
+                        },
+                        new
+                        {
+                            Id = 23L,
+                            Activo = false,
+                            Codigo = "CA-SSOMA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "SSOMA"
+                        },
+                        new
+                        {
+                            Id = 24L,
+                            Activo = false,
+                            Codigo = "CA-COORDINADOR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "COORDINADOR"
+                        },
+                        new
+                        {
+                            Id = 25L,
+                            Activo = false,
+                            Codigo = "CA-BATIDOR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "BATIDOR"
+                        },
+                        new
+                        {
+                            Id = 26L,
+                            Activo = false,
+                            Codigo = "CA-COORDRRHH",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "COORD. RRHH"
+                        },
+                        new
+                        {
+                            Id = 27L,
+                            Activo = false,
+                            Codigo = "CA-BOLETERA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 1L,
+                            Nombre = "BOLETERA"
+                        },
+                        new
+                        {
+                            Id = 30L,
+                            Activo = false,
+                            Codigo = "CAO-OPERARIO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "OPERARIO"
+                        },
+                        new
+                        {
+                            Id = 31L,
+                            Activo = false,
+                            Codigo = "CAO-MAQUINISTA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "MAQUINISTA"
+                        },
+                        new
+                        {
+                            Id = 32L,
+                            Activo = false,
+                            Codigo = "CAO-SUPERVISOR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "SUPERVISOR"
+                        },
+                        new
+                        {
+                            Id = 33L,
+                            Activo = false,
+                            Codigo = "CAO-INSPSSOMA",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "INSPECTOR SSOMA"
+                        },
+                        new
+                        {
+                            Id = 34L,
+                            Activo = false,
+                            Codigo = "CAO-TRASPALETIS",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "TRASPALETISTA"
+                        },
+                        new
+                        {
+                            Id = 35L,
+                            Activo = false,
+                            Codigo = "CAO-EMPLEADO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EmpresaId = 2L,
+                            Nombre = "EMPLEADO"
                         });
                 });
 
@@ -840,7 +1265,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Activo = true,
                             Codigo = "LSG",
                             Comportamiento = "JustificadaNoRemunerada",
-                            ComputaComoAsistencia = true,
+                            ComputaComoAsistencia = false,
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EsPorHoras = false,
                             Nombre = "Licencia sin goce",
@@ -1015,6 +1440,79 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         });
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.TramoRotacion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<int>("Dias")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("dias");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("orden");
+
+                    b.Property<long>("ProgramacionId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("programacion_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tipo");
+
+                    b.Property<long?>("TurnoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("turno_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tramo_rotacion");
+
+                    b.HasIndex("TurnoId")
+                        .HasDatabaseName("ix_tramo_rotacion_turno_id");
+
+                    b.HasIndex("ProgramacionId", "Orden")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tramo_rotacion_programacion_id_orden");
+
+                    b.ToTable("tramo_rotacion", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tramo_rotacion_descanso_un_dia", "tipo <> 'Descanso' OR dias = 1");
+
+                            t.HasCheckConstraint("CK_tramo_rotacion_dias_positivos", "dias > 0");
+
+                            t.HasCheckConstraint("CK_tramo_rotacion_orden_positivo", "orden > 0");
+
+                            t.HasCheckConstraint("CK_tramo_rotacion_tipo_turno", "(tipo = 'Trabajo' AND turno_id IS NOT NULL) OR (tipo = 'Descanso' AND turno_id IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Turno", b =>
                 {
                     b.Property<long>("Id")
@@ -1067,6 +1565,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasDefaultValue(5)
                         .HasColumnName("minutos_anticipacion_salida");
 
+                    b.Property<int>("MinutosGraciaSalida")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_gracia_salida");
+
                     b.Property<int>("MinutosJornadaOrdinaria")
                         .HasColumnType("INTEGER")
                         .HasColumnName("minutos_jornada_ordinaria");
@@ -1115,6 +1617,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
                             MinutosJornadaOrdinaria = 480,
                             MinutosRefrigerio = 0,
                             MinutosTolerancia = 5,
@@ -1131,6 +1634,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             HoraInicio = new TimeOnly(19, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
                             MinutosJornadaOrdinaria = 480,
                             MinutosRefrigerio = 0,
                             MinutosTolerancia = 5,
@@ -1147,6 +1651,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
                             MinutosJornadaOrdinaria = 480,
                             MinutosRefrigerio = 0,
                             MinutosTolerancia = 5,
@@ -1163,6 +1668,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
                             MinutosJornadaOrdinaria = 480,
                             MinutosRefrigerio = 0,
                             MinutosTolerancia = 5,
@@ -1179,6 +1685,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
                             MinutosJornadaOrdinaria = 480,
                             MinutosRefrigerio = 0,
                             MinutosTolerancia = 5,
@@ -1246,6 +1753,186 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         });
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.VersionTurno", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<string>("DiasAplicables")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("dias_aplicables");
+
+                    b.Property<DateOnly?>("FechaFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<TimeOnly>("HoraFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("hora_fin");
+
+                    b.Property<TimeOnly>("HoraInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("hora_inicio");
+
+                    b.Property<int>("MinutosAnticipacionEntrada")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_anticipacion_entrada");
+
+                    b.Property<int>("MinutosAnticipacionSalida")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_anticipacion_salida");
+
+                    b.Property<int>("MinutosGraciaSalida")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_gracia_salida");
+
+                    b.Property<int>("MinutosJornadaOrdinaria")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_jornada_ordinaria");
+
+                    b.Property<int>("MinutosRefrigerio")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_refrigerio");
+
+                    b.Property<int>("MinutosTolerancia")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("minutos_tolerancia");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<long>("TurnoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("turno_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_version_turno");
+
+                    b.HasIndex("TurnoId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_version_turno_abierta")
+                        .HasFilter("[fecha_fin] IS NULL AND [activo] = 1");
+
+                    b.HasIndex("TurnoId", "FechaInicio")
+                        .HasDatabaseName("ix_version_turno_turno_id_fecha_inicio");
+
+                    b.ToTable("version_turno", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            Activo = true,
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DiasAplicables = "LunesASabado",
+                            FechaInicio = new DateOnly(2000, 1, 1),
+                            HoraFin = new TimeOnly(19, 0, 0),
+                            HoraInicio = new TimeOnly(7, 0, 0),
+                            MinutosAnticipacionEntrada = 15,
+                            MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
+                            MinutosJornadaOrdinaria = 480,
+                            MinutosRefrigerio = 0,
+                            MinutosTolerancia = 5,
+                            TurnoId = 1L
+                        },
+                        new
+                        {
+                            Id = 2L,
+                            Activo = true,
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DiasAplicables = "LunesASabado",
+                            FechaInicio = new DateOnly(2000, 1, 1),
+                            HoraFin = new TimeOnly(7, 0, 0),
+                            HoraInicio = new TimeOnly(19, 0, 0),
+                            MinutosAnticipacionEntrada = 15,
+                            MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
+                            MinutosJornadaOrdinaria = 480,
+                            MinutosRefrigerio = 0,
+                            MinutosTolerancia = 5,
+                            TurnoId = 2L
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            Activo = true,
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DiasAplicables = "Sabado",
+                            FechaInicio = new DateOnly(2000, 1, 1),
+                            HoraFin = new TimeOnly(15, 0, 0),
+                            HoraInicio = new TimeOnly(7, 0, 0),
+                            MinutosAnticipacionEntrada = 15,
+                            MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
+                            MinutosJornadaOrdinaria = 480,
+                            MinutosRefrigerio = 0,
+                            MinutosTolerancia = 5,
+                            TurnoId = 3L
+                        },
+                        new
+                        {
+                            Id = 4L,
+                            Activo = true,
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DiasAplicables = "Domingo",
+                            FechaInicio = new DateOnly(2000, 1, 1),
+                            HoraFin = new TimeOnly(15, 0, 0),
+                            HoraInicio = new TimeOnly(7, 0, 0),
+                            MinutosAnticipacionEntrada = 15,
+                            MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
+                            MinutosJornadaOrdinaria = 480,
+                            MinutosRefrigerio = 0,
+                            MinutosTolerancia = 5,
+                            TurnoId = 4L
+                        },
+                        new
+                        {
+                            Id = 5L,
+                            Activo = true,
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DiasAplicables = "Domingo",
+                            FechaInicio = new DateOnly(2000, 1, 1),
+                            HoraFin = new TimeOnly(19, 0, 0),
+                            HoraInicio = new TimeOnly(7, 0, 0),
+                            MinutosAnticipacionEntrada = 15,
+                            MinutosAnticipacionSalida = 5,
+                            MinutosGraciaSalida = 0,
+                            MinutosJornadaOrdinaria = 480,
+                            MinutosRefrigerio = 0,
+                            MinutosTolerancia = 5,
+                            TurnoId = 5L
+                        });
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Justificaciones.Justificacion", b =>
                 {
                     b.Property<long>("Id")
@@ -1265,6 +1952,16 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
+
+                    b.Property<DateTime?>("EntradaRegularizada")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("entrada_regularizada");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("estado");
 
                     b.Property<string>("EstadoAnterior")
                         .HasMaxLength(30)
@@ -1294,6 +1991,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("motivo");
 
+                    b.Property<string>("MotivoResolucion")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo_resolucion");
+
                     b.Property<string>("Origen")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1314,10 +2016,23 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("registrado_por_usuario");
 
+                    b.Property<DateTime?>("ResueltaEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resuelta_en");
+
+                    b.Property<string>("ResueltaPorUsuario")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resuelta_por_usuario");
+
                     b.Property<string>("RutaDocumentoSustento")
                         .HasMaxLength(400)
                         .HasColumnType("TEXT")
                         .HasColumnName("ruta_documento_sustento");
+
+                    b.Property<DateTime?>("SalidaRegularizada")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("salida_regularizada");
 
                     b.Property<long?>("SolicitudAusenciaId")
                         .HasColumnType("INTEGER")
@@ -1333,12 +2048,25 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("INTEGER")
                         .HasColumnName("tipo_ausencia_id");
 
+                    b.Property<string>("TipoIncidencia")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tipo_incidencia");
+
                     b.Property<long>("TrabajadorId")
                         .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
                     b.HasKey("Id")
                         .HasName("pk_justificacion");
+
+                    b.HasIndex("Estado")
+                        .HasDatabaseName("ix_justificacion_estado");
 
                     b.HasIndex("PeriodoId")
                         .HasDatabaseName("ix_justificacion_periodo_id");
@@ -1347,7 +2075,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasDatabaseName("ix_justificacion_solicitud_ausencia_id");
 
                     b.HasIndex("TrabajadorId", "Fecha")
-                        .HasDatabaseName("ix_justificacion_trabajador_id_fecha");
+                        .IsUnique()
+                        .HasDatabaseName("ix_justificacion_trabajador_id_fecha")
+                        .HasFilter("estado NOT IN ('Rechazada', 'Cancelada')");
 
                     b.ToTable("justificacion", (string)null);
                 });
@@ -1448,6 +2178,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
                     b.Property<DateTime>("FechaCarga")
                         .HasColumnType("TEXT")
                         .HasColumnName("fecha_carga");
@@ -1494,6 +2228,17 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("nombre_archivo");
 
+                    b.Property<string>("OrigenVerificado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("origen_verificado");
+
+                    b.Property<string>("SerieArchivo")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("serie_archivo");
+
                     b.HasKey("Id")
                         .HasName("pk_importacion_marcador");
 
@@ -1505,6 +2250,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("HashContenido")
                         .HasDatabaseName("ix_importacion_marcador_hash_contenido");
+
+                    b.HasIndex("EquipoId", "FechaCarga")
+                        .HasDatabaseName("ix_importacion_marcador_equipo_id_fecha_carga");
 
                     b.ToTable("importacion_marcador", (string)null);
                 });
@@ -1528,6 +2276,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
 
                     b.Property<DateTime>("FechaHora")
                         .HasColumnType("TEXT")
@@ -1567,10 +2319,6 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("tipo_marcacion");
 
-                    b.Property<long>("TrabajadorId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("trabajador_id");
-
                     b.HasKey("Id")
                         .HasName("pk_marcacion_cruda");
 
@@ -1580,14 +2328,220 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.HasIndex("ImportacionId", "FechaHora")
                         .HasDatabaseName("ix_marcacion_cruda_importacion_id_fecha_hora");
 
-                    b.HasIndex("TrabajadorId", "FechaHora")
-                        .HasDatabaseName("ix_marcacion_cruda_trabajador_id_fecha_hora");
-
-                    b.HasIndex("TrabajadorId", "FechaHora", "IdMarcador")
+                    b.HasIndex("EquipoId", "IdMarcador", "FechaHora")
                         .IsUnique()
-                        .HasDatabaseName("uq_marcacion_cruda_trabajador_fecha_marcador");
+                        .HasDatabaseName("uq_marcacion_cruda_equipo_marcador_fecha");
 
                     b.ToTable("marcacion_cruda", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.ErrorImportacionProvisional", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("ContenidoLinea")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("contenido_linea");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long>("ImportacionProvisionalId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("importacion_provisional_id");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo");
+
+                    b.Property<int>("NumeroLinea")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("numero_linea");
+
+                    b.HasKey("Id")
+                        .HasName("pk_prov_error_importacion");
+
+                    b.HasIndex("ImportacionProvisionalId")
+                        .HasDatabaseName("ix_prov_error_importacion");
+
+                    b.ToTable("prov_error_importacion", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.ImportacionProvisional", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("CargadoPorUsuario")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("cargado_por_usuario");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<DateTime>("FechaCarga")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_carga");
+
+                    b.Property<int>("FilasInsertadas")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("filas_insertadas");
+
+                    b.Property<int>("FilasLeidas")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("filas_leidas");
+
+                    b.Property<int>("FilasRechazadas")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("filas_rechazadas");
+
+                    b.Property<string>("HashContenido")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("hash_contenido");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("nombre_archivo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_prov_importacion");
+
+                    b.HasIndex("HashContenido")
+                        .HasDatabaseName("ix_prov_importacion_hash");
+
+                    b.HasIndex("EquipoId", "FechaCarga")
+                        .HasDatabaseName("ix_prov_importacion_equipo_fecha");
+
+                    b.ToTable("prov_importacion", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.MarcacionProvisional", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<DateTime>("FechaHora")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_hora");
+
+                    b.Property<string>("IdMarcador")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id_marcador");
+
+                    b.Property<long>("ImportacionProvisionalId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("importacion_provisional_id");
+
+                    b.Property<string>("LineaOriginal")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("linea_original");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("ModoVerificacion")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modo_verificacion");
+
+                    b.HasKey("Id")
+                        .HasName("pk_prov_marcacion");
+
+                    b.HasIndex("FechaHora")
+                        .HasDatabaseName("ix_prov_marcacion_fecha");
+
+                    b.HasIndex("ImportacionProvisionalId")
+                        .HasDatabaseName("ix_prov_marcacion_importacion");
+
+                    b.HasIndex("EquipoId", "IdMarcador", "FechaHora")
+                        .IsUnique()
+                        .HasDatabaseName("uq_prov_marcacion_equipo_marcador_fecha");
+
+                    b.ToTable("prov_marcacion", (string)null);
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Normativa.ParametroLegal", b =>
@@ -1860,7 +2814,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 1L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "PROD",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "Producción",
@@ -1869,7 +2823,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 2L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "PROD",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "Producción",
@@ -1878,7 +2832,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 3L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "PROD",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "Producción",
@@ -1896,7 +2850,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 10L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "ENV",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "ENVASADO",
@@ -1905,7 +2859,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 11L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "LAV",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "LAVAVAJILLAS",
@@ -1914,7 +2868,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 12L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "PROC",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "PROCESOS",
@@ -1923,7 +2877,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 13L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "SUPPRO",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "SUP. PRODUCCION",
@@ -1932,7 +2886,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 14L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "VOL",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "VOLANTES",
@@ -1941,7 +2895,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 15L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "INSSSO",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "INSP. SSOMA",
@@ -1950,7 +2904,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 16L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "CRRHH",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "COORD. RRHH",
@@ -1959,11 +2913,308 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 17L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "SUPSSO",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "SUP. SSOMA",
                             PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 20L,
+                            Activo = true,
+                            Codigo = "ENVDET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado Detergentes Lurín",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 21L,
+                            Activo = true,
+                            Codigo = "ENVLAV",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado Lavavajillas en pote",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 22L,
+                            Activo = true,
+                            Codigo = "ENVPOL",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado Polvo/Pulidor",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 23L,
+                            Activo = true,
+                            Codigo = "GINDET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Gastos Indirectos Detergentes / Lavavajilla",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 24L,
+                            Activo = true,
+                            Codigo = "MANDET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Manufactura Detergentes Lurín",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 25L,
+                            Activo = true,
+                            Codigo = "ETIQ",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Etiquetado/Codificado",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 26L,
+                            Activo = true,
+                            Codigo = "SEGDET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Seguridad Detergentes",
+                            PlantaId = 1L
+                        },
+                        new
+                        {
+                            Id = 30L,
+                            Activo = true,
+                            Codigo = "ACAFIB",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Acabados fibras, paños y otros",
+                            PlantaId = 2L
+                        },
+                        new
+                        {
+                            Id = 31L,
+                            Activo = true,
+                            Codigo = "GINDET",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Gastos Indirectos Detergentes / Lavavajilla",
+                            PlantaId = 2L
+                        },
+                        new
+                        {
+                            Id = 32L,
+                            Activo = true,
+                            Codigo = "MANFIB",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Manufactura Fibras",
+                            PlantaId = 2L
+                        },
+                        new
+                        {
+                            Id = 33L,
+                            Activo = true,
+                            Codigo = "ETIQ",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Etiquetado/Codificado",
+                            PlantaId = 2L
+                        },
+                        new
+                        {
+                            Id = 40L,
+                            Activo = true,
+                            Codigo = "CENLUR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Centro Lurin",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 41L,
+                            Activo = true,
+                            Codigo = "ENVAER",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado de Aerosoles/Insecticidas",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 42L,
+                            Activo = true,
+                            Codigo = "ENVLEJ",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado de Lejia",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 43L,
+                            Activo = true,
+                            Codigo = "ENVLIM",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado de Limpiatodo y LavavajillaLiq",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 44L,
+                            Activo = true,
+                            Codigo = "ENVSAN",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "ENVASADO SANITARIOS ACUOSO",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 45L,
+                            Activo = true,
+                            Codigo = "ENVWC",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Envasado WC liquido",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 46L,
+                            Activo = true,
+                            Codigo = "ENVCOS",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "ENVASES COSMETICOS ACUOSOS",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 47L,
+                            Activo = true,
+                            Codigo = "GINLUR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Gastos Indirectos Lurin",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 48L,
+                            Activo = true,
+                            Codigo = "GERPRO",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Gerencia de Produccion",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 49L,
+                            Activo = true,
+                            Codigo = "MANCOS",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Manufactura Cosmeticos Acuosos",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 50L,
+                            Activo = true,
+                            Codigo = "MANPAS",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "MANUFACTURA PASTA DENTAL",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 51L,
+                            Activo = true,
+                            Codigo = "MANSAN",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Manufactura Sanitarios Acuosos",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 52L,
+                            Activo = true,
+                            Codigo = "MEZRES",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Mezclado de Resinas",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 53L,
+                            Activo = true,
+                            Codigo = "OFEINT",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "OFERTADO INTRALAB",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 54L,
+                            Activo = true,
+                            Codigo = "PASWC",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "PASTILLAS WC",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 55L,
+                            Activo = true,
+                            Codigo = "TUBPAS",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "PROD TUBO PASTA DENTAL",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 56L,
+                            Activo = true,
+                            Codigo = "CEPILL",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Cepillos dentales",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 57L,
+                            Activo = true,
+                            Codigo = "ENSAMB",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Ensamblajes",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 58L,
+                            Activo = true,
+                            Codigo = "INYECC",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Inyección",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 59L,
+                            Activo = true,
+                            Codigo = "OFELUR",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "PRODUCCION OFERTADO LURIN 02",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 60L,
+                            Activo = true,
+                            Codigo = "SOPLPE",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "Producción Soplado PE",
+                            PlantaId = 3L
+                        },
+                        new
+                        {
+                            Id = 61L,
+                            Activo = true,
+                            Codigo = "SEGIND",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Nombre = "SEGURIDAD INDUSTRIAL",
+                            PlantaId = 3L
                         });
                 });
 
@@ -2011,8 +3262,15 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("modificado_por");
 
+                    b.Property<long?>("PlantaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planta_id");
+
                     b.HasKey("Id")
                         .HasName("pk_centro");
+
+                    b.HasIndex("PlantaId")
+                        .HasDatabaseName("ix_centro_planta_id");
 
                     b.HasIndex("EmpresaId", "Codigo")
                         .IsUnique()
@@ -2037,7 +3295,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "066E",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Descripcion = "CENTRO LURÍN",
-                            EmpresaId = 2L
+                            EmpresaId = 2L,
+                            PlantaId = 3L
                         },
                         new
                         {
@@ -2046,7 +3305,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "066F",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Descripcion = "PLANTA SULFONACIÓN",
-                            EmpresaId = 2L
+                            EmpresaId = 2L,
+                            PlantaId = 4L
                         },
                         new
                         {
@@ -2055,7 +3315,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "066G",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Descripcion = "PLANTA DETERGENTES LURÍN",
-                            EmpresaId = 1L
+                            EmpresaId = 1L,
+                            PlantaId = 1L
                         },
                         new
                         {
@@ -2064,7 +3325,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "066H",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Descripcion = "PLANTA INTRACAN/FEM",
-                            EmpresaId = 1L
+                            EmpresaId = 1L,
+                            PlantaId = 2L
                         });
                 });
 
@@ -3075,6 +4337,69 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "PE21430011",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Descripcion = "SEGURIDAD INDUSTRIAL"
+                        },
+                        new
+                        {
+                            Id = 107L,
+                            Activo = true,
+                            CentroId = 5L,
+                            Codigo = "PE21400607",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "PRODUCCIÓN ETIQUETADO/CODIFICADO"
+                        },
+                        new
+                        {
+                            Id = 108L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400002",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "PASTILLAS WC"
+                        },
+                        new
+                        {
+                            Id = 109L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400105",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "OFERTADO INTRALAB"
+                        },
+                        new
+                        {
+                            Id = 110L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400705",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "ENVASADO WC LIQUIDO"
+                        },
+                        new
+                        {
+                            Id = 111L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400713",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "PASTA DENTAL"
+                        },
+                        new
+                        {
+                            Id = 112L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400714",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "ENV. COSMETIC. ACUOSOS"
+                        },
+                        new
+                        {
+                            Id = 113L,
+                            Activo = true,
+                            CentroId = 2L,
+                            Codigo = "PE21400716",
+                            CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Descripcion = "MANUFACTURA COSMETICOS ACUOSOS"
                         });
                 });
 
@@ -3229,7 +4554,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             ClienteId = 1L,
                             Codigo = "CAO",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            RazonSocial = "CA Outsourcing",
+                            RazonSocial = "CA OUTSOURCING SAC",
                             Ruc = "00000000002"
                         });
                 });
@@ -3296,7 +4621,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "DET",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
-                            Nombre = "Planta Detergentes"
+                            Nombre = "PLANTA DETERGENTES LURÍN"
                         },
                         new
                         {
@@ -3305,7 +4630,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "P20M",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 1L,
-                            Nombre = "Planta 20 mil"
+                            Nombre = "PLANTA INTRACAN/FEM"
                         },
                         new
                         {
@@ -3314,7 +4639,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "P01",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             EmpresaId = 2L,
-                            Nombre = "Planta 01"
+                            Nombre = "PLANTA 1"
                         },
                         new
                         {
@@ -3385,7 +4710,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 1L,
-                            Activo = true,
+                            Activo = false,
                             AreaId = 1L,
                             Codigo = "GEN",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
@@ -3394,7 +4719,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 2L,
-                            Activo = true,
+                            Activo = false,
                             AreaId = 2L,
                             Codigo = "GEN",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
@@ -3403,7 +4728,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 3L,
-                            Activo = true,
+                            Activo = false,
                             AreaId = 3L,
                             Codigo = "GEN",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
@@ -3418,6 +4743,68 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Nombre = "General"
                         });
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionArea", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<long>("AreaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("area_id");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateOnly?>("FechaFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<long>("TrabajadorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("trabajador_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_asignacion_area");
+
+                    b.HasIndex("AreaId")
+                        .HasDatabaseName("ix_asignacion_area_area_id");
+
+                    b.HasIndex("TrabajadorId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_asignacion_area_abierta")
+                        .HasFilter("[fecha_fin] IS NULL");
+
+                    b.HasIndex("TrabajadorId", "FechaInicio", "FechaFin")
+                        .HasDatabaseName("ix_asignacion_area_trabajador_id_fecha_inicio_fecha_fin");
+
+                    b.ToTable("asignacion_area", (string)null);
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionMarcador", b =>
@@ -3439,6 +4826,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
 
                     b.Property<DateOnly?>("FechaFin")
                         .HasColumnType("TEXT")
@@ -3475,13 +4866,83 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasDatabaseName("uq_asignacion_marcador_abierta")
                         .HasFilter("[fecha_fin] IS NULL");
 
+                    b.HasIndex("EquipoId", "IdMarcador")
+                        .IsUnique()
+                        .HasDatabaseName("uq_asignacion_marcador_equipo_codigo_abierta")
+                        .HasFilter("[fecha_fin] IS NULL");
+
                     b.HasIndex("TrabajadorId", "FechaInicio")
                         .HasDatabaseName("ix_asignacion_marcador_trabajador_id_fecha_inicio");
 
-                    b.HasIndex("IdMarcador", "FechaInicio", "FechaFin")
-                        .HasDatabaseName("ix_asignacion_marcador_id_marcador_fecha_inicio_fecha_fin");
+                    b.HasIndex("EquipoId", "IdMarcador", "FechaInicio", "FechaFin")
+                        .HasDatabaseName("ix_asignacion_marcador_equipo_id_id_marcador_fecha_inicio_fecha_fin");
 
                     b.ToTable("asignacion_marcador", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionPlanta", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateOnly?>("FechaFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<long>("PeriodoLaboralId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("periodo_laboral_id");
+
+                    b.Property<long>("PlantaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planta_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_asignacion_planta");
+
+                    b.HasIndex("PeriodoLaboralId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_asignacion_planta_abierta")
+                        .HasFilter("[fecha_fin] IS NULL");
+
+                    b.HasIndex("PlantaId")
+                        .HasDatabaseName("ix_asignacion_planta_planta_id");
+
+                    b.HasIndex("PeriodoLaboralId", "FechaInicio", "FechaFin")
+                        .HasDatabaseName("ix_asignacion_planta_periodo_laboral_id_fecha_inicio_fecha_fin");
+
+                    b.ToTable("asignacion_planta", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_asignacion_planta_fechas", "[fecha_fin] IS NULL OR [fecha_fin] >= [fecha_inicio]");
+                        });
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionSueldo", b =>
@@ -3564,6 +5025,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("TEXT")
                         .HasColumnName("creado_por");
 
+                    b.Property<long?>("CuadrillaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cuadrilla_id");
+
                     b.Property<DateOnly?>("FechaFin")
                         .HasColumnType("TEXT")
                         .HasColumnName("fecha_fin");
@@ -3585,12 +5050,15 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasColumnType("INTEGER")
                         .HasColumnName("trabajador_id");
 
-                    b.Property<long>("TurnoId")
+                    b.Property<long?>("TurnoId")
                         .HasColumnType("INTEGER")
                         .HasColumnName("turno_id");
 
                     b.HasKey("Id")
                         .HasName("pk_asignacion_turno");
+
+                    b.HasIndex("CuadrillaId")
+                        .HasDatabaseName("ix_asignacion_turno_cuadrilla_id");
 
                     b.HasIndex("TrabajadorId")
                         .IsUnique()
@@ -3603,7 +5071,10 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.HasIndex("TrabajadorId", "FechaInicio", "FechaFin")
                         .HasDatabaseName("ix_asignacion_turno_trabajador_id_fecha_inicio_fecha_fin");
 
-                    b.ToTable("asignacion_turno", (string)null);
+                    b.ToTable("asignacion_turno", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_asignacion_turno_turno_o_cuadrilla", "([turno_id] IS NULL) <> ([cuadrilla_id] IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.PeriodoLaboral", b =>
@@ -3666,6 +5137,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("EmpresaId")
                         .HasDatabaseName("ix_periodo_laboral_empresa_id");
+
+                    b.HasIndex("TrabajadorId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_periodo_laboral_abierto")
+                        .HasFilter("[fecha_cese] IS NULL");
 
                     b.HasIndex("TrabajadorId", "FechaIngreso")
                         .HasDatabaseName("ix_periodo_laboral_trabajador_id_fecha_ingreso");
@@ -4294,8 +5770,39 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.ToTable("asp_net_user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Cuadrilla", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
+                        .WithMany()
+                        .HasForeignKey("PlantaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cuadrilla_planta_planta_id");
+
+                    b.Navigation("Planta");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.EquipoMarcador", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
+                        .WithMany()
+                        .HasForeignKey("PlantaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_equipo_marcador_planta_planta_id");
+
+                    b.Navigation("Planta");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Marcador", b =>
                 {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_marcador_equipo_marcador_equipo_id");
+
                     b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
                         .WithMany()
                         .HasForeignKey("PlantaId")
@@ -4303,7 +5810,41 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .IsRequired()
                         .HasConstraintName("fk_marcador_planta_planta_id");
 
+                    b.Navigation("Equipo");
+
                     b.Navigation("Planta");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.ProgramacionCuadrilla", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.Cuadrilla", "Cuadrilla")
+                        .WithMany("Programaciones")
+                        .HasForeignKey("CuadrillaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_programacion_cuadrilla_cuadrilla_cuadrilla_id");
+
+                    b.Navigation("Cuadrilla");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.TramoRotacion", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.ProgramacionCuadrilla", "Programacion")
+                        .WithMany("Tramos")
+                        .HasForeignKey("ProgramacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tramo_rotacion_programacion_cuadrilla_programacion_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.Turno", "Turno")
+                        .WithMany()
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tramo_rotacion_turno_turno_id");
+
+                    b.Navigation("Programacion");
+
+                    b.Navigation("Turno");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.TurnoPlanta", b =>
@@ -4327,6 +5868,18 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Navigation("Turno");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.VersionTurno", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.Turno", "Turno")
+                        .WithMany("Versiones")
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_version_turno_turno_turno_id");
+
+                    b.Navigation("Turno");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Justificaciones.Justificacion", b =>
                 {
                     b.HasOne("ControlMarcacion.Domain.Solicitudes.SolicitudAusencia", null)
@@ -4346,14 +5899,74 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasConstraintName("fk_error_importacion_importacion_marcador_importacion_id");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ImportacionMarcador", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_importacion_marcador_equipo_marcador_equipo_id");
+
+                    b.Navigation("Equipo");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.MarcacionCruda", b =>
                 {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_marcacion_cruda_equipo_marcador_equipo_id");
+
                     b.HasOne("ControlMarcacion.Domain.Marcaciones.ImportacionMarcador", null)
                         .WithMany()
                         .HasForeignKey("ImportacionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_marcacion_cruda_importacion_marcador_importacion_id");
+
+                    b.Navigation("Equipo");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.ErrorImportacionProvisional", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.MarcacionesProvisionales.ImportacionProvisional", null)
+                        .WithMany("Errores")
+                        .HasForeignKey("ImportacionProvisionalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_prov_error_importacion_prov_importacion_importacion_provisional_id");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.ImportacionProvisional", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_prov_importacion_equipo_marcador_equipo_id");
+
+                    b.Navigation("Equipo");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.MarcacionProvisional", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", null)
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_prov_marcacion_equipo_marcador_equipo_id");
+
+                    b.HasOne("ControlMarcacion.Domain.MarcacionesProvisionales.ImportacionProvisional", null)
+                        .WithMany()
+                        .HasForeignKey("ImportacionProvisionalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_prov_marcacion_prov_importacion_importacion_provisional_id");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Organizacion.Area", b =>
@@ -4377,7 +5990,15 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .IsRequired()
                         .HasConstraintName("fk_centro_empresa_empresa_id");
 
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
+                        .WithMany()
+                        .HasForeignKey("PlantaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_centro_planta_planta_id");
+
                     b.Navigation("Empresa");
+
+                    b.Navigation("Planta");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Organizacion.CentroCosto", b =>
@@ -4428,8 +6049,36 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Navigation("Area");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionArea", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Area", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asignacion_area_area_area_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Personal.Trabajador", "Trabajador")
+                        .WithMany("AsignacionesArea")
+                        .HasForeignKey("TrabajadorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_asignacion_area_trabajador_trabajador_id");
+
+                    b.Navigation("Area");
+
+                    b.Navigation("Trabajador");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionMarcador", b =>
                 {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asignacion_marcador_equipo_marcador_equipo_id");
+
                     b.HasOne("ControlMarcacion.Domain.Personal.Trabajador", "Trabajador")
                         .WithMany("AsignacionesMarcador")
                         .HasForeignKey("TrabajadorId")
@@ -4437,7 +6086,30 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .IsRequired()
                         .HasConstraintName("fk_asignacion_marcador_trabajador_trabajador_id");
 
+                    b.Navigation("Equipo");
+
                     b.Navigation("Trabajador");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionPlanta", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Personal.PeriodoLaboral", "PeriodoLaboral")
+                        .WithMany("AsignacionesPlanta")
+                        .HasForeignKey("PeriodoLaboralId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_asignacion_planta_periodo_laboral_periodo_laboral_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
+                        .WithMany()
+                        .HasForeignKey("PlantaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asignacion_planta_planta_planta_id");
+
+                    b.Navigation("PeriodoLaboral");
+
+                    b.Navigation("Planta");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionSueldo", b =>
@@ -4454,6 +6126,12 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.AsignacionTurno", b =>
                 {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.Cuadrilla", "Cuadrilla")
+                        .WithMany()
+                        .HasForeignKey("CuadrillaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_asignacion_turno_cuadrilla_cuadrilla_id");
+
                     b.HasOne("ControlMarcacion.Domain.Personal.Trabajador", "Trabajador")
                         .WithMany("AsignacionesTurno")
                         .HasForeignKey("TrabajadorId")
@@ -4465,8 +6143,9 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .WithMany()
                         .HasForeignKey("TurnoId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_asignacion_turno_turno_turno_id");
+
+                    b.Navigation("Cuadrilla");
 
                     b.Navigation("Trabajador");
 
@@ -4580,12 +6259,29 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Cuadrilla", b =>
+                {
+                    b.Navigation("Programaciones");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.ProgramacionCuadrilla", b =>
+                {
+                    b.Navigation("Tramos");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Turno", b =>
                 {
                     b.Navigation("PlantasHabilitadas");
+
+                    b.Navigation("Versiones");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ImportacionMarcador", b =>
+                {
+                    b.Navigation("Errores");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.MarcacionesProvisionales.ImportacionProvisional", b =>
                 {
                     b.Navigation("Errores");
                 });
@@ -4615,8 +6311,15 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Navigation("Areas");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Personal.PeriodoLaboral", b =>
+                {
+                    b.Navigation("AsignacionesPlanta");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Personal.Trabajador", b =>
                 {
+                    b.Navigation("AsignacionesArea");
+
                     b.Navigation("AsignacionesMarcador");
 
                     b.Navigation("AsignacionesSueldo");

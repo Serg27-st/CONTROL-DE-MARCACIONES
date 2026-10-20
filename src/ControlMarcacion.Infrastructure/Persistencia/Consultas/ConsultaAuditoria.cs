@@ -42,8 +42,15 @@ internal sealed class ConsultaAuditoria(MarcacionDbContext contexto) : IConsulta
 
         if (!string.IsNullOrWhiteSpace(filtro.Usuario))
         {
-            var usuario = filtro.Usuario.Trim();
-            consulta = consulta.Where(r => r.Usuario.Contains(usuario));
+            // Sin distinguir mayúsculas, igual que los demás buscadores por texto: el
+            // usuario se guarda como lo escribió quien creó la cuenta —"Sistemas@gca.pe"
+            // o "sistemas@gca.pe"— y quien audita teclea lo que recuerda. Ver BusquedaTexto
+            // para por qué se compara con ToUpper() en los dos lados.
+            var usuario = BusquedaTexto.Normalizar(filtro.Usuario);
+
+#pragma warning disable CA1304, CA1311, CA1862
+            consulta = consulta.Where(r => r.Usuario.ToUpper().Contains(usuario));
+#pragma warning restore CA1304, CA1311, CA1862
         }
 
         if (filtro.Operacion is { } operacion)

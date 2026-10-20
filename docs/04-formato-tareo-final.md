@@ -162,7 +162,8 @@ Mismas columnas que `Descanso Medico` sin `RAZÓN SOCIAL` ni `EMPRESA`. En la mu
 | 100 % diurna | días con `TipoDiaNoLaborable ≠ Ninguno` | ✅ derivable |
 | B.NOCT. (HORAS) | `MinutosNocturnos` | ✅ |
 | 0.25 / 0.35 / 1 nocturnas | `MinutosExtra25Nocturnos` / `MinutosExtra35Nocturnos` / derivado | ✅ el motor ya separa la nocturnidad por tramo |
-| SUSPENSION | — | ❌ no existe el tipo de ausencia |
+| SUSPENSION | — | ❌ no existe el concepto: la celda sale **vacía**, no en cero |
+| AREA | `AsignacionArea` vigente **en el rango**, no `Trabajador.AreaId` | ✅ con vigencia por fecha |
 | CENTRO | `Centro.Codigo` — el `CO_AREA` del catálogo de SAP, vía `Trabajador.CentroCostoId` | ✅ real |
 | CENTRO DE COSTO | `CentroCosto.Codigo` — el `CO_SECC` del catálogo de SAP | ✅ real |
 | DESCRIP. CECO | `CentroCosto.Descripcion` — el `DE_SECC` del catálogo de SAP | ✅ real |

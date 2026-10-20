@@ -77,6 +77,28 @@ public class Turno : EntidadBase
     public int MinutosAnticipacionSalida { get; set; } = 5;
 
     /// <summary>
+    /// Cuántos minutos después de <see cref="HoraFin"/> una salida todavía se computa como si
+    /// hubiera ocurrido a la hora del turno: sin sobretiempo.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Es el simétrico de la entrada. Llegar antes nunca generó sobretiempo —la jornada se
+    /// computa desde la hora del turno—, pero salir diez minutos después, que es lo que
+    /// tarda la cola frente al lector, sí lo generaba. La gracia es <b>inclusiva</b>, como la
+    /// tolerancia, y pasada la gracia se computa todo desde <see cref="HoraFin"/>: es un
+    /// margen, no un corrimiento del horario.
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>Arranca en 0 y lo decide GCA, no el sistema.</b> El art. 9 del TUO del
+    /// D.S. 007-2002-TR considera autorizado tácitamente el sobretiempo que se acredita
+    /// aunque no se haya ordenado, así que la gracia tiene que ser corta y responder a una
+    /// política aprobada, nunca a "limpiar" sobretiempo incómodo. Las marcas reales se
+    /// conservan y la observación del día declara los minutos que no se computaron.
+    /// </para>
+    /// </remarks>
+    public int MinutosGraciaSalida { get; set; }
+
+    /// <summary>
     /// Jornada ordinaria en minutos. Por defecto 480 (8 horas), que es el máximo legal
     /// diario en Perú. Todo lo trabajado por encima es hora extra.
     /// </summary>
@@ -91,6 +113,16 @@ public class Turno : EntidadBase
     /// sin condiciones cableadas en el código.
     /// </summary>
     public ICollection<TurnoPlanta> PlantasHabilitadas { get; set; } = [];
+
+    /// <summary>
+    /// El horario que rigió en cada rango de fechas. Los campos de arriba son los de la
+    /// versión <b>abierta</b>: lo que se edita en el catálogo y lo que rige hoy.
+    /// </summary>
+    /// <remarks>
+    /// El cálculo nunca lee el horario de aquí arriba directamente: lo resuelve por la
+    /// versión vigente a la fecha que calcula. Ver <see cref="VersionTurno"/>.
+    /// </remarks>
+    public ICollection<VersionTurno> Versiones { get; set; } = [];
 
     /// <summary>
     /// El turno termina al día siguiente (por ejemplo 19:00 → 07:00).
@@ -123,6 +155,11 @@ public class Turno : EntidadBase
     /// Hora límite para llegar sin que se considere tardanza.
     /// </summary>
     public TimeOnly LimiteTolerancia => HoraInicio.AddMinutes(MinutosTolerancia);
+
+    /// <summary>
+    /// Hora límite para salir sin que los minutos posteriores al fin cuenten como sobretiempo.
+    /// </summary>
+    public TimeOnly LimiteGraciaSalida => HoraFin.AddMinutes(MinutosGraciaSalida);
 }
 
 [Flags]

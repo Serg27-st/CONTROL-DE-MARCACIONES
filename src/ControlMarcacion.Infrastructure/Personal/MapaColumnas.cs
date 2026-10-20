@@ -22,6 +22,7 @@ internal enum Columna
     FechaIngreso,
     CentroCosto,
     IdMarcador,
+    Equipo,
     Turno,
     SueldoBasico,
 
@@ -115,6 +116,9 @@ internal sealed class MapaColumnas
         [Columna.FechaIngreso] = ["fecha_ingreso", "ingreso", "fecha de ingreso", "fecha_de_ingreso"],
         [Columna.CentroCosto] = ["centro_costo", "centro_de_costo", "ceco", "centro de costo"],
         [Columna.IdMarcador] = ["id_marcador", "marcador", "id marcador", "codigo_marcador"],
+        // El APARATO del que sale ese id, no el id en sí. Solo hace falta cuando la
+        // planta tiene más de un equipo; con uno solo el sistema lo resuelve.
+        [Columna.Equipo] = ["equipo", "equipo_marcador", "aparato", "reloj", "dispositivo"],
         [Columna.Turno] = ["turno"],
         [Columna.SueldoBasico] = ["sueldo_basico", "sueldo", "basico", "sueldo basico"],
         [Columna.Situacion] = ["situacion", "situacion_trabajador", "estado", "estado_trabajador"],
@@ -160,7 +164,7 @@ internal sealed class MapaColumnas
 
         for (var i = 0; i < encabezado.Length; i++)
         {
-            var titulo = CargaMasivaTrabajadores.Normalizar(encabezado[i]).Replace(' ', '_');
+            var titulo = Titulo(encabezado[i]);
 
             foreach (var (columna, alias) in Alias)
             {
@@ -170,7 +174,7 @@ internal sealed class MapaColumnas
                 }
 
                 if (alias.Any(a => string.Equals(
-                        CargaMasivaTrabajadores.Normalizar(a).Replace(' ', '_'),
+                        Titulo(a),
                         titulo,
                         StringComparison.Ordinal)))
                 {
@@ -192,6 +196,14 @@ internal sealed class MapaColumnas
 
         return new MapaColumnas(posiciones);
     }
+
+    /// <summary>
+    /// Encabezado comparable: cualquier tramo de espacios —incluido el salto de línea de
+    /// una celda escrita con Alt+Enter, como "tipo⏎documento"— cuenta como un guion bajo.
+    /// </summary>
+    private static string Titulo(string texto) =>
+        string.Join('_', CargaMasivaTrabajadores.Normalizar(texto)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>
     /// Valor de una columna en una fila. Nulo si la columna no está en el archivo, si la

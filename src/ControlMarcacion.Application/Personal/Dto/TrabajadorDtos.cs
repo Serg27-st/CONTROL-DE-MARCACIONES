@@ -20,6 +20,17 @@ public sealed record TrabajadorListaDto(
     string Puesto,
     string? TurnoVigente,
     string? IdMarcador,
+    /// <summary>Nombre del aparato («Detergentes A-L»), para el panel y el título de la celda.</summary>
+    string? Equipo,
+    /// <summary>
+    /// Código corto del aparato («DET-AL»), que es lo que va en la columna del listado.
+    /// </summary>
+    /// <remarks>
+    /// El nombre no cabe en una tabla de trece columnas y se parte en dos líneas; el código
+    /// es el identificador que GCA usa al hablar del aparato y el que ordena la tabla. El
+    /// nombre completo queda en el <c>title</c> de la celda y en el panel lateral.
+    /// </remarks>
+    string? EquipoCodigo,
     DateOnly FechaIngreso,
     DateOnly? FechaCese)
 {
@@ -31,11 +42,39 @@ public sealed record TrabajadorListaDto(
 /// </summary>
 public sealed record FiltroTrabajadores
 {
+    /// <summary>
+    /// Trabajador: documento, apellidos o nombres (parcial), o su número de marcador
+    /// vigente (exacto: «14» no debe traer también al 140).
+    /// </summary>
     public string? Busqueda { get; init; }
 
     public long? EmpresaId { get; init; }
 
     public long? PlantaId { get; init; }
+
+    /// <summary>Aparato marcador en el que la persona tiene su número vigente.</summary>
+    public long? EquipoId { get; init; }
+
+    /// <summary>
+    /// Nulo trae todos; true solo quienes tienen número de marcador vigente; false solo
+    /// quienes no lo tienen.
+    /// </summary>
+    /// <remarks>
+    /// «Sin número» es la lista de trabajo para completar el padrón: esas personas marcan,
+    /// pero sus marcaciones no se les atribuyen y el tareo les sale en falta.
+    /// </remarks>
+    public bool? ConNumeroMarcador { get; init; }
+
+    public long? PuestoId { get; init; }
+
+    public long? AreaId { get; init; }
+
+    /// <summary>Turno vigente. <see cref="SinTurno"/> (0) trae a quienes no tienen ninguno.</summary>
+    public long? TurnoId { get; init; }
+
+    public DateOnly? IngresoDesde { get; init; }
+
+    public DateOnly? IngresoHasta { get; init; }
 
     /// <summary>Centro SAP (catálogo real, reemplaza el filtro anterior por Área).</summary>
     public long? CentroId { get; init; }
@@ -51,6 +90,9 @@ public sealed record FiltroTrabajadores
     public int Pagina { get; init; } = 1;
 
     public int TamanioPagina { get; init; } = 25;
+
+    /// <summary>Valor de <see cref="TurnoId"/> que pide a quienes no tienen turno vigente.</summary>
+    public const long SinTurno = 0;
 }
 
 /// <summary>
@@ -148,13 +190,68 @@ public sealed record GuardarTrabajadorRequest
     // ---- Asignaciones iniciales ----
 
     /// <summary>
-    /// Identificador que reporta el marcador. Texto para conservar los ceros a la
-    /// izquierda: un "00123" convertido a número deja de cruzar con el archivo.
+    /// Número con que la persona está registrada en el aparato (el que aparece en el
+    /// archivo del marcador). Texto para conservar los ceros a la izquierda: un "00123"
+    /// convertido a número deja de cruzar con el archivo.
     /// </summary>
-    [StringLength(30)]
+    [StringLength(30, ErrorMessage = "El número en el aparato no puede superar los 30 caracteres.")]
     public string? IdMarcador { get; init; }
 
+    /// <summary>Aparato marcador en el que está registrado ese número.</summary>
+    /// <remarks>
+    /// Opcional: con un solo aparato en la planta no hay ambigüedad y las cargas masivas
+    /// que no lo declaran siguen funcionando. Con dos o más se vuelve obligatorio, porque
+    /// el mismo número identifica a personas distintas en cada uno.
+    /// </remarks>
+    public long? EquipoId { get; init; }
+
+    /// <summary>
+    /// Desde qué fecha rige el número. Vacío: la primera asignación rige desde el ingreso
+    /// y un cambio, desde mañana.
+    /// </summary>
+    /// <remarks>
+    /// Existe para las correcciones. Si el número estaba mal desde el principio, se indica
+    /// la fecha en que empezó a regir el equivocado (o una anterior) y se corrige en sitio:
+    /// como la marcación se atribuye al calcular, al recalcular sus marcaciones pasan a la
+    /// persona correcta. Una fecha posterior cierra el número anterior el día previo y
+    /// abre el nuevo, que es un cambio de verdad (se re-enroló en otro aparato, por
+    /// ejemplo).
+    /// </remarks>
+    public DateOnly? MarcadorVigenteDesde { get; init; }
+
+    /// <summary>
+    /// Si el número no existe en el catálogo del aparato, darlo de alta en vez de rechazar.
+    /// </summary>
+    /// <remarks>
+    /// La ficha lo pide: quien la llena copia el número de la lista de usuarios del
+    /// aparato, y obligarlo a pasar antes por Marcadores era un trámite sin control
+    /// adicional. La carga masiva no lo usa porque registra los números ella misma, con su
+    /// propia casilla y su propio informe.
+    /// </remarks>
+    public bool RegistrarMarcadorSiFalta { get; init; }
+
     public long? TurnoId { get; init; }
+
+    /// <summary>
+    /// Cuadrilla que rota, en lugar de un turno fijo. Si viene, manda sobre
+    /// <see cref="TurnoId"/>, que se ignora: el turno de cada día lo da la programación del
+    /// grupo.
+    /// </summary>
+    public long? CuadrillaId { get; init; }
+
+    /// <summary>
+    /// Desde qué fecha rige el turno elegido. Vacío: la primera asignación rige desde el
+    /// ingreso y un cambio, desde mañana.
+    /// </summary>
+    /// <remarks>
+    /// Existe para registrar una rotación <b>el día en que ocurrió</b>, aunque se anote
+    /// después: los obreros rotan de golpe tras el descanso, y sin fecha el cambio recién
+    /// regía al día siguiente de guardarlo, así que los días entre medio se calculaban con
+    /// el turno viejo. La fecha puede ser pasada o futura, pero no anterior al ingreso ni
+    /// dentro de un periodo cerrado. Lo que hace cada fecha está en
+    /// <c>ServicioTrabajadores.ReasignarTurno</c>.
+    /// </remarks>
+    public DateOnly? TurnoVigenteDesde { get; init; }
 
     /// <summary>
     /// Sueldo básico mensual. Se guarda con vigencia por fecha: si cambia respecto al
@@ -198,7 +295,19 @@ public sealed record TrabajadorDetalleDto(
     /// </summary>
     long? CentroId,
     string? IdMarcador,
+    /// <summary>
+    /// Equipo de la asignación vigente de marcador.
+    /// </summary>
+    /// <remarks>
+    /// Sin esto, la pantalla de edición no sabría <b>cuál</b> de los dos "21" de la planta
+    /// tiene asignado el trabajador: el desplegable no marcaría ninguna opción y guardar sin
+    /// tocar nada le borraría la asignación en silencio. Es el mismo motivo por el que
+    /// <c>CentroId</c> viaja aquí sin guardarse en <c>Trabajador</c>.
+    /// </remarks>
+    long? EquipoMarcadorId,
     long? TurnoId,
+    /// <summary>Cuadrilla vigente, si la asignación vigente es a una cuadrilla y no a un turno fijo.</summary>
+    long? CuadrillaId,
     MotivoCese? MotivoCese,
     string? ObservacionCese);
 
@@ -214,6 +323,7 @@ public sealed record TrabajadorBusquedaRapidaDto(
     string Empresa,
     string Planta,
     string? IdMarcador,
+    string? Equipo,
     bool EstaActivo);
 
 /// <summary>
@@ -244,6 +354,7 @@ public sealed record TrabajadorPanelDto(
     DateOnly FechaIngreso,
     DateOnly? FechaCese,
     string? IdMarcador,
+    string? Equipo,
     string? Turno,
     decimal? SueldoBasicoMensual,
     MotivoCese? MotivoCese,

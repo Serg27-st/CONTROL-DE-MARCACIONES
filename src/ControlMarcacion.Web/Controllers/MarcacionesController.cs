@@ -1,3 +1,5 @@
+using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Catalogos.Dto;
 using ControlMarcacion.Application.Marcaciones;
 using ControlMarcacion.Application.Marcaciones.Dto;
 using ControlMarcacion.Application.Seguridad;
@@ -23,7 +25,9 @@ namespace ControlMarcacion.Web.Controllers;
 /// además del filtro por rol el servicio valida tipo y tamaño antes de abrir nada.
 /// </remarks>
 [Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
-public sealed class MarcacionesController(IServicioImportacion servicio) : Controller
+public sealed class MarcacionesController(
+    IServicioImportacion servicio,
+    IConsultaCatalogos catalogos) : Controller
 {
     /// <summary>Tamaño máximo aceptado. El archivo real de un mes pesa unos 100 KB.</summary>
     private const long TamanioMaximoBytes = 20 * 1024 * 1024;
@@ -51,6 +55,7 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
 
         var anioElegido = Math.Clamp(anio ?? hoy.Year, 2000, 2100);
         var mesElegido = Math.Clamp(mes ?? hoy.Month, 1, 12);
+        var inicioMes = new DateOnly(anioElegido, mesElegido, 1);
 
         return new CargaMarcacionesVm
         {
@@ -58,7 +63,11 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
             Cobertura = await servicio
                 .CoberturaAsync(anioElegido, mesElegido, cancelacion)
                 .ConfigureAwait(false),
+            NumerosSinAsignar = await servicio
+                .NumerosSinAsignarAsync(inicioMes, inicioMes.AddMonths(1).AddDays(-1), cancelacion)
+                .ConfigureAwait(false),
             Hoy = hoy,
+            Equipos = await catalogos.EquiposActivosAsync(cancelacion).ConfigureAwait(false),
             Previa = previa,
             ArchivoPendiente = archivoPendiente
         };
@@ -69,6 +78,8 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
     [RequestSizeLimit(TamanioMaximoBytes)]
     public async Task<IActionResult> Cargar(
         IFormFile? archivo,
+        long plantaId,
+        long equipoId,
         bool confirmarRecarga,
         int? anio,
         int? mes,
@@ -77,6 +88,18 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
         if (archivo is null || archivo.Length == 0)
         {
             TempData["Error"] = "Seleccione un archivo del marcador antes de cargar.";
+            return RedirectToAction(nameof(Index), new { anio, mes });
+        }
+
+        // Planta y marcador son obligatorios y se comprueban aquí ADEMÁS de en el servicio:
+        // esto evita subir 100 KB para que la validación falle al final, pero el control
+        // real es el del servicio — un formulario manipulado no puede saltárselo.
+        if (plantaId <= 0 || equipoId <= 0)
+        {
+            TempData["Error"] =
+                "Indique la planta y el marcador del que se extrajo el archivo. " +
+                "Sin ese dato las marcaciones no se pueden atribuir: en una planta con dos " +
+                "equipos, el mismo código identifica a dos personas distintas.";
             return RedirectToAction(nameof(Index), new { anio, mes });
         }
 
@@ -99,7 +122,10 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
                 .BuscarImportacionPreviaAsync(contenido, cancelacion)
                 .ConfigureAwait(false);
 
-            if (previa is not null)
+            // Vigente en otro aparato no se ofrece a confirmar: el servicio lo rechaza con o
+            // sin casilla, y pedir confirmación invitaría a algo que no se va a poder hacer.
+            // Se sigue hasta ImportarAsync para que el motivo salga de un solo lugar.
+            if (previa is not null && (previa.Anulada || previa.EquipoId == equipoId))
             {
                 return View(
                     "Index",
@@ -110,13 +136,29 @@ public sealed class MarcacionesController(IServicioImportacion servicio) : Contr
 
         var usuario = User.Identity?.Name ?? "sistema";
 
-        var resultado = await servicio
-            .ImportarAsync(contenido, archivo.FileName, usuario, cancelacion)
-            .ConfigureAwait(false);
+        ResultadoImportacion resultado;
+
+        try
+        {
+            resultado = await servicio
+                .ImportarAsync(contenido, archivo.FileName, plantaId, equipoId, usuario, cancelacion)
+                .ConfigureAwait(false);
+        }
+        catch (ReglaNegocioException excepcion)
+        {
+            // Planta y equipo que no concuerdan, equipo de baja, o serie del archivo que
+            // contradice lo declarado. Son errores del operador, no del sistema: vuelven a
+            // la pantalla con el motivo en vez de una página de error.
+            TempData["Error"] = excepcion.Message;
+            return RedirectToAction(nameof(Index), new { anio, mes });
+        }
 
         TempData["Mensaje"] =
             $"Archivo procesado: {resultado.FilasInsertadas} marcación(es) nueva(s) de " +
-            $"{resultado.FilasLeidas} línea(s) leída(s).";
+            $"{resultado.FilasLeidas} registro(s) detectado(s)" +
+            (resultado.FilasIgnoradas > 0
+                ? $"; {resultado.FilasIgnoradas} evento(s) de equipo ignorado(s)."
+                : ".");
 
         return RedirectToAction(nameof(Resultado), new { id = resultado.ImportacionId });
     }

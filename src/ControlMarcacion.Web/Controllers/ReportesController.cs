@@ -91,7 +91,8 @@ public sealed class ReportesController(
             Empresas = catalogos.Empresas,
             Plantas = catalogos.Plantas,
             Centros = catalogos.Centros,
-            CentrosCosto = catalogos.CentrosCosto
+            CentrosCosto = catalogos.CentrosCosto,
+            Equipos = catalogos.Equipos
         });
     }
 
@@ -142,7 +143,8 @@ public sealed class ReportesController(
             Empresas = catalogos.Empresas,
             Plantas = catalogos.Plantas,
             Centros = catalogos.Centros,
-            CentrosCosto = catalogos.CentrosCosto
+            CentrosCosto = catalogos.CentrosCosto,
+            Equipos = catalogos.Equipos
         });
     }
 
@@ -245,7 +247,8 @@ public sealed class ReportesController(
         IReadOnlyList<Application.Comun.OpcionDto> Empresas,
         IReadOnlyList<Application.Comun.OpcionDto> Plantas,
         IReadOnlyList<Application.Comun.OpcionDto> Centros,
-        IReadOnlyList<Application.Comun.OpcionDto> CentrosCosto);
+        IReadOnlyList<Application.Comun.OpcionDto> CentrosCosto,
+        IReadOnlyList<Application.Catalogos.Dto.EquipoOpcionDto> Equipos);
 
     private async Task<CatalogosDeFiltro> CargarCatalogosAsync(
         FiltroReporteVm filtro,
@@ -255,12 +258,26 @@ public sealed class ReportesController(
             ? await catalogos.EmpresaDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false)
             : null;
 
+        var equipos = await catalogos.EquiposActivosAsync(cancelacion).ConfigureAwait(false);
+
+        // Con planta elegida se ofrecen solo los suyos: los seis aparatos de todas las
+        // plantas en un desplegable obligan a saberse de memoria cuál es de cuál.
+        //
+        // ⚠️ El ya elegido se conserva aunque sea de otra planta. Si no, al cambiar de planta
+        // el desplegable mostraba «Todos» mientras el EquipoId seguía viajando en la query y
+        // filtrando: el reporte salía vacío y la pantalla no decía por qué.
+        if (filtro.PlantaId is { } planta)
+        {
+            equipos = [.. equipos.Where(e => e.PlantaId == planta || e.Id == filtro.EquipoId)];
+        }
+
         return new CatalogosDeFiltro(
             await periodos.ListarAsync(incluirInactivos: false, cancelacion).ConfigureAwait(false),
             await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false),
             await catalogos.PlantasAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
             await catalogos.CentrosAsync(empresaDeLaPlanta, cancelacion).ConfigureAwait(false),
-            await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false));
+            await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
+            equipos);
     }
 
     private static FiltroReporte AFiltro(FiltroReporteVm filtro) => new()
@@ -274,7 +291,8 @@ public sealed class ReportesController(
         EmpresaId = filtro.EmpresaId,
         PlantaId = filtro.PlantaId,
         CentroId = filtro.CentroId,
-        CentroCostoId = filtro.CentroCostoId
+        CentroCostoId = filtro.CentroCostoId,
+        EquipoId = filtro.EquipoId
     };
 
     /// <summary>

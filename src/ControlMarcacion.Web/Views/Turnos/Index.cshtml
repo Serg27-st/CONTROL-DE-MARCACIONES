@@ -84,6 +84,10 @@
                             <td>
                                 @t.MinutosAnticipacionSalida min antes
                                 <br /><small class="texto-suave">desde @t.InicioVentanaSalida.ToString("HH:mm")</small>
+                                @if (t.MinutosGraciaSalida > 0)
+                                {
+                                    <br /><small class="texto-suave">gracia hasta @t.LimiteGraciaSalida.ToString("HH:mm")</small>
+                                }
                             </td>
                             <td>
                                 @if (t.AplicaATodasLasPlantas)

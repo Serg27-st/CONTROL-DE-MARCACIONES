@@ -49,6 +49,7 @@
             {
                 <a class="@Activo("Trabajadores")" asp-controller="Trabajadores" asp-action="Index">Personal</a>
                 <a class="@Activo("Marcaciones")" asp-controller="Marcaciones" asp-action="Index">Marcaciones</a>
+                <a class="@Activo("MarcacionesProvisionales")" asp-controller="MarcacionesProvisionales" asp-action="Index">Marcaciones Prov.</a>
             }
             @if (veSolicitudes)
             {
@@ -56,6 +57,7 @@
             }
             @if (gestionaTareo)
             {
+                <a class="@Activo("Incidencias")" asp-controller="Incidencias" asp-action="Index">Incidencias</a>
                 <a class="@Activo("Justificaciones")" asp-controller="Justificaciones" asp-action="Index">Justificaciones</a>
                 <a class="@Activo("Asistencia")" asp-controller="Asistencia" asp-action="Index">Tareo</a>
                 <a class="@Activo("Reintegros")" asp-controller="Reintegros" asp-action="Index">Reintegros</a>

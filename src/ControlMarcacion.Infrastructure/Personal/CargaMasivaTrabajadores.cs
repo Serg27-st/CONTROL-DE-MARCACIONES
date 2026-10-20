@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text;
+using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Catalogos.Dto;
 using ControlMarcacion.Application.Personal;
 using ControlMarcacion.Application.Personal.Dto;
 using ControlMarcacion.Domain.Comun;
@@ -27,7 +29,9 @@ namespace ControlMarcacion.Infrastructure.Personal;
 internal sealed class CargaMasivaTrabajadores(
     MarcacionDbContext contexto,
     ServicioTrabajadores servicio,
-    ITrabajadorRepository repositorio) : ICargaMasivaTrabajadores
+    ITrabajadorRepository repositorio,
+    IConsultaCatalogos consultaCatalogos,
+    IServicioMarcadores servicioMarcadores) : ICargaMasivaTrabajadores
 {
     /// <summary>
     /// Tope de filas por archivo. El padrón completo de Intradevco no llega a mil; un
@@ -45,6 +49,7 @@ internal sealed class CargaMasivaTrabajadores(
         string usuario,
         bool soloValidar,
         bool actualizarExistentes = false,
+        bool registrarMarcadores = true,
         CancellationToken cancelacion = default)
     {
         // Se decide por el contenido y no por la extensión: un .xlsx renombrado a .csv, o al
@@ -76,8 +81,16 @@ internal sealed class CargaMasivaTrabajadores(
 
         var catalogos = await CatalogosResueltos.CargarAsync(contexto, cancelacion).ConfigureAwait(false);
 
+        // Equipos por planta, una sola vez por archivo: deciden a qué aparato va un ID que
+        // la fila no declara. Con uno solo en la planta no hay nada que preguntar.
+        var equiposPorPlanta = (await consultaCatalogos.EquiposActivosAsync(cancelacion).ConfigureAwait(false))
+            .GroupBy(e => e.PlantaId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<EquipoOpcionDto>)g.ToList());
+
         var errores = new List<ErrorCargaMasiva>();
         var creados = 0;
+        var marcadoresRegistrados = new List<MarcadorRegistradoEnCarga>();
+        var filasSinMarcadorEnCatalogo = 0;
 
         // La transacción va DENTRO de la estrategia de ejecución, no al revés.
         //
@@ -96,6 +109,8 @@ internal sealed class CargaMasivaTrabajadores(
             // los errores de las filas que ya se habían procesado.
             errores.Clear();
             creados = 0;
+            marcadoresRegistrados.Clear();
+            filasSinMarcadorEnCatalogo = 0;
 
             var transaccion = await contexto.Database
                 .BeginTransactionAsync(cancelacion)
@@ -114,6 +129,23 @@ internal sealed class CargaMasivaTrabajadores(
                     try
                     {
                         var solicitud = Construir(fila, columnas, catalogos);
+
+                        // Antes del alta: el ID tiene que existir en el catálogo de su
+                        // aparato para que ServicioTrabajadores lo acepte.
+                        var marcador = await AsegurarMarcadorEnCatalogoAsync(
+                                solicitud, numeroFila, registrarMarcadores, equiposPorPlanta,
+                                usuario, nombreArchivo, cancelacion)
+                            .ConfigureAwait(false);
+
+                        if (marcador.Registrado is { } registrado)
+                        {
+                            marcadoresRegistrados.Add(registrado);
+                        }
+
+                        if (marcador.Faltaba)
+                        {
+                            filasSinMarcadorEnCatalogo++;
+                        }
 
                         // Con la opción activa, un documento que ya existe actualiza esa
                         // ficha en vez de rechazarse. Se resuelve el Id aquí porque el
@@ -166,7 +198,110 @@ internal sealed class CargaMasivaTrabajadores(
             datos.Count,
             soloValidar ? 0 : creados,
             errores,
-            soloValidar);
+            soloValidar,
+            marcadoresRegistrados,
+            filasSinMarcadorEnCatalogo);
+    }
+
+    /// <summary>
+    /// Registra en el catálogo el ID de marcador de la fila si su aparato todavía no lo tiene.
+    /// </summary>
+    /// <remarks>
+    /// Sin esto, el primer padrón exigía dar de alta a mano, uno por uno, los cien ID de cada
+    /// aparato antes de subir el archivo —doscientos en una planta con dos—. Y no hay otra
+    /// fuente de donde tomarlos: sin acceso físico a los marcadores, el padrón es lo único
+    /// que dice qué ID lleva cada persona en cada aparato.
+    ///
+    /// Solo agrega: nunca modifica ni reactiva un código existente, y lo guarda tal cual, con
+    /// sus ceros a la izquierda (<c>0014</c> y <c>14</c> siguen siendo códigos distintos).
+    /// Si la fila no declara el aparato y la planta tiene más de uno, no se adivina: se
+    /// rechaza la fila. Registrar el código en el aparato equivocado sería asignarle a esta
+    /// persona las marcaciones de otra.
+    ///
+    /// ⚠️ El código se registra antes del alta de la persona, así que si la fila falla
+    /// después —un documento repetido, por ejemplo— queda en el catálogo, libre. Es
+    /// deliberado: es el código que esa persona tendrá cuando se corrija la fila. En
+    /// «Validar sin guardar» la transacción lo deshace junto con todo lo demás.
+    /// </remarks>
+    private async Task<(MarcadorRegistradoEnCarga? Registrado, bool Faltaba)> AsegurarMarcadorEnCatalogoAsync(
+        GuardarTrabajadorRequest solicitud,
+        int numeroFila,
+        bool registrar,
+        IReadOnlyDictionary<long, IReadOnlyList<EquipoOpcionDto>> equiposPorPlanta,
+        string usuario,
+        string nombreArchivo,
+        CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(solicitud.IdMarcador))
+        {
+            return (null, false);
+        }
+
+        var codigo = solicitud.IdMarcador.Trim();
+        var equiposDeLaPlanta = equiposPorPlanta.GetValueOrDefault(solicitud.PlantaId, []);
+
+        // El aparato lo decide la fila; si no lo dice, solo se infiere cuando no hay nada
+        // entre qué elegir.
+        var equipo = solicitud.EquipoId is { } declarado
+            ? equiposDeLaPlanta.FirstOrDefault(e => e.Id == declarado)
+            : equiposDeLaPlanta.Count == 1 ? equiposDeLaPlanta[0] : null;
+
+        var candidatos = await consultaCatalogos
+            .MarcadoresPorCodigoAsync(codigo, solicitud.PlantaId, cancelacion)
+            .ConfigureAwait(false);
+
+        var yaExiste = equipo is not null
+            ? candidatos.Any(c => c.EquipoId == equipo.Id)
+            : candidatos.Count > 0;
+
+        if (yaExiste)
+        {
+            return (null, false);
+        }
+
+        if (!registrar)
+        {
+            return (null, true);
+        }
+
+        if (equiposDeLaPlanta.Count == 0)
+        {
+            throw new ReglaNegocioException(
+                "La unidad no tiene ningún aparato registrado. Regístrelo en Equipos antes de " +
+                "cargar a su personal.");
+        }
+
+        if (equipo is null)
+        {
+            throw new ReglaNegocioException(
+                $"Para registrar el ID de marcador '{codigo}' hay que saber de qué aparato es: la " +
+                $"unidad tiene {equiposDeLaPlanta.Count} marcadores " +
+                $"({string.Join(", ", equiposDeLaPlanta.Select(e => e.Nombre))}). Complete la " +
+                "columna «equipo» de esta fila.");
+        }
+
+        if (codigo.Length > 30)
+        {
+            throw new ReglaNegocioException(
+                $"El ID de marcador '{codigo}' supera los 30 caracteres.");
+        }
+
+        var descripcion = $"Registrado por la carga masiva de {nombreArchivo}";
+
+        await servicioMarcadores
+            .GuardarAsync(
+                new GuardarMarcadorRequest
+                {
+                    Codigo = codigo,
+                    EquipoId = equipo.Id,
+                    Descripcion = descripcion.Length > 150 ? descripcion[..150] : descripcion,
+                    Activo = true
+                },
+                usuario,
+                cancelacion)
+            .ConfigureAwait(false);
+
+        return (new MarcadorRegistradoEnCarga(numeroFila, codigo, equipo.Nombre), false);
     }
 
     public byte[] GenerarPlantillaCsv()
@@ -182,10 +317,13 @@ internal sealed class CargaMasivaTrabajadores(
         //
         // El orden y la cantidad de campos los dicta EncabezadoCanonico: si se agrega una
         // columna al enum y no se agrega aquí, la plantilla sale descuadrada.
+        // El campo vacío tras el id de marcador es `equipo`: solo hace falta cuando la
+        // planta tiene más de un aparato, y con uno solo el sistema lo resuelve. Hay un
+        // test que comprueba que esta fila tenga tantos campos como el encabezado.
         lineas.AppendLine(
             "DNI;09876543;PEREZ;QUISPE;JUAN CARLOS;M;987654321;AV. LOS OLIVOS 123;" +
-            "jperez@ejemplo.pe;SI;CONSULTING ADVISERS S.A.C;Planta Detergentes;OBRERO;26001;" +
-            "01/08/2026;PE21400307;;;1200.00;ACTIVO;ENVASADO;;");
+            "jperez@ejemplo.pe;SI;CONSULTING ADVISERS S.A.C;PLANTA DETERGENTES LURÍN;OBRERO;OPERARIO;" +
+            "01/08/2026;PE21400307;;;;1200.00;ACTIVO;Envasado Detergentes Lurín;;");
 
         // Con BOM: sin él, Excel en español abre el archivo como Windows-1252 y la
         // plantilla de ejemplo aparece con los acentos rotos desde el primer momento.
@@ -215,7 +353,8 @@ internal sealed class CargaMasivaTrabajadores(
             empresa);
 
         var puesto = catalogos.Puesto(
-            Obligatorio(columnas, fila, Columna.Puesto, "el puesto"));
+            EquivalentePuesto(Obligatorio(columnas, fila, Columna.Puesto, "el puesto")),
+            empresa);
 
         return new GuardarTrabajadorRequest
         {
@@ -237,8 +376,9 @@ internal sealed class CargaMasivaTrabajadores(
             FechaIngreso = LeerFecha(Obligatorio(columnas, fila, Columna.FechaIngreso, "la fecha de ingreso")),
             FechaCese = fechaCese,
             MotivoCese = LeerMotivoCese(columnas.Valor(fila, Columna.MotivoCese)),
-            CentroCostoId = catalogos.CentroCostoOpcional(columnas.Valor(fila, Columna.CentroCosto)),
+            CentroCostoId = catalogos.CentroCostoOpcional(columnas.Valor(fila, Columna.CentroCosto), empresa, planta),
             IdMarcador = columnas.Valor(fila, Columna.IdMarcador),
+            EquipoId = catalogos.EquipoOpcional(columnas.Valor(fila, Columna.Equipo), planta),
             TurnoId = catalogos.TurnoOpcional(columnas.Valor(fila, Columna.Turno)),
             MontoSueldoBasico = LeerDecimalOpcional(columnas.Valor(fila, Columna.SueldoBasico))
         };
@@ -353,8 +493,34 @@ internal sealed class CargaMasivaTrabajadores(
     /// </remarks>
     private static string EquivalenteTipoDocumento(string valor) => Normalizar(valor) switch
     {
-        "cex" or "ce_x" or "carnet de extranjeria" or "carne extranjeria" => "CE",
+        // "C.E" es como lo escribe el padrón de Planta 1.
+        "cex" or "ce_x" or "c.e" or "c.e." or "carnet de extranjeria" or "carne extranjeria" => "CE",
         "doc. nacional de identidad" or "d.n.i." => "DNI",
+        _ => valor
+    };
+
+    /// <summary>
+    /// Traduce al código del catálogo general los sinónimos de puesto que traen los
+    /// archivos: la grafía de cada padrón de planta y los códigos de la planilla de GCA.
+    /// </summary>
+    /// <remarks>
+    /// El catálogo tiene una sola fila por puesto (ver <c>DatosSemilla</c>): cuando cada
+    /// grafía era un puesto aparte, "O. MAQUINA", "MAQUINISTA" y "Operario de máquina" se
+    /// veían como tres puestos distintos. Lo que no está aquí se resuelve tal cual contra
+    /// el catálogo, así que un puesto nuevo sigue siendo un INSERT.
+    /// </remarks>
+    private static string EquivalentePuesto(string valor) => Normalizar(valor) switch
+    {
+        "operario de produccion" or "26001" => "OPER",
+        "o. maquina" or "o.maquina" or "o maquina" or "maquinista" or "operario de maquina" or "26006" => "OPEMAQ",
+        "o. traspalet" or "o.traspalet" or "o traspalet" or "traspaletista" or "operario transpalet"
+            or "operador transpalet" or "operador traspalet" or "26002" or "26007" => "OPETRA",
+        "26216" => "SUPV",
+        "26223" => "SUPPRO",
+        "26229" => "SUPSSO",
+        "ssoma" or "inspector de ssoma" or "26148" => "INSSSO",
+        "coordinador de produccion" or "26104" => "COORD",
+        "coord. rrhh" or "coord rrhh" or "coordinador de rrhh" => "CORRHH",
         _ => valor
     };
 
@@ -375,9 +541,15 @@ internal sealed class CargaMasivaTrabajadores(
             $"El tipo de planilla '{valor}' no es válido. Use OBRERO (OBM) o EMPLEADO (EMP).")
     };
 
+    /// <remarks>
+    /// Un número mayor que cero es verdadero: los padrones de planta escriben en
+    /// "tiene hijos" la cantidad ("2", "3"), y leerla como NO le quitaba la asignación
+    /// familiar a quien más hijos tiene.
+    /// </remarks>
     private static bool LeerBooleano(string? valor) => Normalizar(valor) switch
     {
-        "si" or "s" or "1" or "true" or "verdadero" or "x" => true,
+        "si" or "s" or "true" or "verdadero" or "x" => true,
+        var texto when int.TryParse(texto, NumberStyles.None, CultureInfo.InvariantCulture, out var cantidad) => cantidad > 0,
         _ => false
     };
 

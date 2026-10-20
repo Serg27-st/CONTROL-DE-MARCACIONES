@@ -1,120 +1,62 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Infrastructure;
 using ControlMarcacion.Infrastructure.Persistencia;
 using ControlMarcacion.Infrastructure.Seguridad;
+using ControlMarcacion.Web.Operaciones;
 using ControlMarcacion.Web.Seguridad;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 
+DialogoInicioWindows.RegistrarManejadorGlobal();
 var builder = WebApplication.CreateBuilder(args);
+
+// La instalación local conserva su configuración fuera de Program Files. Se vuelve a
+// agregar entorno y línea de comandos para que sigan teniendo precedencia sobre el JSON.
+var rutaConfiguracionLocal = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+    "ControlMarcacion",
+    "config",
+    "appsettings.Local.json");
+builder.Configuration
+    .AddJsonFile(rutaConfiguracionLocal, optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
+using var registroArchivoLocal = RegistroArchivoLocal.Inicializar(
+    builder.Environment,
+    builder.Configuration);
 
 // Los TXT del marcador ZKTeco vienen en Windows-1252 / Latin-1, no en UTF-8.
 // Sin este registro, Encoding.GetEncoding(1252) lanza excepción al leerlos.
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-// ---------------------------------------------------------------------------------
-// Modo "un clic": el ejecutable abre el sistema en el navegador.
-//
-// El puerto solo lo puede tomar un proceso, así que antes de arrancar hay que averiguar
-// quién lo tiene. Son TRES situaciones y confundirlas se nota:
-//
-//  - Libre: arrancamos y abrimos la pestaña cuando Kestrel ya escucha, no antes, o el
-//    navegador llegaría a un puerto todavía cerrado.
-//  - Lo tiene NUESTRO sistema (la tarea lo levantó al encender la PC): abrimos la pestaña
-//    y salimos. Para quien hizo clic, el efecto es el que espera.
-//  - Lo tiene OTRA aplicación: hay que decirlo. El 5000 está muy disputado en Windows
-//    (UPnP/SSDP dentro de svchost, Docker Desktop, IIS Express).
-//
-// ⚠️ No basta con preguntar «¿hay algo escuchando?». Esa comprobación daba por bueno
-// cualquier proceso ajeno: el ejecutable abría la pestaña, se cerraba sin arrancar nada y
-// el usuario veía una pestaña en blanco sin ninguna explicación. Por eso se pide /estado
-// y se comprueba la respuesta: escuchar en el puerto no es ser el sistema.
-//
-// La tarea programada arranca con --Despliegue:AbrirNavegador=false porque corre como
-// SYSTEM, que no tiene escritorio interactivo: allí abrir un navegador no muestra nada y
-// deja un proceso colgado en la sesión 0.
-// ---------------------------------------------------------------------------------
-var urlConfigurada = builder.Configuration["Urls"]?.Split(';')[0] ?? "http://localhost:5000";
+// Modo local de un clic. El bind se confirma con Kestrel y, si Windows devuelve
+// AddressInUse, el proceso se relanza en el puerto consecutivo. El navegador solo se abre
+// después de verificar /vivo y /estado=200 con la marca LISTO.
+var hostingLocal = builder.Configuration.GetValue("Despliegue:HostingLocal", true);
 var abrirNavegador = builder.Configuration.GetValue("Despliegue:AbrirNavegador", true);
+var puertoPreferido = HostingLocalWindows.ResolverPuertoPreferido(builder.Configuration);
+var puertoActual = HostingLocalWindows.ResolverPuertoActual(builder.Configuration, puertoPreferido);
+var administrarHostingLocal = hostingLocal && puertoActual != 0 && !EF.IsDesignTime;
+var urlAplicacion = administrarHostingLocal
+    ? HostingLocalWindows.CrearUrl(puertoActual)
+    : builder.Configuration["Urls"]?.Split(';')[0] ?? "http://127.0.0.1:5000";
+var rutaEstadoInstancia = InstanciaLocalWindows.ResolverRutaEstado(
+    builder.Environment,
+    builder.Configuration);
 
-var uriConfigurada = Uri.TryCreate(urlConfigurada, UriKind.Absolute, out var u)
-    ? u
-    : new Uri("http://localhost:5000");
-
-// El puerto preferido primero y los de respaldo después, sin repetir. Configurables porque
-// qué puerto está libre depende de qué más tenga instalado cada PC, y eso no se sabe desde
-// aquí.
-var candidatos = new List<int> { uriConfigurada.Port };
-candidatos.AddRange(
-    (builder.Configuration.GetSection("Despliegue:PuertosRespaldo").Get<int[]>()
-        ?? [5080, 5090, 8080, 8090])
-    .Where(p => !candidatos.Contains(p)));
-
-string UrlDePuerto(int puerto) =>
-    $"{uriConfigurada.Scheme}://{uriConfigurada.Host}:{puerto}";
-
-// ---------------------------------------------------------------------------------
-// PASO 1: ¿ya hay una instancia nuestra corriendo, en el puerto que sea?
-//
-// Se barren TODOS los candidatos y no solo el preferido. Si el sistema arrancó en 5080
-// porque el 5000 estaba ocupado, y más tarde el 5000 queda libre, mirar solo el preferido
-// haría que un segundo clic levantara una SEGUNDA instancia: dos procesos escribiendo la
-// misma base y el usuario viendo uno u otro según el puerto que abriera.
-// ---------------------------------------------------------------------------------
-var puertoEnUso = candidatos.FirstOrDefault(p => EsNuestroSistema(uriConfigurada.Host, p));
-
-if (puertoEnUso != 0)
+if (administrarHostingLocal)
 {
-    if (abrirNavegador)
-    {
-        AbrirEnNavegador(UrlDePuerto(puertoEnUso));
-    }
-
-    return;
-}
-
-// ---------------------------------------------------------------------------------
-// PASO 2: elegir el primer puerto libre.
-//
-// Se comprueba intentando escuchar de verdad y no consultando una lista del sistema: es la
-// única forma de saber que Kestrel va a poder tomarlo. Queda una ventana mínima entre esta
-// prueba y el arranque real; en una PC de escritorio es aceptable.
-// ---------------------------------------------------------------------------------
-var puertoElegido = candidatos.FirstOrDefault(p => SePuedeEscuchar(uriConfigurada.Host, p));
-
-if (puertoElegido == 0)
-{
-    Console.Error.WriteLine(
-        "No se pudo iniciar: todos los puertos previstos están ocupados por otras " +
-        $"aplicaciones ({string.Join(", ", candidatos)}).");
-    Console.Error.WriteLine(
-        "Agregue uno libre en appsettings.Production.json, en Despliegue:PuertosRespaldo.");
-    Console.Error.WriteLine(
-        "Para ver qué los ocupa: Get-NetTCPConnection -LocalPort " +
-        $"{candidatos[0]} -State Listen");
-    Environment.ExitCode = 1;
-    return;
-}
-
-var urlAplicacion = UrlDePuerto(puertoElegido);
-builder.WebHost.UseUrls(urlAplicacion);
-
-if (puertoElegido != uriConfigurada.Port)
-{
-    // Que el cambio se vea: el usuario abrió esperando el puerto de siempre, y sus enlaces
-    // guardados apuntan ahí.
-    Console.WriteLine(
-        $"El puerto {uriConfigurada.Port} está ocupado por otra aplicación. " +
-        $"El sistema se inicia en {urlAplicacion}");
+    // En modo local la dirección no es configurable: solo loopback IPv4. El modo servidor
+    // futuro puede desactivar HostingLocal y recuperar la configuración normal de ASP.NET.
+    builder.WebHost.UseUrls(urlAplicacion);
 }
 
 builder.Services.AddControllersWithViews(opciones =>
@@ -126,7 +68,7 @@ builder.Services.AddControllersWithViews(opciones =>
     opciones.Filters.Add(new AuthorizeFilter());
 });
 
-// Fuera de desarrollo la base vive en C:\ProgramData\ControlMarcaciones, y no:
+// Fuera de desarrollo la base vive en C:\ProgramData\ControlMarcacion\data, y no:
 //
 //  - en AppData, que es POR USUARIO. La tarea programada corre como SYSTEM y la persona
 //    trabaja en su propia sesión: cada uno abriría una base distinta y el fallo sería
@@ -146,7 +88,8 @@ if (!builder.Environment.IsDevelopment())
     {
         rutaBase = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "ControlMarcaciones",
+            "ControlMarcacion",
+            "data",
             "ControlMarcacion.db");
     }
 
@@ -233,6 +176,12 @@ builder.Services.ConfigureApplicationCookie(opciones =>
         : CookieSecurePolicy.SameAsRequest;
 });
 
+// La preparación escribe (migraciones + bootstrap); el verificador de readiness solo lee.
+// Separarlos evita que una llamada anónima a /estado pueda modificar la base.
+builder.Services.AddScoped<IPreparadorAplicacion, PreparadorAplicacion>();
+builder.Services.AddScoped<IVerificadorEstadoOperativo, VerificadorEstadoOperativo>();
+builder.Services.AddSingleton<EstadoPreparacionAplicacion>();
+
 // Cultura fija es-PE. No se deja al azar de la configuración regional del servidor:
 // un servidor en inglés interpretaría "07/08/2026" como 8 de julio en vez de 7 de agosto,
 // y ese es un error silencioso que se descubre recién en la planilla.
@@ -245,6 +194,76 @@ builder.Services.Configure<RequestLocalizationOptions>(opciones =>
 });
 
 var app = builder.Build();
+
+// WebApplicationFactory reemplaza Kestrel por TestServer después de configurar el builder.
+// Detectarlo aquí mantiene las pruebas HTTP dentro del ciclo estándar y evita lanzar procesos
+// de fallback desde un test. No se referencia el paquete TestHost desde producción.
+var servidor = app.Services.GetRequiredService<IServer>();
+if (string.Equals(
+        servidor.GetType().Assembly.GetName().Name,
+        "Microsoft.AspNetCore.TestHost",
+        StringComparison.Ordinal))
+{
+    administrarHostingLocal = false;
+}
+
+InstanciaLocalWindows? instanciaLocal = null;
+if (administrarHostingLocal)
+{
+    var instanciaComprobacion = InstanciaLocalWindows.IntentarAdquirir();
+    if (!instanciaComprobacion.EsPropietaria)
+    {
+        using (instanciaComprobacion)
+        {
+        // El mutex, no el archivo, decide que existe otra instancia. El descriptor se valida
+        // además con PID y liveness antes de abrir el navegador.
+        var registrada = InstanciaLocalWindows.Leer(rutaEstadoInstancia);
+        if (registrada is not null && InstanciaLocalWindows.ProcesoExiste(registrada))
+        {
+            var urlRegistrada = HostingLocalWindows.CrearUrl(registrada.Puerto);
+            using var clienteExistente = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+            var estadoExistente = await HostingLocalWindows
+                .EsperarEstadoAsync(
+                    clienteExistente,
+                    urlRegistrada,
+                    TimeSpan.FromSeconds(15),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (estadoExistente.Vivo && estadoExistente.Listo)
+            {
+                if (abrirNavegador)
+                {
+                    AbrirEnNavegador(urlRegistrada);
+                }
+            }
+            else if (estadoExistente.Vivo
+                     && estadoExistente.RequiereConfiguracion)
+            {
+                if (abrirNavegador)
+                {
+                    AbrirEnNavegador($"{urlRegistrada}/setup");
+                }
+            }
+            else
+            {
+                MostrarFalloInicio();
+            }
+        }
+        else
+        {
+            MostrarFalloInicio();
+        }
+
+            return;
+        }
+    }
+
+    // Conserva la propiedad hasta el apagado. El objeto anterior se transfiere aquí para
+    // que no libere el mutex al salir del bloque.
+    instanciaLocal = instanciaComprobacion;
+    InstanciaLocalWindows.RetirarStale(rutaEstadoInstancia);
+}
 
 if (!app.Environment.IsDevelopment())
 {
@@ -287,6 +306,29 @@ app.Use(async (contexto, siguiente) =>
     await siguiente().ConfigureAwait(false);
 });
 
+// Mientras la preparación crítica no termine, solo se exponen liveness y readiness. Así una
+// migración fallida no deja accesibles controladores sobre un esquema parcial. /estado puede
+// rehabilitar el tráfico cuando una reparación externa deja la DB compatible.
+app.Use(async (contexto, siguiente) =>
+{
+    var ruta = contexto.Request.Path;
+    var esEndpointTecnico = ruta.Equals("/vivo", StringComparison.OrdinalIgnoreCase)
+                            || ruta.Equals("/estado", StringComparison.OrdinalIgnoreCase);
+    var estadoPreparacion = contexto.RequestServices
+        .GetRequiredService<EstadoPreparacionAplicacion>();
+
+    if (!esEndpointTecnico && !estadoPreparacion.PermiteTraficoFuncional)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await contexto.Response.WriteAsJsonAsync(
+                new RespuestaEstado(Marcas.Sistema, "ERROR", "INICIALIZACION_NO_COMPLETA"))
+            .ConfigureAwait(false);
+        return;
+    }
+
+    await siguiente().ConfigureAwait(false);
+});
+
 app.UseStaticFiles();
 app.UseRequestLocalization();
 app.UseRouting();
@@ -301,138 +343,183 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Inicio}/{action=Index}/{id?}");
 
-// Marca de identidad del sistema, para que el propio ejecutable pueda distinguir «el
-// puerto lo tengo yo» de «el puerto lo tiene otra aplicación». Va anónimo a propósito: se
-// consulta antes de que exista ninguna sesión y no revela nada — ni versión, ni rutas, ni
-// si hay usuarios.
-app.MapGet("/estado", () => Marcas.Sistema).AllowAnonymous();
+// Liveness identifica el proceso aunque la base esté caída. El ejecutable usa esta ruta para
+// no levantar una segunda instancia sobre otro puerto cuando la primera todavía vive.
+app.MapGet(
+        "/vivo",
+        (HttpContext contexto) =>
+        {
+            contexto.Response.Headers.CacheControl = "no-store";
+            return Results.Text(Marcas.Sistema);
+        })
+    .AllowAnonymous();
 
-// El primer coordinador se crea aquí, no en una migración: una contraseña es un
-// credencial y este archivo no se versiona con datos. Ver InicializadorSeguridad.
-//
-// Va dentro de un try porque es lo único del arranque que toca la base de datos: si SQL
-// Server no responde en ese instante, la excepción tumbaba el proceso entero y la
-// aplicación no llegaba a escuchar. Eso convierte un corte de red de treinta segundos en
-// una caída que necesita que alguien la reinicie a mano, justo cuando nadie está mirando.
-//
-// Arrancar igual es lo correcto: sin base tampoco se puede iniciar sesión, pero al menos
-// el sitio responde, la pantalla de error explica qué pasa y el sistema se recupera solo
-// en cuanto la base vuelve. Si la tabla de usuarios estaba vacía, el coordinador se creará
-// en el siguiente arranque, que es exactamente lo que ya hacía este inicializador.
-using (var alcance = app.Services.CreateScope())
+// Readiness es dinámico y read-only: una instancia viva devuelve 503 mientras la base no sea
+// compatible con este binario, y vuelve a 200 cuando una reparación externa deja el esquema
+// listo. Nunca publica excepciones, rutas, migraciones concretas ni datos personales.
+app.MapGet(
+        "/estado",
+        async (
+            HttpContext contexto,
+            IVerificadorEstadoOperativo verificador,
+            CancellationToken cancelacion) =>
+        {
+            contexto.Response.Headers.CacheControl = "no-store";
+            var resultado = await verificador.VerificarAsync(cancelacion).ConfigureAwait(false);
+
+            if (resultado.Listo || resultado.RequiereConfiguracion)
+            {
+                contexto.RequestServices
+                    .GetRequiredService<EstadoPreparacionAplicacion>()
+                    .MarcarPreparada();
+            }
+
+            if (resultado.Listo)
+            {
+                return Results.Text($"{Marcas.Sistema};LISTO");
+            }
+
+            var estado = resultado.RequiereConfiguracion
+                ? "CONFIGURACION_INICIAL_REQUERIDA"
+                : "ERROR";
+            return Results.Json(
+                new RespuestaEstado(Marcas.Sistema, estado, resultado.Codigo),
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        })
+    .AllowAnonymous();
+
+if (!administrarHostingLocal)
 {
+    // WebApplicationFactory, herramientas EF y un futuro hosting de servidor conservan el
+    // ciclo estándar. La lógica local de puertos no invade esos escenarios.
+    await PrepararAplicacionAsync(app).ConfigureAwait(false);
+    app.Run();
+    return;
+}
+
+try
+{
+    // Kestrel intenta el bind real. No existe una prueba previa que abra y cierre el puerto.
+    await app.StartAsync(CancellationToken.None).ConfigureAwait(false);
+}
+catch (Exception excepcion) when (HostingLocalWindows.EsDireccionEnUso(excepcion))
+{
+    await app.DisposeAsync().ConfigureAwait(false);
+    var siguiente = HostingLocalWindows.SiguientePuerto(puertoActual);
+    Console.Error.WriteLine(
+        $"El puerto {puertoActual} fue rechazado por Kestrel (AddressInUse). " +
+        $"Se reintentará en {HostingLocalWindows.CrearUrl(siguiente)}.");
+
+    // El proceso hijo debe poder tomar el mismo mutex antes de intentar el puerto siguiente.
+    instanciaLocal?.LiberarParaRelanzar();
+    if (!HostingLocalWindows.RelanzarEnPuerto(args, siguiente))
+    {
+        Console.Error.WriteLine("No se pudo relanzar ControlMarcacion en el puerto siguiente.");
+        Environment.ExitCode = 1;
+    }
+
+    return;
+}
+
+try
+{
+    if (puertoActual != puertoPreferido)
+    {
+        Console.WriteLine(
+            $"El puerto preferido {puertoPreferido} estaba ocupado. " +
+            $"ControlMarcacion escucha en {urlAplicacion}.");
+    }
+
+    try
+    {
+        // Permite que un segundo doble clic encuentre la instancia aunque use fallback.
+        InstanciaLocalWindows.Registrar(rutaEstadoInstancia, puertoActual);
+    }
+    catch (IOException excepcion)
+    {
+        Console.Error.WriteLine($"No se pudo registrar el puerto activo: {excepcion.Message}");
+    }
+    catch (UnauthorizedAccessException excepcion)
+    {
+        Console.Error.WriteLine($"No se pudo registrar el puerto activo: {excepcion.Message}");
+    }
+
+    // La preparación se ejecuta después del bind: /vivo puede distinguir proceso iniciado de
+    // sistema operativamente listo. Un fallo deja /estado en 503 y nunca abre el navegador.
+    await PrepararAplicacionAsync(app).ConfigureAwait(false);
+
+    using var clienteInicio = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+    var estadoInicio = await HostingLocalWindows
+        .EsperarEstadoAsync(
+            clienteInicio,
+            urlAplicacion,
+            TimeSpan.FromSeconds(15),
+            CancellationToken.None)
+        .ConfigureAwait(false);
+
+    if (!estadoInicio.Vivo)
+    {
+        Console.Error.WriteLine(
+            $"ControlMarcacion inició en {urlAplicacion}, pero /vivo no pudo verificarse. " +
+            estadoInicio.Detalle);
+        MostrarFalloInicio();
+    }
+    else if (!estadoInicio.Listo)
+    {
+        if (estadoInicio.RequiereConfiguracion)
+        {
+            Console.WriteLine(
+                $"ControlMarcacion requiere configuración inicial en {urlAplicacion}/setup.");
+            if (abrirNavegador)
+            {
+                AbrirEnNavegador($"{urlAplicacion}/setup");
+            }
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                $"ControlMarcacion está vivo en {urlAplicacion}, pero tiene un error operativo. " +
+                estadoInicio.Detalle);
+            MostrarFalloInicio();
+        }
+    }
+    else
+    {
+        Console.WriteLine($"ControlMarcacion está operativamente LISTO en {urlAplicacion}.");
+        if (abrirNavegador)
+        {
+            AbrirEnNavegador(urlAplicacion);
+        }
+    }
+
+    await app.WaitForShutdownAsync(CancellationToken.None).ConfigureAwait(false);
+}
+finally
+{
+    InstanciaLocalWindows.RetirarSiPerteneceAlProceso(rutaEstadoInstancia);
+    instanciaLocal?.Dispose();
+    await app.DisposeAsync().ConfigureAwait(false);
+}
+
+static async Task PrepararAplicacionAsync(WebApplication aplicacion)
+{
+    using var alcance = aplicacion.Services.CreateScope();
+    var estadoPreparacion = alcance.ServiceProvider
+        .GetRequiredService<EstadoPreparacionAplicacion>();
     var registro = alcance.ServiceProvider
         .GetRequiredService<ILoggerFactory>()
         .CreateLogger("ControlMarcacion.Arranque");
 
     try
     {
-        // Crea el archivo de base si no existe y aplica las migraciones pendientes. Es lo
-        // que convierte la instalación en "copiar el ejecutable y abrirlo": no hay script
-        // que correr ni motor que preparar. En el primer arranque entran también los
-        // catálogos de DatosSemilla, que viajan como datos dentro de las migraciones.
-        //
-        // Aplicar migraciones al arrancar es discutible en un sistema que calcula planilla
-        // —normalmente se hace en un paso aparte y revisado—, pero aquí el despliegue es
-        // una PC sin operador técnico: un paso manual que alguien olvida deja el sistema
-        // sin arrancar, y el reemplazo del ejecutable ya es la decisión consciente.
-        var contexto = alcance.ServiceProvider.GetRequiredService<MarcacionDbContext>();
-        await contexto.Database.MigrateAsync().ConfigureAwait(false);
-
-        await InicializadorSeguridad.InicializarAsync(alcance.ServiceProvider, app.Configuration)
-            .ConfigureAwait(false);
+        var preparador = alcance.ServiceProvider.GetRequiredService<IPreparadorAplicacion>();
+        await preparador.PrepararAsync(CancellationToken.None).ConfigureAwait(false);
+        estadoPreparacion.MarcarPreparada();
     }
     catch (Exception excepcion)
     {
-        // Se registra el tipo y el mensaje de la excepción, nunca la cadena de conexión:
-        // lleva el servidor y, según el despliegue, usuario y contraseña.
+        estadoPreparacion.MarcarFallida();
         RegistroArranque.BaseNoDisponible(registro, excepcion);
-    }
-}
-
-// Se abre cuando el servidor ya está escuchando, no antes: ApplicationStarted se dispara
-// después de que Kestrel toma el puerto, así que el navegador nunca llega a una puerta
-// todavía cerrada.
-if (abrirNavegador)
-{
-    app.Lifetime.ApplicationStarted.Register(() => AbrirEnNavegador(urlAplicacion));
-}
-
-app.Run();
-
-/// <summary>
-/// ¿Hay una instancia <b>del sistema</b> atendiendo en ese puerto?
-/// </summary>
-/// <remarks>
-/// Se resuelve por el puerto y no con un mutex con nombre: la tarea programada corre como
-/// SYSTEM y la persona en su propia sesión, y un mutex creado por SYSTEM no siempre es
-/// visible para un usuario normal. El puerto es el recurso que de verdad está en disputa.
-///
-/// ⚠️ No basta con que algo escuche: hay que comprobar que ese algo <b>es el sistema</b>,
-/// pidiéndole /estado y buscando su marca. Preguntar solo si el puerto estaba ocupado hacía
-/// que cualquier proceso ajeno en el 5000 se tomara por nuestro, y el ejecutable abría la
-/// pestaña y se cerraba sin arrancar nada.
-/// </remarks>
-static bool EsNuestroSistema(string host, int puerto)
-{
-    var destino = host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-        ? "127.0.0.1"
-        : host;
-
-    try
-    {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-        var respuesta = http
-            .GetStringAsync($"http://{destino}:{puerto}/estado")
-            .GetAwaiter()
-            .GetResult();
-
-        return respuesta.Contains(Marcas.Sistema, StringComparison.Ordinal);
-    }
-    catch (HttpRequestException)
-    {
-        return false;
-    }
-    catch (TaskCanceledException)
-    {
-        return false;
-    }
-    catch (AggregateException)
-    {
-        return false;
-    }
-}
-
-/// <summary>
-/// ¿Se puede tomar ese puerto para escuchar?
-/// </summary>
-/// <remarks>
-/// Se comprueba intentando escuchar de verdad, y no consultando la lista de conexiones del
-/// sistema: es la única forma de saber que Kestrel va a poder tomarlo — un puerto puede
-/// figurar libre y estar reservado por Windows (<c>netsh interface portproxy</c>, rangos
-/// excluidos) y el arranque fallaría igual.
-/// </remarks>
-static bool SePuedeEscuchar(string host, int puerto)
-{
-    var direccion = host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-        ? IPAddress.Loopback
-        : IPAddress.TryParse(host, out var analizada) ? analizada : IPAddress.Any;
-
-    TcpListener? oyente = null;
-
-    try
-    {
-        oyente = new TcpListener(direccion, puerto);
-        oyente.Start();
-        return true;
-    }
-    catch (SocketException)
-    {
-        return false;
-    }
-    finally
-    {
-        oyente?.Stop();
     }
 }
 
@@ -463,6 +550,11 @@ static void AbrirEnNavegador(string url)
     }
 }
 
+static void MostrarFalloInicio()
+{
+    DialogoInicioWindows.MostrarFallo(DialogoInicioWindows.RutaLogsPredeterminada);
+}
+
 /// <summary>
 /// Mensajes de registro del arranque.
 /// </summary>
@@ -476,9 +568,9 @@ internal static partial class RegistroArranque
     [LoggerMessage(
         Level = LogLevel.Error,
         Message = "No se pudo preparar la base de datos al arrancar (migraciones o usuario " +
-                  "inicial). La aplicación se inicia igual, pero no se podrá iniciar sesión " +
-                  "hasta que la base esté disponible. Revise que la carpeta de datos exista " +
-                  "y que el usuario que ejecuta la aplicación pueda escribir en ella.")]
+                  "inicial). El proceso queda vivo, pero /estado responderá 503 hasta que la " +
+                  "base esté disponible y su esquema sea compatible. Revise la carpeta, los " +
+                  "permisos y las migraciones antes de habilitar tráfico.")]
     public static partial void BaseNoDisponible(ILogger logger, Exception excepcion);
 }
 
@@ -494,3 +586,9 @@ internal static class Marcas
 {
     public const string Sistema = "ControlMarcaciones-OK";
 }
+
+internal sealed record RespuestaEstado(string Sistema, string Estado, string Codigo);
+
+// Punto de entrada visible para las pruebas HTTP de extremo a extremo con
+// WebApplicationFactory. No altera el arranque normal de la aplicación.
+public partial class Program;

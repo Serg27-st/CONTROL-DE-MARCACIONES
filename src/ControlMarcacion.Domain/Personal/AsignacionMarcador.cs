@@ -1,9 +1,10 @@
+using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 
 namespace ControlMarcacion.Domain.Personal;
 
 /// <summary>
-/// Vínculo entre un trabajador y el identificador que le asigna el marcador ZKTeco,
+/// Vínculo entre un trabajador y el identificador que le asigna un equipo ZKTeco,
 /// <b>con vigencia por fecha</b>.
 /// </summary>
 /// <remarks>
@@ -12,6 +13,11 @@ namespace ControlMarcacion.Domain.Personal;
 /// del anterior ocupante pasarían a atribuirse al nuevo, corrompiendo tareos ya cerrados.
 /// Por eso la resolución ID → trabajador se hace <b>por la fecha de la marcación</b>,
 /// no por la asignación actual.
+///
+/// ⚠️ <b>La resolución es por (equipo, código, fecha), no por código y fecha.</b> Dos
+/// aparatos de la misma planta numeran a su gente desde el 1, así que el código por sí
+/// solo no identifica a nadie: sin el equipo, el usuario 14 del marcador A–L y el 14 del
+/// M–Z se resuelven al mismo trabajador y sus jornadas se funden.
 /// </remarks>
 public class AsignacionMarcador : EntidadBase, IVigenciaPorFecha
 {
@@ -19,8 +25,13 @@ public class AsignacionMarcador : EntidadBase, IVigenciaPorFecha
 
     public Trabajador? Trabajador { get; set; }
 
+    /// <summary>Aparato que emite este identificador.</summary>
+    public long EquipoId { get; set; }
+
+    public EquipoMarcador? Equipo { get; set; }
+
     /// <summary>
-    /// Identificador que reporta el equipo en el archivo TXT.
+    /// Identificador que reporta el equipo en el archivo.
     /// <b>Texto</b>, para conservar los ceros a la izquierda (por ejemplo "00123").
     /// </summary>
     public string IdMarcador { get; set; } = null!;

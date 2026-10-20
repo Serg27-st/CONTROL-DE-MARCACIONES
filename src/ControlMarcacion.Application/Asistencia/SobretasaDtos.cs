@@ -10,9 +10,10 @@ namespace ControlMarcacion.Application.Asistencia;
 /// conocerla. Lo que entrega es la base auditable para que planilla multiplique — los
 /// minutos por concepto y la tasa que regía en esas fechas, con su base legal.
 ///
-/// <see cref="MinutosEquivalentes"/> es esa aplicación expresada en tiempo: 120 minutos
-/// al 25 % equivalen a 150 minutos de jornada ordinaria. Es la forma habitual de entregar
-/// sobretiempo a planilla sin que este sistema tenga que tocar sueldos.
+/// <see cref="MinutosEquivalentes"/> es el aporte de este concepto al total valorizado,
+/// expresado en tiempo. Para un tramo físico exclusivo incluye base y recargo: 120 minutos
+/// de HE al 25 % equivalen a 150 minutos ordinarios. Para una dimensión superpuesta como
+/// nocturnidad aporta solo la prima: su base física ya está en ordinario/HE/HE100.
 /// </remarks>
 public sealed record ConceptoLiquidado(
     ConceptoSobretasa Concepto,
@@ -22,13 +23,44 @@ public sealed record ConceptoLiquidado(
     string? BaseLegal,
     bool TieneTasaVigente)
 {
-    /// <summary>Minutos convertidos a equivalente de jornada ordinaria.</summary>
-    public decimal MinutosEquivalentes =>
-        Math.Round(Minutos * (1 + (Porcentaje / 100m)), 2);
+    /// <summary>
+    /// Base económica expresada en minutos, sin crear minutos físicos adicionales.
+    /// </summary>
+    /// <remarks>
+    /// Para la nocturnidad la base ya pertenece a otro tramo físico y por eso aquí es cero.
+    /// Para feriado trabajado conserva exactamente los minutos efectivamente laborados.
+    /// </remarks>
+    public decimal MinutosBaseEconomica =>
+        Concepto == ConceptoSobretasa.TrabajoNocturno ? 0m : Minutos;
+
+    /// <summary>Recargo económico expresado como minutos equivalentes.</summary>
+    public decimal MinutosRecargo => Math.Round(Minutos * Porcentaje / 100m, 2);
+
+    /// <summary>Minutos que este concepto aporta al equivalente de jornada ordinaria.</summary>
+    public decimal MinutosEquivalentes => MinutosBaseEconomica + MinutosRecargo;
 
     public decimal HorasEquivalentes => Math.Round(MinutosEquivalentes / 60m, 2);
 
     public decimal Horas => Math.Round(Minutos / 60m, 2);
+}
+
+/// <summary>
+/// Derecho a una remuneración diaria ordinaria que no representa tiempo físicamente
+/// trabajado. Se mantiene separado de <see cref="ConceptoLiquidado"/> para que un feriado
+/// pagado o la coincidencia especial del 1 de mayo no inventen ni dupliquen minutos.
+/// </summary>
+public sealed record ComponenteRemuneracionDiaria(
+    TipoComponenteRemuneracionDiaria Tipo,
+    string Etiqueta,
+    int CantidadDias,
+    bool IncluidoEnRemuneracionBase,
+    string BaseLegal);
+
+public enum TipoComponenteRemuneracionDiaria
+{
+    RemuneracionOrdinariaFeriado = 1,
+    RemuneracionDescansoSemanal = 2,
+    RemuneracionAdicionalPrimeroDeMayo = 3
 }
 
 /// <summary>
@@ -40,7 +72,8 @@ public sealed record LiquidacionPeriodo(
     DateOnly FechaInicio,
     DateOnly FechaFin,
     int MinutosOrdinarios,
-    IReadOnlyList<ConceptoLiquidado> Conceptos)
+    IReadOnlyList<ConceptoLiquidado> Conceptos,
+    IReadOnlyList<ComponenteRemuneracionDiaria> ComponentesRemuneracionDiaria)
 {
     /// <summary>
     /// Conceptos con minutos acumulados pero sin ninguna tasa vigente en el periodo.
@@ -57,7 +90,16 @@ public sealed record LiquidacionPeriodo(
 
     public decimal HorasOrdinarias => Math.Round(MinutosOrdinarios / 60m, 2);
 
-    /// <summary>Total en horas equivalentes de jornada ordinaria, incluidas las ordinarias.</summary>
+    public IReadOnlyList<ComponenteRemuneracionDiaria> ComponentesDiariosConDerecho =>
+        [.. ComponentesRemuneracionDiaria.Where(c => c.CantidadDias > 0)];
+
+    public bool HayComponentesRemuneracionDiaria => ComponentesDiariosConDerecho.Count > 0;
+
+    /// <summary>
+    /// Total en horas equivalentes de jornada ordinaria, incluidas las ordinarias.
+    /// No incluye los derechos expresados en días de <see cref="ComponentesRemuneracionDiaria"/>:
+    /// convertirlos a horas requeriría inventar una jornada en un día de descanso.
+    /// </summary>
     public decimal TotalHorasEquivalentes =>
         Math.Round(HorasOrdinarias + Conceptos.Sum(c => c.HorasEquivalentes), 2);
 }

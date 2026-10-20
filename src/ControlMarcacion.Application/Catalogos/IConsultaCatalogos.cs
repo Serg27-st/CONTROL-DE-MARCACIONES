@@ -64,29 +64,38 @@ public interface IConsultaCatalogos
     Task<IReadOnlyList<OpcionDto>> TurnosAsync(long? plantaId, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Marcadores activos de una planta, para el desplegable de ID de marcador. Sin
-    /// planta, devuelve todos.
+    /// Cuadrillas activas de todas las plantas, para el desplegable de la ficha. Son pocas:
+    /// la ficha las agrupa por planta y el servidor comprueba que coincida con la del
+    /// trabajador.
     /// </summary>
-    /// <param name="incluirCodigo">
-    /// Código que debe aparecer en la lista aunque esté inactivo o pertenezca a otra
-    /// planta. Se usa al editar: si el trabajador ya tenía asignado un ID que hoy no
-    /// cumple el filtro, omitirlo haría que el desplegable se abriera vacío y que
-    /// guardar sin tocar nada le borrara la asignación en silencio.
-    /// </param>
-    Task<IReadOnlyList<OpcionTextoDto>> MarcadoresAsync(
-        long? plantaId,
-        string? incluirCodigo = null,
+    Task<IReadOnlyList<CuadrillaOpcionDto>> CuadrillasActivasAsync(CancellationToken cancelacion = default);
+
+    /// <summary>Una cuadrilla, activa o no. Nulo si no existe.</summary>
+    Task<CuadrillaOpcionDto?> CuadrillaPorIdAsync(long id, CancellationToken cancelacion = default);
+
+    /// <summary>Equipos activos, para los desplegables de carga y de personal.</summary>
+    /// <remarks>
+    /// Devuelve todos con su planta dentro: son un puñado de aparatos y la pantalla de
+    /// carga filtra por planta del lado del cliente, sin otra vuelta al servidor.
+    /// </remarks>
+    Task<IReadOnlyList<EquipoOpcionDto>> EquiposActivosAsync(
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Ficha de catálogo de un código de marcador. Nulo si el código no está registrado.
+    /// Marcadores de una planta que llevan ese código.
     /// </summary>
     /// <remarks>
-    /// La usa Personal para comprobar que el ID que se le asigna a un trabajador existe
-    /// y pertenece a su planta. Personal consulta el catálogo por este contrato público
-    /// y no por la tabla: es la regla de este repositorio para hablar entre módulos.
+    /// La usa Personal para comprobar que el ID que se le asigna a un trabajador existe y
+    /// es de su planta. Personal consulta el catálogo por este contrato público y no por
+    /// la tabla: es la regla de este repositorio para hablar entre módulos.
+    ///
+    /// Devuelve una <b>lista</b> y no una ficha porque el código dejó de ser único: con dos
+    /// aparatos en la misma planta, "14" existe en los dos y son dos personas distintas.
+    /// Quien llama decide — con uno solo no hay nada que preguntar, con varios hay que
+    /// exigir el equipo en vez de elegir por él.
     /// </remarks>
-    Task<MarcadorCatalogoDto?> MarcadorPorCodigoAsync(
+    Task<IReadOnlyList<MarcadorCatalogoDto>> MarcadoresPorCodigoAsync(
         string codigo,
+        long plantaId,
         CancellationToken cancelacion = default);
 }

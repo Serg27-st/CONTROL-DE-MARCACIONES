@@ -110,7 +110,13 @@
                 <dl class="panel-datos">
                     <div>
                         <dt>ID de marcador</dt>
-                        <dd>@(detalle.IdMarcador ?? "—")</dd>
+                        <dd>
+                            @(detalle.IdMarcador ?? "—")
+                            @if (detalle.Equipo is not null)
+                            {
+                                <small class="texto-suave">· @detalle.Equipo</small>
+                            }
+                        </dd>
                     </div>
                     <div>
                         <dt>Turno</dt>
@@ -289,11 +295,28 @@
                     <h3>Asignaciones</h3>
                     <div class="rejilla">
                         <div class="campo">
-                            <label asp-for="Datos.IdMarcador">ID de marcador</label>
-                            <select asp-for="Datos.IdMarcador" id="PanelIdMarcador" class="select-buscable"
-                                    asp-items="@(new SelectList(Model.Marcadores, "Valor", "Nombre"))">
-                                <option value="">Sin marcador asignado</option>
+                            <label for="PanelEquipoMarcadorId">Aparato marcador</label>
+                            <select asp-for="Datos.EquipoId" id="PanelEquipoMarcadorId" class="select-buscable">
+                                @if (Model.EquiposMarcador.Count != 1)
+                                {
+                                    <option value="">@(Model.EquiposMarcador.Count == 0 ? "La unidad no tiene aparatos" : "Seleccione el aparato…")</option>
+                                }
+                                @foreach (var equipo in Model.EquiposMarcador)
+                                {
+                                    <option value="@equipo.Id">@equipo.Nombre (@equipo.Codigo)</option>
+                                }
                             </select>
+                        </div>
+
+                        <div class="campo">
+                            <label for="PanelIdMarcador">N.º en el aparato</label>
+                            <input asp-for="Datos.IdMarcador" id="PanelIdMarcador" maxlength="30"
+                                   inputmode="numeric" autocomplete="off" placeholder="Ej. 14" />
+                        </div>
+
+                        <div class="campo">
+                            <label for="PanelMarcadorVigenteDesde">Rige desde</label>
+                            <input asp-for="Datos.MarcadorVigenteDesde" id="PanelMarcadorVigenteDesde" type="date" />
                         </div>
 
                         <div class="campo">
@@ -303,13 +326,38 @@
                                 <option value="">Sin turno asignado</option>
                             </select>
                         </div>
+
+                        <div class="campo">
+                            <label for="PanelCuadrillaId">Cuadrilla (rota)</label>
+                            <select asp-for="Datos.CuadrillaId" id="PanelCuadrillaId" class="select-buscable">
+                                <option value="">— Turno fijo —</option>
+                                @foreach (var planta in Model.Cuadrillas.GroupBy(c => c.Planta))
+                                {
+                                    <optgroup label="@planta.Key">
+                                        @foreach (var cuadrilla in planta)
+                                        {
+                                            <option value="@cuadrilla.Id">@cuadrilla.Codigo - @cuadrilla.Nombre</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="campo">
+                            <label for="PanelTurnoVigenteDesde">Turno rige desde</label>
+                            <input asp-for="Datos.TurnoVigenteDesde" id="PanelTurnoVigenteDesde" type="date" />
+                        </div>
                     </div>
 
                     <p class="panel-nota">
-                        El identificador del marcador, el turno y el sueldo básico se guardan con
-                        vigencia por fecha. Al cambiarlos se cierra la asignación anterior y se
-                        abre una nueva, para que las marcaciones ya registradas sigan atribuidas
-                        correctamente.
+                        El número del marcador es el que la persona tiene en ese aparato; si no
+                        está en el catálogo, se registra al guardar. «Rige desde» vacío: la
+                        primera vez, desde el ingreso; un cambio, desde mañana. Si el número
+                        estaba mal desde el principio, ponga la fecha de ingreso y recalcule:
+                        sus marcaciones pasan a esta persona. Si una rotación ya ocurrió, ponga
+                        en «Turno rige desde» el día en que empezó y recalcule. Con cuadrilla, el
+                        turno de cada día lo da su ciclo y el turno fijo se ignora. El sueldo
+                        cambia desde mañana.
                     </p>
                 </div>
 

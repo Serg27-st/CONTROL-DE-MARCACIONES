@@ -14,8 +14,33 @@ public class ImportacionMarcador : EntidadBase
 {
     public string NombreArchivo { get; set; } = null!;
 
+    /// <summary>Equipo del que se extrajo el archivo.</summary>
+    /// <remarks>
+    /// Lo declara quien carga, porque el archivo no siempre lo dice: el TXT del G3 no trae
+    /// ninguna columna con el aparato de origen. Queda registrado aquí para que "¿esta
+    /// marcación de dónde salió?" tenga respuesta completa —qué equipo, qué archivo, quién
+    /// lo subió— y no solo el nombre del archivo.
+    /// </remarks>
+    public long EquipoId { get; set; }
+
+    public Catalogos.EquipoMarcador? Equipo { get; set; }
+
     /// <summary>Hash SHA-256 del contenido, para detectar recargas del mismo archivo.</summary>
     public string HashContenido { get; set; } = null!;
+
+    /// <summary>
+    /// Serie del aparato que traía el archivo —en la cabecera del respaldo o en el nombre
+    /// del attlog—, o nula si no traía ninguna.
+    /// </summary>
+    public string? SerieArchivo { get; set; }
+
+    /// <summary>Cómo se comprobó que el archivo salió del equipo declarado.</summary>
+    /// <remarks>
+    /// El aviso de la pantalla de resultado se pierde; esto queda. Al investigar meses
+    /// después un día mal atribuido, hay que poder ver qué cargas nunca se verificaron y
+    /// cuál enseñó la serie a su equipo.
+    /// </remarks>
+    public OrigenCarga OrigenVerificado { get; set; }
 
     public DateTime FechaCarga { get; set; }
 
@@ -28,7 +53,7 @@ public class ImportacionMarcador : EntidadBase
     /// <summary>Duplicadas ignoradas: ya existían. No son un error.</summary>
     public int FilasDuplicadas { get; set; }
 
-    /// <summary>Rechazadas por dato inválido, ID desconocido o periodo cerrado.</summary>
+    /// <summary>Rechazadas por dato inválido, corrupto o no interpretable.</summary>
     public int FilasRechazadas { get; set; }
 
     /// <summary>
@@ -99,6 +124,31 @@ public class ImportacionMarcador : EntidadBase
         AnuladaPorUsuario = null;
         ModificadoPor = usuario;
     }
+}
+
+/// <summary>
+/// Qué respalda que un archivo salió del equipo que declaró quien lo cargó.
+/// </summary>
+public enum OrigenCarga
+{
+    /// <summary>
+    /// El archivo no traía serie —se renombró a mano—: se aceptó con el equipo declarado,
+    /// sin nada que lo contrastara. También es el valor de las cargas anteriores a esta
+    /// comprobación.
+    /// </summary>
+    NoVerificado = 0,
+
+    /// <summary>La serie de la cabecera del respaldo binario es la del equipo.</summary>
+    PorContenido,
+
+    /// <summary>La serie del nombre del archivo (<c>SERIE_attlog</c>) es la del equipo.</summary>
+    PorNombre,
+
+    /// <summary>
+    /// El equipo no tenía serie y la tomó de este archivo. Nada la contrastó: si más adelante
+    /// otra carga choca con esa serie, esta es la primera que hay que revisar.
+    /// </summary>
+    SerieAprendida
 }
 
 /// <summary>

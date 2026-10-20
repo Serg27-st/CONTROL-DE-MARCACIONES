@@ -54,10 +54,13 @@ Archivo TXT (USB, ZKTeco G3)
   LectorTxtZkteco  ──── adaptador en Infrastructure
         │
         ▼
-  IFuenteDeMarcaciones ─── validación, deduplicación, resolución de trabajador
+  IFuenteDeMarcaciones ─── validación y deduplicación
         │
         ▼
-   marcacion_cruda  ◄──── INMUTABLE. Nunca se edita ni se borra.
+   marcacion_cruda  ◄──── INMUTABLE. Equipo, número y hora; NO guarda el trabajador.
+        │
+        ▼
+  AtribucionMarcaciones ◄── número vigente en la fecha (asignacion_marcador), al calcular
         │
         ├──────────────┐
         ▼              ▼
@@ -95,6 +98,10 @@ Cuatro entidades del sistema son **temporales**, no referencias simples. Todas l
 Ignorar esto es la vía más rápida a un tareo histórico corrompido: si el ID de marcador se
 resolviera por la asignación actual, reasignarlo reatribuiría todas las marcaciones pasadas
 del ocupante anterior.
+
+Por la misma razón la marcación cruda **no guarda el trabajador**: el dueño se decide al
+calcular, con el número vigente en la fecha de cada marcación. Asignar o corregir un número y
+recalcular basta; ver [ADR 0001](adr/0001-atribucion-de-marcaciones-al-calcular.md).
 
 ## Persistencia
 

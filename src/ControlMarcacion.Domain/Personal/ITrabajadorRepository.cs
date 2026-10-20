@@ -46,6 +46,7 @@ public interface ITrabajadorRepository
     /// con vigencia solapada.
     /// </summary>
     Task<bool> IdMarcadorEnUsoAsync(
+        long equipoId,
         string idMarcador,
         DateOnly desde,
         DateOnly? hasta,
@@ -57,4 +58,10 @@ public interface ITrabajadorRepository
     void Actualizar(Trabajador trabajador);
 
     Task<int> GuardarCambiosAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Persiste un reingreso y traduce la colisión del índice que impide dos vínculos
+    /// abiertos en un mensaje funcional. El guardado sigue siendo una sola transacción.
+    /// </summary>
+    Task<int> GuardarReingresoAsync(CancellationToken cancelacion = default);
 }

@@ -1,3 +1,4 @@
+using ControlMarcacion.Application.Asistencia.Dto;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Domain.Asistencia;
 
@@ -22,6 +23,7 @@ public sealed record TareoDiarioDto(
     long TrabajadorId,
     string Trabajador,
     string? IdMarcador,
+    string? Equipo,
     DateOnly Fecha,
     string? Turno,
     DateTime? EntradaReal,
@@ -35,7 +37,9 @@ public sealed record TareoDiarioDto(
     int MinutosSalidaAnticipada,
     TipoDiaNoLaborable TipoDiaNoLaborable,
     EstadoTareo Estado,
-    string? Observacion)
+    string? Observacion,
+    TipoIncidencia? TipoIncidencia,
+    bool RequiereValidacion)
 {
     public bool EsDiaNoLaborable => TipoDiaNoLaborable != TipoDiaNoLaborable.Ninguno;
 }
@@ -86,6 +90,7 @@ public sealed record TareoDeTrabajador(
     long TrabajadorId,
     string Trabajador,
     string? IdMarcador,
+    string? Equipo,
     IReadOnlyList<TareoDiarioDto> Dias)
 {
     public int TotalDias => Dias.Count;
@@ -165,6 +170,23 @@ public interface IServicioCalculoTareo
     /// </remarks>
     Task<ResultadoPaginado<TareoDeTrabajador>> ListarPorTrabajadorAsync(
         FiltroTareo filtro,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Los días que esperan una decisión humana: la bandeja de incidencias.
+    /// </summary>
+    /// <remarks>
+    /// Vive aquí y no en un módulo propio porque la incidencia es un <b>atributo del día de
+    /// tareo</b>, no una entidad aparte: es Asistencia quien la calcula y quien la puede
+    /// consultar sin cruzar el límite de nadie. Trae también el estado de la regularización
+    /// que le corresponda, para que la bandeja distinga «hay que resolverlo» de «ya se pidió
+    /// y falta autorizarlo».
+    ///
+    /// Pagina como todo listado del sistema: la tabla de tareos llega a decenas de miles de
+    /// filas y un mes malo pone cientos en la bandeja.
+    /// </remarks>
+    Task<ResultadoPaginado<IncidenciaDto>> ListarIncidenciasAsync(
+        FiltroIncidencias filtro,
         CancellationToken cancelacion = default);
 
     /// <summary>

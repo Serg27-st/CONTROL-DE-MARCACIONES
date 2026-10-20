@@ -20,6 +20,7 @@
         EstadoTareo.Falta => "etiqueta-falta",
         EstadoTareo.AusenciaJustificada => "etiqueta-justificada",
         EstadoTareo.Incompleto => "etiqueta-incompleto",
+        EstadoTareo.PendienteValidacion => "etiqueta-incompleto",
         _ => "etiqueta-sin-horario"
     };
 
@@ -34,16 +35,18 @@
         EstadoTareo.Descanso => "Descanso",
         EstadoTareo.Feriado => "Feriado",
         EstadoTareo.SinVinculo => "Sin vínculo",
+        EstadoTareo.PendienteValidacion => "Pendiente de validar",
         _ => estado.ToString()
     };
 
     // Orden fijo, de lo que exige atención a lo que no. Los estados se muestran SIEMPRE
-    // los nueve, con cero incluido: una tabla cuyas columnas aparecen y desaparecen según
+    // los diez, con cero incluido: una tabla cuyas columnas aparecen y desaparecen según
     // los datos obliga a releer las cabeceras en cada carga, y un cero es información
     // —"ninguna falta"— que la ausencia de la pastilla no transmite.
     var ordenEstados = new[]
     {
         EstadoTareo.Falta,
+        EstadoTareo.PendienteValidacion,
         EstadoTareo.Tardanza,
         EstadoTareo.Incompleto,
         EstadoTareo.AusenciaJustificada,
@@ -55,22 +58,42 @@
     };
 }
 
-<div class="titulo-pagina">
-    <h1>Tareo diario</h1>
-    @if (Model.PeriodoSeleccionado is { } cabecera)
+@*
+    El encabezado lleva el contexto y la acción. «Recalcular» tenía una tarjeta entera para
+    un solo botón, y empujaba el detalle —lo que se viene a ver— trescientos píxeles hacia
+    abajo. Una acción única va donde viven las acciones: junto al título.
+*@
+<div class="titulo-pagina titulo-tareo">
+    <div class="titulo-tareo-contexto">
+        <h1>Tareo diario</h1>
+
+        @if (Model.PeriodoSeleccionado is { } cabecera)
+        {
+            <span class="texto-suave">
+                @cabecera.Codigo · @cabecera.FechaInicio.ToString("dd/MM/yyyy", cultura)
+                al @cabecera.FechaFin.ToString("dd/MM/yyyy", cultura)
+                @if (cabecera.EstaAbierto)
+                {
+                    <span class="etiqueta etiqueta-puntual separado">Abierto</span>
+                }
+                else
+                {
+                    <span class="etiqueta etiqueta-incompleto separado">Cerrado</span>
+                }
+            </span>
+        }
+    </div>
+
+    @if (Model.PeriodoSeleccionado is { EstaAbierto: true } abierto)
     {
-        <span class="texto-suave">
-            @cabecera.Codigo · @cabecera.FechaInicio.ToString("dd/MM/yyyy", cultura)
-            al @cabecera.FechaFin.ToString("dd/MM/yyyy", cultura)
-            @if (cabecera.EstaAbierto)
-            {
-                <span class="etiqueta etiqueta-puntual separado">Abierto</span>
-            }
-            else
-            {
-                <span class="etiqueta etiqueta-incompleto separado">Cerrado</span>
-            }
-        </span>
+        <form method="post" asp-action="Recalcular" class="en-linea">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="periodoId" value="@abierto.Id" />
+            <button type="submit" class="boton boton-primario"
+                    data-confirmar="¿Recalcular el tareo de @abierto.Codigo? Se rehará el cálculo de todos los días del periodo. El resultado es idéntico si nada cambió: el recálculo es idempotente.">
+                Recalcular @abierto.Codigo
+            </button>
+        </form>
     }
 </div>
 
@@ -90,54 +113,53 @@
 
 @* ------------------------------------------------------------------ Filtros ---- *@
 
-<div class="tarjeta">
-    <h2>Periodo y filtros</h2>
+<div class="tarjeta tarjeta-filtros">
 
-    <form method="get" asp-action="Index">
+    @*
+        Barra en una sola línea, no una rejilla de tarjetas de formulario: son tres campos
+        cortos y el botón, y apilarlos en tres columnas de 220 px con sus etiquetas encima
+        ocupaba media pantalla antes de llegar a un solo dato.
+    *@
+    <form method="get" asp-action="Index" class="barra-filtros">
         @* La página vuelve a 1 en cada búsqueda nueva: mantenerla dejaría al usuario en
            la página 7 de un resultado que ahora tiene dos. *@
         <input type="hidden" name="pagina" value="1" />
 
-        <div class="rejilla">
-            <div class="campo">
-                <label for="periodoId">Periodo</label>
-                <select id="periodoId" name="periodoId" class="select-buscable">
-                    @foreach (var p in Model.Periodos)
-                    {
-                        <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">
-                            @p.Codigo — @p.Nombre (@p.FechaInicio.ToString("dd/MM", cultura) al @p.FechaFin.ToString("dd/MM/yyyy", cultura))
-                        </option>
-                    }
-                </select>
-            </div>
-
-            <div class="campo">
-                <label for="busqueda">Trabajador</label>
-                <input type="search" id="busqueda" name="busqueda" value="@Model.Busqueda"
-                       placeholder="Apellidos, nombres o documento" autocomplete="off" />
-                <small class="nota-limite">
-                    Buscar a una persona deja su mes completo en pantalla, sin paginar.
-                </small>
-            </div>
-
-            <div class="campo">
-                <label for="estado">Estado</label>
-                <select id="estado" name="estado" class="select-buscable">
-                    <option value="">Todos</option>
-                    @foreach (var e in ordenEstados)
-                    {
-                        <option value="@((int)e)" selected="@(Model.Estado == e)">@NombreEstado(e)</option>
-                    }
-                </select>
-            </div>
+        <div class="campo campo-filtro campo-filtro-ancho">
+            <label for="periodoId">Periodo</label>
+            <select id="periodoId" name="periodoId" class="select-buscable">
+                @foreach (var p in Model.Periodos)
+                {
+                    <option value="@p.Id" selected="@(Model.PeriodoId == p.Id)">
+                        @p.Codigo — @p.Nombre (@p.FechaInicio.ToString("dd/MM", cultura) al @p.FechaFin.ToString("dd/MM/yyyy", cultura))
+                    </option>
+                }
+            </select>
         </div>
 
-        <div class="acciones">
+        <div class="campo campo-filtro campo-filtro-ancho">
+            <label for="busqueda">Trabajador</label>
+            <input type="search" id="busqueda" name="busqueda" value="@Model.Busqueda"
+                   placeholder="Apellidos, nombres o documento" autocomplete="off" />
+        </div>
+
+        <div class="campo campo-filtro">
+            <label for="estado">Estado</label>
+            <select id="estado" name="estado" class="select-buscable">
+                <option value="">Todos</option>
+                @foreach (var e in ordenEstados)
+                {
+                    <option value="@((int)e)" selected="@(Model.Estado == e)">@NombreEstado(e)</option>
+                }
+            </select>
+        </div>
+
+        <div class="barra-filtros-acciones">
             <button type="submit" class="boton boton-primario">Ver</button>
             @if (Model.HayFiltroActivo)
             {
                 <a class="boton boton-secundario"
-                   asp-action="Index" asp-route-periodoId="@Model.PeriodoId">Quitar filtros</a>
+                   asp-action="Index" asp-route-periodoId="@Model.PeriodoId">Limpiar</a>
             }
         </div>
     </form>
@@ -232,40 +254,17 @@
     </div>
 }
 
-@* -------------------------------------------------------------- Recalcular ---- *@
-
-@if (Model.PeriodoSeleccionado is { } periodo)
+@*
+    El botón de recalcular vive en el encabezado. Aquí solo queda el aviso del periodo
+    cerrado, que sí es una condición de la pantalla y no una acción.
+*@
+@if (Model.PeriodoSeleccionado is { EstaAbierto: false } cerrado)
 {
-    <div class="tarjeta">
-        <h2>Recalcular</h2>
-
-        <p class="subtitulo">
-            El tareo se <strong>reconstruye</strong> desde las marcaciones y el turno vigente
-            de cada día. Recalcular dos veces da exactamente el mismo resultado y no duplica
-            nada. Un periodo cerrado no se recalcula.
-        </p>
-
-        @if (periodo.EstaAbierto)
-        {
-            <form method="post" asp-action="Recalcular">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="periodoId" value="@periodo.Id" />
-                <div class="acciones" style="margin-top: 0;">
-                    <button type="submit" class="boton boton-primario"
-                            data-confirmar="¿Recalcular el tareo de @periodo.Codigo? Se rehará el cálculo de todos los días del periodo.">
-                        Recalcular @periodo.Codigo
-                    </button>
-                </div>
-            </form>
-        }
-        else
-        {
-            <div class="aviso aviso-alerta" role="alert">
-                El periodo <strong>@periodo.Codigo</strong> está cerrado: su tareo está
-                congelado y no puede recalcularse. Reábralo indicando el motivo si
-                corresponde rehacer el cálculo.
-            </div>
-        }
+    <div class="aviso aviso-alerta" role="status">
+        El periodo <strong>@cerrado.Codigo</strong> está <strong>cerrado</strong>: su tareo
+        está congelado y no puede recalcularse. Reábralo desde
+        <a asp-controller="Periodos" asp-action="Index">Periodos</a>, indicando el motivo,
+        si corresponde rehacer el cálculo.
     </div>
 }
 
@@ -291,6 +290,8 @@
                 Entrega los minutos por concepto y la tasa que regía en esas fechas, con su base
                 legal, para que planilla multiplique. La columna <em>equivalente</em> expresa esa
                 aplicación en tiempo: 120 min al 25 % equivalen a 150 min de jornada ordinaria.
+                Los derechos remunerados expresados en días se muestran aparte: no son minutos
+                trabajados y por eso no se convierten ni se suman a este total.
             </p>
 
             @if (liq.HayConceptosSinTasa)
@@ -303,12 +304,45 @@
                 </div>
             }
 
+            @if (liq.HayComponentesRemuneracionDiaria)
+            {
+                <h3>Derechos de remuneración diaria</h3>
+                <div class="tabla-contenedor">
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="col-numero">Días-persona</th>
+                                <th>Tratamiento</th>
+                                <th>Base legal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in liq.ComponentesDiariosConDerecho)
+                            {
+                                <tr>
+                                    <td>@c.Etiqueta</td>
+                                    <td class="col-numero">@c.CantidadDias.ToString("N0", cultura)</td>
+                                    <td>
+                                        @(c.IncluidoEnRemuneracionBase
+                                            ? "Incluido en la remuneración base"
+                                            : "Pago diario adicional")
+                                    </td>
+                                    <td class="celda-nota">@c.BaseLegal</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
             <div class="tabla-contenedor">
                 <table class="tabla">
                     <thead>
                         <tr>
                             <th>Concepto</th>
-                            <th class="col-numero">Horas</th>
+                            <th class="col-numero">Horas físicas</th>
+                            <th class="col-numero">Base económica</th>
                             <th class="col-numero">Sobretasa</th>
                             <th class="col-numero">Horas equivalentes</th>
                             <th>Base legal</th>
@@ -317,6 +351,7 @@
                     <tbody>
                         <tr>
                             <td><strong>Jornada ordinaria</strong></td>
+                            <td class="col-numero">@liq.HorasOrdinarias.ToString("N2", cultura)</td>
                             <td class="col-numero">@liq.HorasOrdinarias.ToString("N2", cultura)</td>
                             <td class="col-numero">—</td>
                             <td class="col-numero">@liq.HorasOrdinarias.ToString("N2", cultura)</td>
@@ -327,10 +362,12 @@
                             <tr>
                                 <td>@c.Etiqueta</td>
                                 <td class="col-numero">@c.Horas.ToString("N2", cultura)</td>
+                                <td class="col-numero">@((c.MinutosBaseEconomica / 60m).ToString("N2", cultura))</td>
                                 <td class="col-numero">
                                     @if (c.TieneTasaVigente)
                                     {
                                         <strong>+@c.Porcentaje.ToString("N0", cultura) %</strong>
+                                        <small>(@((c.MinutosRecargo / 60m).ToString("N2", cultura)) h)</small>
                                     }
                                     else
                                     {
@@ -345,6 +382,7 @@
                     <tfoot>
                         <tr>
                             <th>Total en horas equivalentes</th>
+                            <th></th>
                             <th></th>
                             <th></th>
                             <th class="col-numero">@liq.TotalHorasEquivalentes.ToString("N2", cultura)</th>
@@ -435,7 +473,9 @@
                         <tr class="fila-trabajador">
                             <th colspan="12" scope="colgroup">
                                 <span class="trabajador-nombre">@persona.Trabajador</span>
-                                <span class="trabajador-id">ID @(persona.IdMarcador ?? "—")</span>
+                                @* El aparato va junto al ID: con dos equipos en una planta,
+                                   «ID 14» a secas lo llevan dos personas distintas. *@
+                                <span class="trabajador-id">ID @(persona.IdMarcador ?? "—")@(persona.Equipo is null ? "" : " · " + persona.Equipo)</span>
 
                                 @* Totales de ESTA persona. Son completos porque la página
                                    trae a cada trabajador entero: ver TareoDeTrabajador. *@
@@ -518,6 +558,22 @@
                                     <td colspan="12">
                                         <span class="marca-observacion" aria-hidden="true">↳</span>
                                         @t.Observacion
+
+                                        @*
+                                            La salida hacia donde se resuelve. Sin esto había
+                                            que salir a otra pantalla y volver a teclear
+                                            trabajador y fecha, justo cuando uno ya tiene el
+                                            día delante.
+                                        *@
+                                        @if (t.RequiereValidacion)
+                                        {
+                                            <span class="etiqueta etiqueta-incompleto">
+                                                @BandejaIncidenciasVm.Nombre(t.TipoIncidencia)
+                                            </span>
+                                            <a asp-controller="Incidencias" asp-action="Index"
+                                               asp-route-periodoId="@Model.PeriodoId"
+                                               asp-route-trabajadorId="@t.TrabajadorId">Resolver</a>
+                                        }
                                     </td>
                                 </tr>
                             }

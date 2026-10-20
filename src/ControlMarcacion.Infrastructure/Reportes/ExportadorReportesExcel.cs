@@ -40,7 +40,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         string[] columnas =
         [
-            "Trabajador", "ID marcador", "Empresa", "Planta", "Centro", "Centro de costo", "Puesto",
+            "Trabajador", "ID marcador · equipo", "Empresa", "Planta", "Centro", "Centro de costo", "Puesto",
             "Días puntual", "Días tardanza", "Días falta", "Días ausencia justificada",
             "Días incompleto", "Días no laborable trabajado",
             "Horas ordinarias", "Horas extra 25%", "Horas extra 35%", "Horas nocturnas",
@@ -55,7 +55,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         {
             var col = 1;
             hoja.Cell(fila, col++).Value = Sanear(r.Trabajador);
-            hoja.Cell(fila, col++).Value = Sanear(r.IdMarcador ?? "—");
+            hoja.Cell(fila, col++).Value = Sanear(MarcadorConEquipo(r.IdMarcador, r.Equipo));
             hoja.Cell(fila, col++).Value = Sanear(r.Empresa);
             hoja.Cell(fila, col++).Value = Sanear(r.Planta);
             hoja.Cell(fila, col++).Value = Sanear(r.Centro ?? "—");
@@ -102,7 +102,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         string[] columnas =
         [
-            "Trabajador", "ID marcador", "Fecha", "Turno", "Entrada", "Salida", "Estado",
+            "Trabajador", "ID marcador · equipo", "Fecha", "Turno", "Entrada", "Salida", "Estado",
             "Minutos tardanza", "Minutos salida anticipada", "Observación"
         ];
 
@@ -114,7 +114,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         {
             var col = 1;
             hoja.Cell(fila, col++).Value = Sanear(e.Trabajador);
-            hoja.Cell(fila, col++).Value = Sanear(e.IdMarcador ?? "—");
+            hoja.Cell(fila, col++).Value = Sanear(MarcadorConEquipo(e.IdMarcador, e.Equipo));
             hoja.Cell(fila, col++).Value = e.Fecha.ToDateTime(TimeOnly.MinValue);
             hoja.Cell(fila, col).Style.DateFormat.Format = "dd/MM/yyyy";
             col++;
@@ -410,9 +410,13 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             hoja.Cell(fila, 11).Value = Sanear(f.Observacion ?? string.Empty);
 
-            int[] enDiasValores =
+            // El nulo es la celda que se deja VACÍA, y ocupa su posición en el arreglo para
+            // que las columnas no se corran: se escriben a partir de la 12 por índice.
+            int?[] enDiasValores =
             [
-                f.DiasFalta, f.DiasSuspension, f.DiasFaltaJustificada, f.DiasTotalFaltas,
+                f.DiasFalta,
+                SuspensionSinDato,
+                f.DiasFaltaJustificada, f.DiasTotalFaltas,
                 f.DiasDescansoMedico, f.DiasVacaciones, f.DiasLicenciaSinGoce,
                 f.DiasLicenciaConGoce, f.DiasLicenciaPaternidad, f.DiasSubsidioMaternidad,
                 f.DiasSubsidioEnfermedad, f.DiasPermiso
@@ -420,7 +424,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
             for (var i = 0; i < enDiasValores.Length; i++)
             {
-                EscribirNumero(hoja.Cell(fila, 12 + i), enDiasValores[i], "#,##0.00;;\"-\"");
+                if (enDiasValores[i] is { } valor)
+                {
+                    EscribirNumero(hoja.Cell(fila, 12 + i), valor, "#,##0.00;;\"-\"");
+                }
             }
 
             EscribirNumero(hoja.Cell(fila, 24), f.HorasTardanza, "#,##0.00;;\"-\"");
@@ -529,9 +536,10 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
     {
         hoja.Cell(fila, 1).Value = "TOTAL";
 
-        decimal[] totales =
+        decimal?[] totales =
         [
-            filas.Sum(f => f.DiasFalta), filas.Sum(f => f.DiasSuspension),
+            filas.Sum(f => f.DiasFalta),
+            SuspensionSinDato,
             filas.Sum(f => f.DiasFaltaJustificada), filas.Sum(f => f.DiasTotalFaltas),
             filas.Sum(f => f.DiasDescansoMedico), filas.Sum(f => f.DiasVacaciones),
             filas.Sum(f => f.DiasLicenciaSinGoce), filas.Sum(f => f.DiasLicenciaConGoce),
@@ -542,7 +550,12 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         for (var i = 0; i < totales.Length; i++)
         {
-            EscribirNumero(hoja.Cell(fila, 12 + i), totales[i], "#,##0.00;;\"-\"");
+            if (totales[i] is not { } total)
+            {
+                continue;
+            }
+
+            EscribirNumero(hoja.Cell(fila, 12 + i), total, "#,##0.00;;\"-\"");
         }
 
         decimal[] horas =
@@ -770,6 +783,27 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         celda.Style.DateFormat.Format = "dd/MM/yyyy";
     }
 
+    /// <summary>
+    /// La columna <c>SUSPENSION</c> del tareo final: se deja <b>vacía</b>, no en cero.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No existe el concepto de suspensión en el sistema: nada lo registra y nada lo calcula.
+    /// Escribir un cero afirmaría «esta persona no tuvo días de suspensión», que es algo que
+    /// nadie comprobó — y el formato de número pinta el cero como «-», indistinguible de un
+    /// cero calculado. En el archivo que va a planilla, una celda vacía dice la verdad: aquí
+    /// no hay dato.
+    /// </para>
+    /// <para>
+    /// ⚠️ La columna <b>se conserva</b> y su posición no se toca: la plantilla de GCA la trae
+    /// ahí y el bloque de días se escribe por índice desde la columna 12. Quitarla correría
+    /// todo lo que va después y dejaría cada total bajo el título equivocado, sin ningún
+    /// error. Por eso el hueco viaja como <c>null</c> dentro del arreglo y no como una
+    /// posición menos.
+    /// </para>
+    /// </remarks>
+    private static int? SuspensionSinDato => null;
+
     private static void EscribirNumero(IXLCell celda, decimal valor, string formato)
     {
         celda.Value = valor;
@@ -895,12 +929,30 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
         rango.Style.Border.TopBorder = XLBorderStyleValues.Thin;
     }
 
+    /// <summary>
+    /// El ID de marcador con el aparato que lo emite, en una sola celda.
+    /// </summary>
+    /// <remarks>
+    /// Va en la MISMA celda y no en una columna nueva, a propósito: la fila TOTAL de
+    /// <see cref="EscribirTotales"/> escribe en columnas fijas (8 a 20), así que insertar
+    /// una columna correría los datos un lugar y dejaría cada total bajo el título
+    /// equivocado —sin ningún error, en el archivo que se reenvía a planilla—.
+    ///
+    /// Sin el aparato, dos personas de la misma planta salían con el mismo «14»: la
+    /// columna decía identificar y no identificaba.
+    /// </remarks>
+    private static string MarcadorConEquipo(string? idMarcador, string? equipo) =>
+        idMarcador is null ? "—"
+        : equipo is null ? idMarcador
+        : $"{idMarcador} · {equipo}";
+
     private static string NombreEstado(EstadoTareo estado) => estado switch
     {
         EstadoTareo.Falta => "Falta",
         EstadoTareo.Tardanza => "Tardanza",
         EstadoTareo.AusenciaJustificada => "Ausencia justificada",
         EstadoTareo.Incompleto => "Marcación incompleta",
+        EstadoTareo.PendienteValidacion => "Pendiente de validar",
         _ => estado.ToString()
     };
 

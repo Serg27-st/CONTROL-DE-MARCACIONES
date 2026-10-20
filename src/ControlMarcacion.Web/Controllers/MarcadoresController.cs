@@ -48,7 +48,7 @@ public sealed class MarcadoresController(IServicioMarcadores servicio) : Control
             {
                 Id = actual.Id,
                 Codigo = actual.Codigo,
-                PlantaId = actual.PlantaId,
+                EquipoId = actual.EquipoId,
                 Descripcion = actual.Descripcion,
                 Activo = actual.Activo
             };
@@ -60,7 +60,7 @@ public sealed class MarcadoresController(IServicioMarcadores servicio) : Control
         {
             Datos = datos,
             AsignacionesTotales = asignaciones,
-            Plantas = await servicio.PlantasAsync(cancelacion).ConfigureAwait(false)
+            Equipos = await servicio.EquiposAsync(cancelacion).ConfigureAwait(false)
         });
     }
 
@@ -94,7 +94,7 @@ public sealed class MarcadoresController(IServicioMarcadores servicio) : Control
             }
         }
 
-        modelo.Plantas = await servicio.PlantasAsync(cancelacion).ConfigureAwait(false);
+        modelo.Equipos = await servicio.EquiposAsync(cancelacion).ConfigureAwait(false);
 
         return View("Editar", modelo);
     }

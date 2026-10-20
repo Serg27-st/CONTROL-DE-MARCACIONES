@@ -1,0 +1,193 @@
+@model MarcacionesProvisionalesVm
+@{
+    ViewData["Title"] = "Marcaciones provisionales";
+    var tieneResultados = Model.Resultado is not null;
+    var jornadas = Model.Resultado?.Jornadas ?? [];
+}
+
+<h1>Marcaciones provisionales</h1>
+<p class="texto-secundario">
+    Carga y consulta provisional de marcaciones. Este módulo no calcula horas extras,
+    tardanzas ni tareo — solo muestra las marcaciones crudas cruzadas con el padrón.
+</p>
+
+@* ─── Carga de archivo ─── *@
+<section class="seccion">
+    <h2>Cargar archivo</h2>
+    <form method="post" asp-action="Importar" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div class="fila-formulario">
+            <div class="campo">
+                <label for="equipoIdCarga">Equipo marcador</label>
+                <select id="equipoIdCarga" name="equipoId" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var eq in Model.Equipos)
+                    {
+                        <option value="@eq.Id">@eq.Codigo — @eq.Nombre (@eq.Planta)</option>
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label for="archivoCarga">Archivo (.txt / .dat)</label>
+                <input type="file" id="archivoCarga" name="archivo"
+                       accept=".txt,.dat,.TXT,.DAT" required />
+            </div>
+            <div class="campo campo-boton">
+                <button type="submit" class="boton boton-principal">Cargar</button>
+            </div>
+        </div>
+    </form>
+</section>
+
+@* ─── Consulta ─── *@
+<section class="seccion">
+    <h2>Consultar marcaciones</h2>
+    <form method="get" asp-action="Consulta">
+        <div class="fila-formulario">
+            <div class="campo">
+                <label for="equipoIdConsulta">Equipo marcador</label>
+                <select id="equipoIdConsulta" name="equipoId" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var eq in Model.Equipos)
+                    {
+                        if (Model.EquipoId == eq.Id)
+                        {
+                            <option value="@eq.Id" selected>@eq.Codigo — @eq.Nombre (@eq.Planta)</option>
+                        }
+                        else
+                        {
+                            <option value="@eq.Id">@eq.Codigo — @eq.Nombre (@eq.Planta)</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label for="fechaInicio">Desde</label>
+                <input type="date" id="fechaInicio" name="fechaInicio"
+                       value="@Model.FechaInicio?.ToString("yyyy-MM-dd")" required />
+            </div>
+            <div class="campo">
+                <label for="fechaFin">Hasta</label>
+                <input type="date" id="fechaFin" name="fechaFin"
+                       value="@Model.FechaFin?.ToString("yyyy-MM-dd")" required />
+            </div>
+            <div class="campo campo-boton">
+                <button type="submit" class="boton boton-principal">Consultar</button>
+            </div>
+        </div>
+    </form>
+</section>
+
+@* ─── Resultados ─── *@
+@if (tieneResultados)
+{
+    var resultado = Model.Resultado!;
+
+    <section class="seccion">
+        <div class="encabezado-seccion">
+            <h2>Resultados — @jornadas.Count jornada(s) en @resultado.TotalDias día(s)</h2>
+
+            @if (!resultado.RangoExcedeMaximoExportacion && jornadas.Count > 0)
+            {
+                <a class="boton boton-secundario"
+                   asp-action="Exportar"
+                   asp-route-equipoId="@Model.EquipoId"
+                   asp-route-fechaInicio="@Model.FechaInicio?.ToString("yyyy-MM-dd")"
+                   asp-route-fechaFin="@Model.FechaFin?.ToString("yyyy-MM-dd")">
+                    Exportar Excel
+                </a>
+            }
+        </div>
+
+        @if (resultado.AdvertenciaRangoExcesivo)
+        {
+            <div class="aviso aviso-advertencia" role="status">
+                El rango consultado supera los 30 días recomendados.
+                @if (resultado.RangoExcedeMaximoExportacion)
+                {
+                    <strong>No se puede exportar: máximo 40 días.</strong>
+                }
+            </div>
+        }
+
+        @if (jornadas.Count > 0)
+        {
+            <div class="tabla-responsive">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>ID marcador</th>
+                            <th>DNI</th>
+                            <th>Apellido paterno</th>
+                            <th>Apellido materno</th>
+                            <th>Nombres</th>
+                            <th>Ingreso</th>
+                            <th>Salida</th>
+                            <th>Turno</th>
+                            <th>Planta</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var j in jornadas)
+                        {
+                            <tr class="@(j.TrabajadorId is null ? "fila-advertencia" : "")">
+                                <td>@j.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>@j.IdMarcador</td>
+                                <td>@(j.NumeroDocumento ?? "—")</td>
+                                <td>@(j.ApellidoPaterno ?? "—")</td>
+                                <td>@(j.ApellidoMaterno ?? "—")</td>
+                                <td>@(j.Nombres ?? "—")</td>
+                                <td>@(j.HoraIngreso?.ToString("HH:mm") ?? "—")</td>
+                                <td>@(j.HoraSalida?.ToString("HH:mm") ?? "—")</td>
+                                <td title="@j.TurnoCodigo">@(j.TurnoNombre ?? "—")</td>
+                                <td>@(j.Planta ?? "—")</td>
+                                <td class="texto-secundario">@j.Observacion</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="texto-secundario">No se encontraron marcaciones provisionales en el rango indicado.</p>
+        }
+    </section>
+}
+
+@* ─── Historial de cargas ─── *@
+@if (Model.Historial.Count > 0)
+{
+    <section class="seccion">
+        <h2>Historial de cargas provisionales</h2>
+        <div class="tabla-responsive">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Fecha de carga</th>
+                        <th>Archivo</th>
+                        <th>Equipo</th>
+                        <th>Marcaciones</th>
+                        <th>Rechazadas</th>
+                        <th>Cargado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in Model.Historial)
+                    {
+                        <tr>
+                            <td>@h.FechaCarga.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@h.NombreArchivo</td>
+                            <td>@h.EquipoDescripcion</td>
+                            <td>@h.FilasInsertadas</td>
+                            <td>@h.FilasRechazadas</td>
+                            <td>@h.CargadoPorUsuario</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

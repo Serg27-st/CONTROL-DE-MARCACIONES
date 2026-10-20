@@ -55,7 +55,11 @@ public sealed class InterceptorAuditoria(IProveedorUsuarioActual proveedorUsuari
         nameof(RegistroAuditoria),
         "MarcacionCruda",
         "ErrorImportacion",
-        "TareoDiario"
+        "TareoDiario",
+        // Módulo provisional — eliminar al retirar las tablas prov_*.
+        "MarcacionProvisional",
+        "ImportacionProvisional",
+        "ErrorImportacionProvisional"
     };
 
     /// <summary>

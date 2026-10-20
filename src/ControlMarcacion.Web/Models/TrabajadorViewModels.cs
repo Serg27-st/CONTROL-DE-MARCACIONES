@@ -25,6 +25,30 @@ public sealed class ListadoTrabajadoresVm
 
     public IReadOnlyList<OpcionDto> CentrosCosto { get; init; } = [];
 
+    /// <summary>Aparatos marcadores; si hay planta elegida, solo los de esa planta.</summary>
+    public IReadOnlyList<EquipoOpcionDto> Equipos { get; init; } = [];
+
+    public IReadOnlyList<OpcionDto> Puestos { get; init; } = [];
+
+    /// <summary>Áreas de la planta elegida. Sin planta no se ofrecen: el mismo nombre de área existe en varias plantas.</summary>
+    public IReadOnlyList<OpcionDto> Areas { get; init; } = [];
+
+    public IReadOnlyList<OpcionDto> Turnos { get; init; } = [];
+
+    /// <summary>Opciones de filas por página.</summary>
+    public static IReadOnlyList<int> TamaniosPagina { get; } = [25, 50, 100, 200];
+
+    /// <summary>
+    /// Filtros del bloque «Más filtros» que están puestos. Si hay alguno, el bloque se abre
+    /// solo: un filtro aplicado que no se ve es un listado que parece incompleto sin razón.
+    /// </summary>
+    public int FiltrosAvanzadosActivos =>
+        new object?[]
+        {
+            Filtro.EmpresaId, Filtro.CentroId, Filtro.CentroCostoId, Filtro.AreaId, Filtro.PuestoId,
+            Filtro.TurnoId, Filtro.TipoPlanilla, Filtro.IngresoDesde, Filtro.IngresoHasta
+        }.Count(v => v is not null);
+
     /// <summary>Filtros activos, para conservarlos al cambiar de página.</summary>
     /// <remarks>
     /// La vista lo armaba dos veces —una por cada enlace de paginación— y a las dos les
@@ -41,7 +65,17 @@ public sealed class ListadoTrabajadoresVm
         ["TipoPlanilla"] = Filtro.TipoPlanilla is null
             ? null
             : ((int)Filtro.TipoPlanilla).ToString(CultureInfo.InvariantCulture),
-        ["SoloActivos"] = Filtro.SoloActivos?.ToString()
+        ["SoloActivos"] = Filtro.SoloActivos?.ToString(),
+        ["EquipoId"] = Filtro.EquipoId?.ToString(CultureInfo.InvariantCulture),
+        ["ConNumeroMarcador"] = Filtro.ConNumeroMarcador?.ToString(),
+        ["PuestoId"] = Filtro.PuestoId?.ToString(CultureInfo.InvariantCulture),
+        ["AreaId"] = Filtro.AreaId?.ToString(CultureInfo.InvariantCulture),
+        ["TurnoId"] = Filtro.TurnoId?.ToString(CultureInfo.InvariantCulture),
+        ["IngresoDesde"] = Filtro.IngresoDesde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        ["IngresoHasta"] = Filtro.IngresoHasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        ["TamanioPagina"] = Filtro.TamanioPagina == 25
+            ? null
+            : Filtro.TamanioPagina.ToString(CultureInfo.InvariantCulture)
     };
 }
 
@@ -73,16 +107,19 @@ public sealed class EditarTrabajadorVm
 
     public IReadOnlyList<OpcionDto> Turnos { get; set; } = [];
 
+    /// <summary>Cuadrillas activas de todas las plantas; la vista las agrupa por planta.</summary>
+    public IReadOnlyList<CuadrillaOpcionDto> Cuadrillas { get; set; } = [];
+
     public IReadOnlyList<OpcionDto> Centros { get; set; } = [];
 
     public IReadOnlyList<OpcionDto> CentrosCosto { get; set; } = [];
 
     /// <summary>
-    /// Marcadores del catálogo disponibles para la planta elegida. El valor de cada
-    /// opción es el código en texto y no una clave numérica: es lo que se guarda en la
-    /// asignación y lo que cruza con el archivo del marcador.
+    /// Aparatos marcadores de la planta elegida. El número de la persona se escribe al
+    /// lado: es el que tiene en ese aparato, y con dos aparatos en la planta el mismo
+    /// número identifica a dos personas distintas.
     /// </summary>
-    public IReadOnlyList<OpcionTextoDto> Marcadores { get; set; } = [];
+    public IReadOnlyList<EquipoOpcionDto> EquiposMarcador { get; set; } = [];
 }
 
 /// <summary>
@@ -113,12 +150,15 @@ public sealed class PanelTrabajadorVm
 
     public IReadOnlyList<OpcionDto> Turnos { get; set; } = [];
 
+    /// <summary>Cuadrillas activas de todas las plantas; la vista las agrupa por planta.</summary>
+    public IReadOnlyList<CuadrillaOpcionDto> Cuadrillas { get; set; } = [];
+
     public IReadOnlyList<OpcionDto> Centros { get; set; } = [];
 
     public IReadOnlyList<OpcionDto> CentrosCosto { get; set; } = [];
 
-    /// <summary>Ver <see cref="EditarTrabajadorVm.Marcadores"/>: mismo propósito, para el panel.</summary>
-    public IReadOnlyList<OpcionTextoDto> Marcadores { get; set; } = [];
+    /// <summary>Ver <see cref="EditarTrabajadorVm.EquiposMarcador"/>: mismo propósito, para el panel.</summary>
+    public IReadOnlyList<EquipoOpcionDto> EquiposMarcador { get; set; } = [];
 
     public bool EsEdicion => string.Equals(Modo, "editar", StringComparison.OrdinalIgnoreCase);
 }
@@ -139,6 +179,12 @@ public sealed class HistorialTrabajadorVm
 
     /// <summary>Solo el coordinador ve la bitácora. Ver <c>AuditoriaController</c>.</summary>
     public bool MuestraAuditoria { get; init; }
+
+    /// <summary>
+    /// La disponibilidad sale del vínculo canónico, no de la proyección legacy
+    /// <c>Trabajador.FechaCese</c>.
+    /// </summary>
+    public bool PuedeReingresar => !Historial.PeriodosLaborales.Any(p => p.EstaAbierto);
 }
 
 /// <summary>
@@ -153,6 +199,22 @@ public sealed class BajaTrabajadorVm
     public string NumeroDocumento { get; init; } = string.Empty;
 
     public DateOnly FechaIngreso { get; init; }
+}
+
+/// <summary>Formulario específico y mínimo para abrir un nuevo vínculo laboral.</summary>
+public sealed class ReingresarTrabajadorVm
+{
+    public ReingresarTrabajadorRequest Datos { get; set; } = new();
+
+    public string ApellidosYNombres { get; set; } = string.Empty;
+
+    public string NumeroDocumento { get; set; } = string.Empty;
+
+    public DateOnly? UltimoCese { get; set; }
+
+    public IReadOnlyList<OpcionDto> Empresas { get; set; } = [];
+
+    public IReadOnlyList<OpcionDto> Plantas { get; set; } = [];
 }
 
 /// <summary>

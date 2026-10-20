@@ -71,15 +71,115 @@ internal sealed class ServicioTurnos(MarcacionDbContext contexto) : IServicioTur
         turno.MinutosTolerancia = solicitud.MinutosTolerancia;
         turno.MinutosAnticipacionEntrada = solicitud.MinutosAnticipacionEntrada;
         turno.MinutosAnticipacionSalida = solicitud.MinutosAnticipacionSalida;
+        turno.MinutosGraciaSalida = solicitud.MinutosGraciaSalida;
         turno.MinutosJornadaOrdinaria = solicitud.MinutosJornadaOrdinaria;
         turno.DiasAplicables = solicitud.DiasAplicables;
         turno.Activo = solicitud.Activo;
 
         SincronizarPlantas(turno, solicitud.PlantasHabilitadas, usuario);
 
+        await AjustarVigenciaDelHorarioAsync(turno, solicitud.RigeDesde, usuario, cancelacion)
+            .ConfigureAwait(false);
+
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
 
         return turno.Id;
+    }
+
+    /// <summary>
+    /// Deja el historial de horarios del turno consistente con lo que se acaba de guardar.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Es lo que impide que editar un turno reescriba el pasado. Antes, cambiar el horario de
+    /// DIU en octubre y recalcular julio —por una justificación tardía, por un archivo que
+    /// faltaba— recalculaba julio con el horario de octubre, y las tardanzas y el sobretiempo
+    /// de un mes ya pagado cambiaban solos.
+    /// </para>
+    /// <para>
+    /// Misma mecánica que las demás vigencias del sistema: la versión que cubría el día
+    /// previo se cierra y se abre otra. Solo cuenta lo que el cálculo mira: renombrar el
+    /// turno, moverlo de planta o darlo de baja no parte su historia.
+    /// </para>
+    /// </remarks>
+    private async Task AjustarVigenciaDelHorarioAsync(
+        Turno turno,
+        DateOnly? rigeDesde,
+        string usuario,
+        CancellationToken cancelacion)
+    {
+        // Un turno recién creado no tiene pasado que proteger: su horario es el único que
+        // tuvo, y se abre desde el origen para que valga también si se le asigna a alguien
+        // con fecha retroactiva.
+        if (turno.Id == 0)
+        {
+            turno.Versiones.Add(VersionTurno.De(turno, VersionTurno.VigenciaOriginal, usuario));
+            return;
+        }
+
+        var vigente = await contexto.VersionesTurno
+            .Where(v => v.TurnoId == turno.Id && v.Activo && v.FechaFin == null)
+            .OrderByDescending(v => v.FechaInicio)
+            .FirstOrDefaultAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        if (vigente is null)
+        {
+            turno.Versiones.Add(VersionTurno.De(turno, VersionTurno.VigenciaOriginal, usuario));
+            return;
+        }
+
+        if (vigente.MismoHorarioQue(turno))
+        {
+            return;
+        }
+
+        var desde = rigeDesde ?? DateOnly.FromDateTime(DateTime.Now);
+
+        await GarantizarPeriodosAbiertosAsync(desde, cancelacion).ConfigureAwait(false);
+
+        // El horario estaba mal desde el principio de esta versión: se corrige en sitio en
+        // vez de abrir otra con vigencia de cero días.
+        if (desde <= vigente.FechaInicio)
+        {
+            vigente.TomarHorarioDe(turno);
+            vigente.ModificadoPor = usuario;
+            return;
+        }
+
+        vigente.FechaFin = desde.AddDays(-1);
+        vigente.ModificadoPor = usuario;
+
+        turno.Versiones.Add(VersionTurno.De(turno, desde, usuario));
+    }
+
+    /// <summary>
+    /// Ningún periodo cerrado alcanza esa fecha. Cambiar el horario que rige en días ya
+    /// cerrados los cambiaría al siguiente recálculo.
+    /// </summary>
+    private async Task GarantizarPeriodosAbiertosAsync(DateOnly desde, CancellationToken cancelacion)
+    {
+        var cerrados = await contexto.Periodos
+            .AsNoTracking()
+            .Where(p => p.Activo && p.Estado == EstadoPeriodo.Cerrado && p.FechaFin >= desde)
+            .OrderBy(p => p.FechaInicio)
+            .Select(p => new { p.Codigo, p.FechaFin })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        if (cerrados.Count == 0)
+        {
+            return;
+        }
+
+        var cuales = cerrados.Count == 1
+            ? $"del periodo {cerrados[0].Codigo}, que está cerrado y no admite cambios"
+            : $"de los periodos {string.Join(", ", cerrados.Select(p => p.Codigo))}, que están " +
+              "cerrados y no admiten cambios";
+
+        throw new ReglaNegocioException(
+            $"El cambio de horario alcanzaría días {cuales}. Indique que rige desde una fecha " +
+            $"posterior al {cerrados[^1].FechaFin:dd/MM/yyyy}, o reabra el periodo indicando el motivo.");
     }
 
     public async Task CambiarEstadoAsync(
@@ -107,6 +207,21 @@ internal sealed class ServicioTurnos(MarcacionDbContext contexto) : IServicioTur
                 throw new ReglaNegocioException(
                     $"No se puede desactivar el turno: hay {asignados} trabajador(es) con " +
                     "asignación vigente. Reasígnelos a otro turno primero.");
+            }
+
+            // Lo mismo para las cuadrillas: su ciclo seguiría asignando este turno.
+            var cuadrillas = await contexto.TramosRotacion
+                .Where(t => t.TurnoId == id && t.Programacion!.Activo && t.Programacion.FechaFin == null)
+                .Select(t => t.Programacion!.Cuadrilla!.Nombre)
+                .Distinct()
+                .ToListAsync(cancelacion)
+                .ConfigureAwait(false);
+
+            if (cuadrillas.Count > 0)
+            {
+                throw new ReglaNegocioException(
+                    $"No se puede desactivar el turno: forma parte del ciclo vigente de " +
+                    $"{string.Join(", ", cuadrillas)}. Programe esas cuadrillas sin él primero.");
             }
         }
 
@@ -147,6 +262,7 @@ internal sealed class ServicioTurnos(MarcacionDbContext contexto) : IServicioTur
                 t.MinutosTolerancia,
                 t.MinutosAnticipacionEntrada,
                 t.MinutosAnticipacionSalida,
+                t.MinutosGraciaSalida,
                 t.MinutosJornadaOrdinaria,
                 t.DiasAplicables,
                 t.PlantasHabilitadas.Select(tp => tp.Planta!.Nombre).ToList(),

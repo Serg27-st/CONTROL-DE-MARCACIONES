@@ -31,12 +31,18 @@ public interface ICargaMasivaTrabajadores
     /// borrar a nadie primero. Va apagado por omisión: una carga que pisa fichas
     /// existentes tiene que ser una decisión consciente, no el comportamiento normal.
     /// </param>
+    /// <param name="registrarMarcadores">
+    /// Da de alta en el catálogo de su aparato los ID de marcador que falten, en vez de
+    /// rechazar la fila. Va encendido por omisión: sin acceso físico a los aparatos, el
+    /// padrón es la única fuente de qué número lleva cada persona.
+    /// </param>
     Task<ResultadoCargaMasiva> ProcesarAsync(
         Stream contenido,
         string nombreArchivo,
         string usuario,
         bool soloValidar,
         bool actualizarExistentes = false,
+        bool registrarMarcadores = true,
         CancellationToken cancelacion = default);
 
     /// <summary>

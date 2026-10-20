@@ -318,6 +318,7 @@ justificadas) se definen a partir de ese modelo.
 | 6 | Duración del periodo y su corte (¿mes calendario? ¿del 26 al 25?) | Cierre y justificaciones |
 | 8 | Un turno nocturno de sábado termina el domingo: ¿esas horas son del sábado o cuentan como dominicales? | Motor de cálculo |
 | 9 | El sábado se trabajó 12 h, no en el turno `SAB` de 8 h. ¿Cuándo aplica entonces el turno especial de sábado? | Asignación de turnos |
+| 10 | **Gracia de salida**: ¿cuántos minutos después del fin del turno una salida todavía no cuenta como sobretiempo? (la cola frente al lector). Hoy es **0** en los cinco turnos: todo minuto posterior al fin es sobretiempo. El campo ya existe por turno (0–30 min); falta la cifra y que GCA la confirme contra el art. 9 del D.S. 007-2002-TR, que considera autorizado el sobretiempo que se acredita. | Horas extras |
 
 **Resueltas por GCA:**
 

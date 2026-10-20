@@ -1,6 +1,9 @@
+using ControlMarcacion.Domain.Catalogos;
+using ControlMarcacion.Domain.Marcaciones;
 using ControlMarcacion.Domain.Personal;
 using ControlMarcacion.Infrastructure.Marcaciones;
 using ControlMarcacion.Infrastructure.Persistencia;
+using ControlMarcacion.Infrastructure.Persistencia.Servicios;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -29,6 +32,12 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
     private const long EmpresaOutsourcing = 2;
     private const long TipoDocumentoDni = 1;
 
+    /// <summary>Equipo del que sale el respaldo de muestra.</summary>
+    private const long EquipoDePrueba = 1;
+
+    /// <summary>Serie que trae la cabecera del archivo real.</summary>
+    private const string SerieDelEquipo = "VGU6251600671";
+
     /// <summary>Fecha de las marcaciones del archivo real.</summary>
     private static readonly DateOnly DiaDelRespaldo = new(2026, 8, 24);
 
@@ -47,6 +56,20 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
+        // El aparato del que sale el archivo. Con la serie declarada, la ingesta contrasta
+        // la de la cabecera contra ella: si el respaldo de muestra viniera de otro equipo,
+        // la importación se rechazaría en vez de atribuirlo a este padrón.
+        contexto.EquiposMarcador.Add(new EquipoMarcador
+        {
+            Id = EquipoDePrueba,
+            Codigo = "P01-A",
+            Nombre = "Marcador de prueba",
+            Serie = SerieDelEquipo,
+            PlantaId = PlantaP01
+        });
+
+        contexto.SaveChanges();
+
         // Ventana de antigüedad amplia: lo que se prueba es la ingesta, no el rechazo por
         // fecha vieja, y con los 400 días por omisión este test empezaría a fallar solo
         // cuando agosto de 2026 quedara fuera.
@@ -56,7 +79,8 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
             contexto,
             new LectorMarcadorAutomatico(
                 new LectorTxtZkteco(configuracion), new LectorRespaldoZkteco(configuracion)),
-            configuracion);
+            configuracion,
+            new ServicioEquipos(contexto));
     }
 
     public void Dispose() => contexto.Dispose();
@@ -89,13 +113,14 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
         using var archivo = File.OpenRead(RutaRespaldoReal);
 
         var resultado = await servicio.ImportarAsync(
-            archivo, "BKtransaction.dat", "coordinador", CancellationToken.None);
+            archivo, "BKtransaction.dat", PlantaP01, EquipoDePrueba, "coordinador", CancellationToken.None);
 
         // Nueve registros en el archivo: siete marcaciones y dos que el equipo escribió
         // para sí mismo, sin identificador.
         resultado.FilasLeidas.ShouldBe(9);
         resultado.FilasInsertadas.ShouldBe(7);
-        resultado.FilasRechazadas.ShouldBe(2);
+        resultado.FilasIgnoradas.ShouldBe(2);
+        resultado.FilasRechazadas.ShouldBe(0);
         resultado.IdsSinAsignar.ShouldBeEmpty();
 
         var crudas = await contexto.MarcacionesCrudas
@@ -106,19 +131,52 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
         crudas.Count.ShouldBe(7);
         crudas.ShouldAllBe(m => m.FechaHora.Year == 2026 && m.FechaHora.Month == 8);
 
-        // Primera y última del archivo, con su trabajador ya resuelto.
+        // Primera y última del archivo, atribuidas con la regla del motor.
+        var atribucion = await AtribucionAsync();
+        long? DuenoDe(MarcacionCruda m) => atribucion.Resolver(m.EquipoId, m.IdMarcador, m.FechaHora);
+
         crudas[0].IdMarcador.ShouldBe("2");
-        crudas[0].TrabajadorId.ShouldBe(dos);
+        DuenoDe(crudas[0]).ShouldBe(dos);
         crudas[0].FechaHora.ShouldBe(new DateTime(2026, 8, 24, 15, 13, 56));
 
         crudas[^1].IdMarcador.ShouldBe("1");
-        crudas[^1].TrabajadorId.ShouldBe(master);
+        DuenoDe(crudas[^1]).ShouldBe(master);
         crudas[^1].FechaHora.ShouldBe(new DateTime(2026, 8, 24, 16, 4, 46));
 
         // Tres identificadores distintos: tres marcaciones de cada usuario y una del master.
-        crudas.Count(m => m.TrabajadorId == dos).ShouldBe(3);
-        crudas.Count(m => m.TrabajadorId == tres).ShouldBe(3);
-        crudas.Count(m => m.TrabajadorId == master).ShouldBe(1);
+        crudas.Count(m => DuenoDe(m) == dos).ShouldBe(3);
+        crudas.Count(m => DuenoDe(m) == tres).ShouldBe(3);
+        crudas.Count(m => DuenoDe(m) == master).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task BKIGN_02_y_09_una_carga_solo_con_eventos_ignorados_completa_sin_marcaciones_ni_errores()
+    {
+        var datos = RespaldoDePrueba.Archivo(
+            new RespaldoDePrueba.Marca(0, new DateTime(2026, 10, 1, 8, 0, 0), Evento: 27),
+            new RespaldoDePrueba.Marca(0, new DateTime(2026, 10, 1, 8, 1, 0), Verificacion: 200, Evento: 751),
+            new RespaldoDePrueba.Marca(0, new DateTime(2026, 10, 1, 8, 2, 0), Verificacion: 200, Evento: 752));
+        using var archivo = new MemoryStream(datos);
+
+        var resultado = await servicio.ImportarAsync(
+            archivo, "solo-eventos.dat", PlantaP01, EquipoDePrueba, "coordinador", CancellationToken.None);
+
+        resultado.FilasLeidas.ShouldBe(3);
+        resultado.FilasAceptadas.ShouldBe(0);
+        resultado.FilasIgnoradas.ShouldBe(3);
+        resultado.FilasRechazadas.ShouldBe(0);
+        resultado.Rechazadas.ShouldBeEmpty();
+        resultado.HuboProblemas.ShouldBeFalse();
+        (await contexto.MarcacionesCrudas.CountAsync(CancellationToken.None)).ShouldBe(0);
+        (await contexto.ErroresImportacion.CountAsync(CancellationToken.None)).ShouldBe(0);
+
+        var recargado = await servicio.ObtenerResultadoAsync(resultado.ImportacionId, CancellationToken.None);
+        recargado.ShouldNotBeNull();
+        recargado.FilasIgnoradas.ShouldBe(3);
+        recargado.HuboProblemas.ShouldBeFalse();
+
+        var historial = await servicio.HistorialAsync(cancelacion: CancellationToken.None);
+        historial.Single(x => x.Id == resultado.ImportacionId).FilasIgnoradas.ShouldBe(3);
     }
 
     /// <summary>
@@ -139,12 +197,12 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
 
         using (var primera = File.OpenRead(RutaRespaldoReal))
         {
-            await servicio.ImportarAsync(primera, "BKtransaction.dat", "coordinador", CancellationToken.None);
+            await servicio.ImportarAsync(primera, "BKtransaction.dat", PlantaP01, EquipoDePrueba, "coordinador", CancellationToken.None);
         }
 
         using var segunda = File.OpenRead(RutaRespaldoReal);
         var repetida = await servicio.ImportarAsync(
-            segunda, "BKtransaction.dat", "coordinador", CancellationToken.None);
+            segunda, "BKtransaction.dat", PlantaP01, EquipoDePrueba, "coordinador", CancellationToken.None);
 
         repetida.FilasInsertadas.ShouldBe(0);
         repetida.FilasDuplicadas.ShouldBe(7);
@@ -160,7 +218,8 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
     /// cuenta de administrador del propio marcador—. No hace falta ninguna regla en el
     /// código para dejarlo fuera del tareo: <b>basta con no asignarle ese ID a nadie</b>, y
     /// el padrón decide, que es el mecanismo que el sistema ya tiene. Sus registros se
-    /// reportan como ID sin asignar y no se insertan.
+    /// guardan —la marcación cruda es lo que dijo el aparato— y se reportan como ID sin
+    /// asignar; al calcular no se atribuyen a nadie.
     ///
     /// Es también la red de seguridad contra un mapeo de campos equivocado: si el
     /// identificador se leyera del byte que no es, saldrían números que no corresponden a
@@ -176,10 +235,11 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
         using var archivo = File.OpenRead(RutaRespaldoReal);
 
         var resultado = await servicio.ImportarAsync(
-            archivo, "BKtransaction.dat", "coordinador", CancellationToken.None);
+            archivo, "BKtransaction.dat", PlantaP01, EquipoDePrueba, "coordinador", CancellationToken.None);
 
-        // Tres marcaciones de cada usuario; la única del master queda fuera.
-        resultado.FilasInsertadas.ShouldBe(6);
+        // Las siete se guardan —la marcación cruda no depende del padrón—, y la del master
+        // se avisa como ID sin asignar.
+        resultado.FilasInsertadas.ShouldBe(7);
         resultado.IdsSinAsignar.Select(x => x.IdMarcador).ShouldBe(["1"]);
         resultado.IdsSinAsignar[0].Marcaciones.ShouldBe(1);
         resultado.HuboProblemas.ShouldBeTrue();
@@ -188,10 +248,23 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
             .AsNoTracking()
             .ToListAsync(CancellationToken.None);
 
-        crudas.Count.ShouldBe(6);
-        crudas.ShouldAllBe(m => m.TrabajadorId == dos || m.TrabajadorId == tres);
-        crudas.ShouldNotContain(m => m.IdMarcador == "1");
+        crudas.Count.ShouldBe(7);
+
+        // Pero no es de nadie: al calcular, la del master no se atribuye y no entra al tareo.
+        var atribucion = await AtribucionAsync();
+        crudas.Where(m => m.IdMarcador == "1")
+            .ShouldAllBe(m => atribucion.Resolver(m.EquipoId, m.IdMarcador, m.FechaHora) == null);
+        crudas.Where(m => m.IdMarcador != "1")
+            .ShouldAllBe(m => atribucion.Resolver(m.EquipoId, m.IdMarcador, m.FechaHora) == dos
+                              || atribucion.Resolver(m.EquipoId, m.IdMarcador, m.FechaHora) == tres);
     }
+
+    /// <summary>La regla con que el motor atribuye cada marcación al calcular.</summary>
+    private async Task<AtribucionMarcaciones> AtribucionAsync() =>
+        new(await contexto.AsignacionesMarcador
+            .AsNoTracking()
+            .Select(a => new VigenciaIdMarcador(a.TrabajadorId, a.EquipoId, a.IdMarcador, a.FechaInicio, a.FechaFin))
+            .ToListAsync(CancellationToken.None));
 
     private async Task<long> CrearTrabajadorAsync(string idMarcador, string documento, string nombres)
     {
@@ -212,6 +285,7 @@ public sealed class ImportacionRespaldoRealTests : IDisposable
 
         trabajador.AsignacionesMarcador.Add(new AsignacionMarcador
         {
+            EquipoId = EquipoDePrueba,
             IdMarcador = idMarcador,
             FechaInicio = DiaDelRespaldo.AddDays(-30)
         });

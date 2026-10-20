@@ -1,6 +1,7 @@
 using System.Globalization;
 using ControlMarcacion.Application.Auditoria;
 using ControlMarcacion.Application.Catalogos;
+using ControlMarcacion.Application.Catalogos.Dto;
 using ControlMarcacion.Application.Personal;
 using ControlMarcacion.Application.Personal.Dto;
 using ControlMarcacion.Application.Seguridad;
@@ -53,7 +54,14 @@ public sealed class TrabajadoresController(
             Centros = filtro.PlantaId is null
                 ? []
                 : await catalogos.CentrosAsync(empresaDePlanta, cancelacion).ConfigureAwait(false),
-            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false)
+            CentrosCosto = await catalogos.CentrosCostoAsync(filtro.CentroId, cancelacion).ConfigureAwait(false),
+            Equipos = [.. (await catalogos.EquiposActivosAsync(cancelacion).ConfigureAwait(false))
+                .Where(e => filtro.PlantaId is null || e.PlantaId == filtro.PlantaId)],
+            Puestos = await catalogos.PuestosAsync(filtro.EmpresaId, cancelacion).ConfigureAwait(false),
+            Areas = filtro.PlantaId is null
+                ? []
+                : await catalogos.AreasAsync(filtro.PlantaId, cancelacion).ConfigureAwait(false),
+            Turnos = await catalogos.TurnosAsync(filtro.PlantaId, cancelacion).ConfigureAwait(false)
         };
 
         return View(modelo);
@@ -170,9 +178,14 @@ public sealed class TrabajadoresController(
                 // El usuario autenticado se resolverá con Identity en la fase 2.
                 var usuario = User.Identity?.Name ?? "sistema";
 
-                if (modelo.Datos.Id is null)
+                // La ficha escribe el número que el trabajador tiene en el aparato: si no está
+                // en el catálogo, se registra en vez de rechazar. Lo fija el servidor, no un
+                // campo del formulario.
+                var datos = modelo.Datos with { RegistrarMarcadorSiFalta = true };
+
+                if (datos.Id is null)
                 {
-                    var id = await servicio.CrearAsync(modelo.Datos, usuario, cancelacion).ConfigureAwait(false);
+                    var id = await servicio.CrearAsync(datos, usuario, cancelacion).ConfigureAwait(false);
 
                     if (esPeticionAjax)
                     {
@@ -184,7 +197,7 @@ public sealed class TrabajadoresController(
                     return RedirectToAction(nameof(Editar), new { id });
                 }
 
-                await servicio.ActualizarAsync(modelo.Datos, usuario, cancelacion).ConfigureAwait(false);
+                await servicio.ActualizarAsync(datos, usuario, cancelacion).ConfigureAwait(false);
 
                 if (esPeticionAjax)
                 {
@@ -354,6 +367,100 @@ public sealed class TrabajadoresController(
         }
     }
 
+    /// <summary>
+    /// Formulario mínimo para abrir un nuevo vínculo. La disponibilidad se consulta en
+    /// la historia canónica; <c>FechaCese</c> no decide si se muestra o no esta operación.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Reingresar(long id, CancellationToken cancelacion)
+    {
+        HistorialTrabajadorDto historial;
+
+        try
+        {
+            historial = await servicio.ObtenerHistorialAsync(id, cancelacion).ConfigureAwait(false);
+        }
+        catch (RecursoNoEncontradoException)
+        {
+            return NotFound();
+        }
+
+        if (historial.PeriodosLaborales.Any(p => p.EstaAbierto))
+        {
+            TempData["Error"] =
+                $"{historial.ApellidosYNombres} ya tiene un vínculo laboral abierto.";
+
+            return RedirectToAction(nameof(Historial), new { id });
+        }
+
+        var ultimoCese = historial.PeriodosLaborales
+            .Where(p => p.FechaCese is not null)
+            .Max(p => p.FechaCese);
+        var hoy = DateOnly.FromDateTime(DateTime.Now);
+        var fechaSugerida = ultimoCese is { } cese && cese.AddDays(1) > hoy
+            ? cese.AddDays(1)
+            : hoy;
+        var modelo = new ReingresarTrabajadorVm
+        {
+            ApellidosYNombres = historial.ApellidosYNombres,
+            NumeroDocumento = historial.NumeroDocumento,
+            UltimoCese = ultimoCese,
+            Datos = new ReingresarTrabajadorRequest
+            {
+                TrabajadorId = id,
+                FechaIngreso = fechaSugerida
+            }
+        };
+
+        await CargarCatalogosAsync(modelo, cancelacion).ConfigureAwait(false);
+
+        return View(modelo);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RegistrarReingreso(
+        ReingresarTrabajadorVm modelo,
+        CancellationToken cancelacion)
+    {
+        ArgumentNullException.ThrowIfNull(modelo);
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                var usuario = User.Identity?.Name ?? "sistema";
+                await servicio
+                    .ReingresarAsync(modelo.Datos, usuario, cancelacion)
+                    .ConfigureAwait(false);
+
+                TempData["Mensaje"] = "Se registró el reingreso del trabajador.";
+
+                return RedirectToAction(
+                    nameof(Historial),
+                    new { id = modelo.Datos.TrabajadorId });
+            }
+            catch (ReglaNegocioException excepcion)
+            {
+                ModelState.AddModelError(string.Empty, excepcion.Message);
+            }
+            catch (RecursoNoEncontradoException)
+            {
+                return NotFound();
+            }
+        }
+
+        try
+        {
+            await CompletarModeloReingresoAsync(modelo, cancelacion).ConfigureAwait(false);
+            return View("Reingresar", modelo);
+        }
+        catch (RecursoNoEncontradoException)
+        {
+            return NotFound();
+        }
+    }
+
     /// <summary>Pantalla de carga masiva de trabajadores desde CSV.</summary>
     [HttpGet]
     public IActionResult CargaMasiva() => View(new CargaMasivaVm());
@@ -373,6 +480,7 @@ public sealed class TrabajadoresController(
         IFormFile? archivo,
         bool soloValidar,
         bool actualizarExistentes,
+        bool registrarMarcadores,
         CancellationToken cancelacion)
     {
         if (archivo is null || archivo.Length == 0)
@@ -400,7 +508,8 @@ public sealed class TrabajadoresController(
 
             var resultado = await cargaMasiva
                 .ProcesarAsync(
-                    contenido, archivo.FileName, usuario, soloValidar, actualizarExistentes, cancelacion)
+                    contenido, archivo.FileName, usuario, soloValidar, actualizarExistentes,
+                    registrarMarcadores, cancelacion)
                 .ConfigureAwait(false);
 
             return View("CargaMasiva", new CargaMasivaVm { Resultado = resultado });
@@ -421,17 +530,20 @@ public sealed class TrabajadoresController(
         Json(await catalogos.PlantasAsync(Opcional(empresaId), cancelacion).ConfigureAwait(false));
 
     /// <summary>
-    /// Marcadores del catálogo habilitados en una planta, para la cascada Planta → ID de
-    /// marcador del formulario.
+    /// Aparatos marcadores activos de una planta, para la cascada Planta → aparato del
+    /// formulario.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> MarcadoresDePlanta(
-        long plantaId,
-        string? actual,
+    public async Task<IActionResult> EquiposDePlanta(long plantaId, CancellationToken cancelacion) =>
+        Json(await AparatosDePlantaAsync(Opcional(plantaId), cancelacion).ConfigureAwait(false));
+
+    private async Task<IReadOnlyList<EquipoOpcionDto>> AparatosDePlantaAsync(
+        long? plantaId,
         CancellationToken cancelacion) =>
-        Json(await catalogos
-            .MarcadoresAsync(Opcional(plantaId), actual, cancelacion)
-            .ConfigureAwait(false));
+        plantaId is null
+            ? []
+            : [.. (await catalogos.EquiposActivosAsync(cancelacion).ConfigureAwait(false))
+                .Where(e => e.PlantaId == plantaId)];
 
     /// <summary>Áreas de una planta.</summary>
     [HttpGet]
@@ -518,6 +630,7 @@ public sealed class TrabajadoresController(
             ? []
             : await catalogos.PuestosAsync(empresaId, cancelacion).ConfigureAwait(false);
         modelo.Turnos = await catalogos.TurnosAsync(plantaId, cancelacion).ConfigureAwait(false);
+        modelo.Cuadrillas = await catalogos.CuadrillasActivasAsync(cancelacion).ConfigureAwait(false);
         // Centro depende de Planta, no de Empresa directamente: sin planta elegida,
         // no hay nada que ofrecer.
         modelo.Centros = plantaId is null
@@ -526,12 +639,8 @@ public sealed class TrabajadoresController(
                 await ResolverEmpresaDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false),
                 cancelacion).ConfigureAwait(false);
         modelo.CentrosCosto = await catalogos.CentrosCostoAsync(Opcional(modelo.CentroId ?? 0), cancelacion).ConfigureAwait(false);
-        // Sin planta elegida no hay marcadores que ofrecer: cada uno pertenece a una.
-        modelo.Marcadores = plantaId is null
-            ? []
-            : await catalogos
-                .MarcadoresAsync(plantaId, modelo.Datos.IdMarcador, cancelacion)
-                .ConfigureAwait(false);
+        // Sin planta elegida no hay aparatos que ofrecer: cada uno pertenece a una.
+        modelo.EquiposMarcador = await AparatosDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false);
     }
 
     private async Task CargarCatalogosAsync(PanelTrabajadorVm modelo, CancellationToken cancelacion)
@@ -546,18 +655,39 @@ public sealed class TrabajadoresController(
             ? []
             : await catalogos.PuestosAsync(empresaId, cancelacion).ConfigureAwait(false);
         modelo.Turnos = await catalogos.TurnosAsync(plantaId, cancelacion).ConfigureAwait(false);
+        modelo.Cuadrillas = await catalogos.CuadrillasActivasAsync(cancelacion).ConfigureAwait(false);
         modelo.Centros = plantaId is null
             ? []
             : await catalogos.CentrosAsync(
                 await ResolverEmpresaDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false),
                 cancelacion).ConfigureAwait(false);
         modelo.CentrosCosto = await catalogos.CentrosCostoAsync(Opcional(modelo.CentroId ?? 0), cancelacion).ConfigureAwait(false);
-        // Sin planta elegida no hay marcadores que ofrecer: cada uno pertenece a una.
-        modelo.Marcadores = plantaId is null
-            ? []
-            : await catalogos
-                .MarcadoresAsync(plantaId, modelo.Datos.IdMarcador, cancelacion)
-                .ConfigureAwait(false);
+        // Sin planta elegida no hay aparatos que ofrecer: cada uno pertenece a una.
+        modelo.EquiposMarcador = await AparatosDePlantaAsync(plantaId, cancelacion).ConfigureAwait(false);
+    }
+
+    private async Task CargarCatalogosAsync(ReingresarTrabajadorVm modelo, CancellationToken cancelacion)
+    {
+        modelo.Empresas = await catalogos.EmpresasAsync(cancelacion).ConfigureAwait(false);
+        modelo.Plantas = await catalogos
+            .PlantasAsync(Opcional(modelo.Datos.EmpresaId), cancelacion)
+            .ConfigureAwait(false);
+    }
+
+    private async Task CompletarModeloReingresoAsync(
+        ReingresarTrabajadorVm modelo,
+        CancellationToken cancelacion)
+    {
+        var historial = await servicio
+            .ObtenerHistorialAsync(modelo.Datos.TrabajadorId, cancelacion)
+            .ConfigureAwait(false);
+
+        modelo.ApellidosYNombres = historial.ApellidosYNombres;
+        modelo.NumeroDocumento = historial.NumeroDocumento;
+        modelo.UltimoCese = historial.PeriodosLaborales
+            .Where(p => p.FechaCese is not null)
+            .Max(p => p.FechaCese);
+        await CargarCatalogosAsync(modelo, cancelacion).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -592,7 +722,9 @@ public sealed class TrabajadoresController(
             PuestoId = detalle.PuestoId,
             CentroCostoId = detalle.CentroCostoId,
             IdMarcador = detalle.IdMarcador,
+            EquipoId = detalle.EquipoMarcadorId,
             TurnoId = detalle.TurnoId,
+            CuadrillaId = detalle.CuadrillaId,
             MontoSueldoBasico = montoSueldoBasico,
             MotivoCese = detalle.MotivoCese
         };

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using ControlMarcacion.Application.Personal.Dto;
 using ControlMarcacion.Application.Solicitudes.Dto;
 using ControlMarcacion.Domain.Catalogos;
@@ -171,7 +172,7 @@ public sealed class AislamientoPorPlantaTests : IDisposable
         await SembrarTrabajadorAsync(1, PlantaDetergentes, "AAA");
         await SembrarTrabajadorAsync(2, PlantaSulfonacion, "BBB");
 
-        var servicio = new ServicioCalculoTareo(contexto, new AlcanceDePlantas(PlantaDetergentes));
+        var servicio = new ServicioCalculoTareo(contexto, new AlcanceDePlantas(PlantaDetergentes), CoberturaDePrueba.TodoCargado(), NullLogger<ServicioCalculoTareo>.Instance);
 
         var resultado = await servicio.RecalcularPeriodoAsync(PeriodoJulio2026, "admin", CancellationToken.None);
 
@@ -186,7 +187,7 @@ public sealed class AislamientoPorPlantaTests : IDisposable
 
     private async Task SembrarTrabajadorAsync(long id, long plantaId, string apellido)
     {
-        contexto.Trabajadores.Add(new Trabajador
+        var trabajador = new Trabajador
         {
             Id = id,
             TipoDocumentoId = 1,
@@ -200,7 +201,10 @@ public sealed class AislamientoPorPlantaTests : IDisposable
             PlantaId = plantaId,
             PuestoId = 1,
             FechaIngreso = new DateOnly(2024, 1, 1)
-        });
+        };
+
+        trabajador.AbrirVinculo("prueba");
+        contexto.Trabajadores.Add(trabajador);
 
         await contexto.SaveChangesAsync(CancellationToken.None);
     }

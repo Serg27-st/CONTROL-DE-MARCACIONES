@@ -14,6 +14,7 @@
         EstadoTareo.Tardanza => "etiqueta-tardanza",
         EstadoTareo.AusenciaJustificada => "etiqueta-justificada",
         EstadoTareo.Incompleto => "etiqueta-incompleto",
+        EstadoTareo.PendienteValidacion => "etiqueta-incompleto",
         _ => ""
     };
 
@@ -23,6 +24,7 @@
         EstadoTareo.Tardanza => "Tardanza",
         EstadoTareo.AusenciaJustificada => "Ausencia justificada",
         EstadoTareo.Incompleto => "Marcación incompleta",
+        EstadoTareo.PendienteValidacion => "Pendiente de validar",
         _ => estado.ToString()
     };
 }
@@ -69,7 +71,13 @@ else
                         {
                             <tr>
                                 <td class="celda-trabajador"><strong>@e.Trabajador</strong></td>
-                                <td><code>@(e.IdMarcador ?? "—")</code></td>
+                                <td>
+                                    <code>@(e.IdMarcador ?? "—")</code>
+                                    @if (e.Equipo is not null)
+                                    {
+                                        <br /><small class="texto-suave">@e.Equipo</small>
+                                    }
+                                </td>
                                 <td class="celda-fecha">
                                     @e.Fecha.ToString("dd/MM/yyyy", cultura)
                                     <small class="texto-suave">@e.Fecha.ToString("ddd", cultura)</small>

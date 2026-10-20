@@ -29,11 +29,14 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
 
         if (!string.IsNullOrWhiteSpace(filtro.Busqueda))
         {
-            var termino = filtro.Busqueda.Trim();
+            // Sin distinguir mayúsculas: ver BusquedaTexto.
+            var termino = BusquedaTexto.Normalizar(filtro.Busqueda);
 
+#pragma warning disable CA1304, CA1311, CA1862
             consulta = consulta.Where(m =>
-                m.Codigo.Contains(termino)
-                || (m.Descripcion != null && m.Descripcion.Contains(termino)));
+                m.Codigo.ToUpper().Contains(termino)
+                || (m.Descripcion != null && m.Descripcion.ToUpper().Contains(termino)));
+#pragma warning restore CA1304, CA1311, CA1862
         }
 
         return await Proyectar(consulta.OrderBy(m => m.Planta!.Nombre).ThenBy(m => m.Codigo))
@@ -55,27 +58,31 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
 
         var codigo = solicitud.Codigo.Trim();
 
-        var plantaExiste = await contexto.Plantas
-            .AnyAsync(p => p.Id == solicitud.PlantaId && p.Activo, cancelacion)
-            .ConfigureAwait(false);
+        // La planta NO llega del formulario: es una copia derivada de la del equipo. Se lee
+        // de aquí para escribirla, de modo que no puedan quedar en desacuerdo.
+        var equipo = await contexto.EquiposMarcador
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == solicitud.EquipoId && e.Activo, cancelacion)
+            .ConfigureAwait(false)
+            ?? throw new ReglaNegocioException(
+                "El equipo indicado no existe o está de baja. Registre el aparato en " +
+                "Equipos antes de darle de alta sus códigos.");
 
-        if (!plantaExiste)
-        {
-            throw new ReglaNegocioException("La planta indicada no existe o está inactiva.");
-        }
-
-        // Único en todo el sistema, no por planta: el TXT del G3 no dice de qué planta
-        // salió cada marcación. Ver Marcador.
+        // Único POR EQUIPO, no en todo el sistema: así lo numera el ZKTeco, y es lo que
+        // permite que el A–L y el M–Z de la misma planta tengan ambos del 1 al 100. De qué
+        // aparato salió cada marcación lo declara el operador al cargar el archivo, y la
+        // serie del propio archivo lo confirma. Ver EquipoMarcador.
         var repetido = await contexto.Marcadores
-            .AnyAsync(m => m.Codigo == codigo && m.Id != solicitud.Id, cancelacion)
+            .AnyAsync(
+                m => m.Codigo == codigo && m.EquipoId == solicitud.EquipoId && m.Id != solicitud.Id,
+                cancelacion)
             .ConfigureAwait(false);
 
         if (repetido)
         {
             throw new ReglaNegocioException(
-                $"Ya existe un marcador con el código '{codigo}'. Los códigos son únicos en " +
-                "todo el sistema porque el archivo del marcador no indica de qué planta " +
-                "proviene cada marcación.");
+                $"El equipo '{equipo.Nombre}' ya tiene un marcador con el código '{codigo}'. " +
+                "Dentro de un mismo aparato el código identifica a una sola persona.");
         }
 
         Marcador marcador;
@@ -87,7 +94,7 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
                 .ConfigureAwait(false)
                 ?? throw new RecursoNoEncontradoException("el marcador", id);
 
-            await ValidarCambiosSobreUsadoAsync(marcador, codigo, solicitud.PlantaId, cancelacion)
+            await ValidarCambiosSobreUsadoAsync(marcador, codigo, solicitud.EquipoId, cancelacion)
                 .ConfigureAwait(false);
 
             marcador.ModificadoPor = usuario;
@@ -99,7 +106,8 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
         }
 
         marcador.Codigo = codigo;
-        marcador.PlantaId = solicitud.PlantaId;
+        marcador.EquipoId = equipo.Id;
+        marcador.PlantaId = equipo.PlantaId;
         marcador.Descripcion = string.IsNullOrWhiteSpace(solicitud.Descripcion)
             ? null
             : solicitud.Descripcion.Trim();
@@ -123,8 +131,14 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
 
         if (!activo)
         {
+            // Acotado al equipo: sin eso, dar de baja el código 14 del aparato A–L contaría
+            // también a quien tiene el 14 del M–Z, que es otra persona.
             var vigentes = await contexto.AsignacionesMarcador
-                .CountAsync(a => a.IdMarcador == marcador.Codigo && a.FechaFin == null, cancelacion)
+                .CountAsync(
+                    a => a.EquipoId == marcador.EquipoId
+                         && a.IdMarcador == marcador.Codigo
+                         && a.FechaFin == null,
+                    cancelacion)
                 .ConfigureAwait(false);
 
             if (vigentes > 0)
@@ -141,6 +155,15 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
 
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
     }
+
+    public async Task<IReadOnlyList<EquipoOpcionDto>> EquiposAsync(
+        CancellationToken cancelacion = default) =>
+        await contexto.EquiposMarcador.AsNoTracking()
+            .Where(e => e.Activo)
+            .OrderBy(e => e.Planta!.Nombre).ThenBy(e => e.Nombre)
+            .Select(e => new EquipoOpcionDto(e.Id, e.Codigo, e.Nombre, e.PlantaId, e.Planta!.Nombre))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
 
     public async Task<IReadOnlyList<OpcionDto>> PlantasAsync(CancellationToken cancelacion = default) =>
         await contexto.Plantas.AsNoTracking()
@@ -165,19 +188,21 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
     private async Task ValidarCambiosSobreUsadoAsync(
         Marcador marcador,
         string codigoNuevo,
-        long plantaNueva,
+        long equipoNuevo,
         CancellationToken cancelacion)
     {
         var cambiaCodigo = !string.Equals(marcador.Codigo, codigoNuevo, StringComparison.Ordinal);
-        var cambiaPlanta = marcador.PlantaId != plantaNueva;
+        var cambiaEquipo = marcador.EquipoId != equipoNuevo;
 
-        if (!cambiaCodigo && !cambiaPlanta)
+        if (!cambiaCodigo && !cambiaEquipo)
         {
             return;
         }
 
         var asignaciones = await contexto.AsignacionesMarcador
-            .CountAsync(a => a.IdMarcador == marcador.Codigo, cancelacion)
+            .CountAsync(
+                a => a.EquipoId == marcador.EquipoId && a.IdMarcador == marcador.Codigo,
+                cancelacion)
             .ConfigureAwait(false);
 
         if (asignaciones == 0)
@@ -193,18 +218,24 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
                 "Dé de baja este marcador y cree uno nuevo con el código correcto.");
         }
 
-        // Cambiar de planta con asignaciones vigentes dejaría a esos trabajadores con un
-        // marcador que ya no es de su planta, que es justo lo que la validación de
-        // Personal rechaza: quedarían imposibles de guardar sin tocarles el marcador.
+        // Mudar el código a otro aparato con asignaciones vigentes es más grave que el
+        // antiguo cambio de planta: la asignación se resuelve por (equipo, código, fecha),
+        // así que las marcaciones de esas personas dejarían de encontrar a su dueño y
+        // pasarían al reporte de "IDs sin trabajador" — y, si en el equipo de destino ese
+        // código ya es de alguien, se atribuirían a la persona equivocada.
         var vigentes = await contexto.AsignacionesMarcador
-            .CountAsync(a => a.IdMarcador == marcador.Codigo && a.FechaFin == null, cancelacion)
+            .CountAsync(
+                a => a.EquipoId == marcador.EquipoId
+                     && a.IdMarcador == marcador.Codigo
+                     && a.FechaFin == null,
+                cancelacion)
             .ConfigureAwait(false);
 
         if (vigentes > 0)
         {
             throw new ReglaNegocioException(
-                $"No se puede cambiar de planta el marcador '{marcador.Codigo}': lo tienen " +
-                $"asignado {vigentes} trabajador(es) de la planta actual.");
+                $"No se puede mover de equipo el marcador '{marcador.Codigo}': lo tienen " +
+                $"asignado {vigentes} trabajador(es) en el aparato actual.");
         }
     }
 
@@ -212,11 +243,24 @@ internal sealed class ServicioMarcadores(MarcacionDbContext contexto) : IServici
         consulta.Select(m => new MarcadorListaDto(
             m.Id,
             m.Codigo,
+            m.EquipoId,
+            m.Equipo!.Nombre,
             m.PlantaId,
             m.Planta!.Nombre,
             m.Planta!.Empresa!.RazonSocial,
             m.Descripcion,
             m.Activo,
-            contexto.AsignacionesMarcador.Count(a => a.IdMarcador == m.Codigo && a.FechaFin == null),
-            contexto.AsignacionesMarcador.Count(a => a.IdMarcador == m.Codigo)));
+            // Acotado al equipo, igual que la resolución de la ingesta: contar por código a
+            // secas sumaría las asignaciones del mismo número en el otro aparato y la
+            // columna "En uso" mostraría personal que no tiene nada que ver con esta fila.
+            contexto.AsignacionesMarcador.Count(
+                a => a.EquipoId == m.EquipoId && a.IdMarcador == m.Codigo && a.FechaFin == null),
+            contexto.AsignacionesMarcador.Count(
+                a => a.EquipoId == m.EquipoId && a.IdMarcador == m.Codigo),
+            // Quién lo tiene hoy: es lo que se busca en esta pantalla antes de asignar un
+            // número, para no chocar con el de otra persona.
+            contexto.AsignacionesMarcador
+                .Where(a => a.EquipoId == m.EquipoId && a.IdMarcador == m.Codigo && a.FechaFin == null)
+                .Select(a => a.Trabajador!.ApellidoPaterno + " " + a.Trabajador.ApellidoMaterno + ", " + a.Trabajador.Nombres)
+                .FirstOrDefault()));
 }

@@ -23,6 +23,13 @@
 
     var diasDelMes = cobertura.Dias;
     var huecos = cobertura.DiasSinMarcacion(hoy);
+
+    // Con dos aparatos en la planta, un día puede tener marcaciones y aun así estar a medias:
+    // las del A-L cargadas y las del M-Z no. Contar marcaciones no lo ve; esto sí.
+    var incompletos = cobertura.DiasIncompletos(hoy);
+    var faltantesPorEquipo = cobertura.FaltantesPorEquipo(hoy);
+    var equiposDelMes = cobertura.EquiposDelMes;
+    var diasFaltantesDe = faltantesPorEquipo.ToDictionary(f => f.Equipo.EquipoId, f => f.Dias);
     var primerDia = diasDelMes.Count > 0 ? diasDelMes[0].Fecha : new DateOnly(cobertura.Anio, cobertura.Mes, 1);
     var maximoDelMes = diasDelMes.Count > 0 ? diasDelMes.Max(d => d.Marcaciones) : 0;
 
@@ -56,8 +63,11 @@
 
         if (dia.TieneMarcaciones)
         {
+            var faltan = cobertura.FaltantesEn(dia, hoy);
+
             return $"{fecha}: {dia.Marcaciones.ToString("N0", cultura)} marcación(es) " +
-                   $"de {dia.Trabajadores} trabajador(es)";
+                   $"de {dia.Trabajadores} trabajador(es)" +
+                   (faltan.Count > 0 ? $" · sin archivo de {string.Join(", ", faltan.Select(f => f.Nombre))}" : "");
         }
 
         return dia.Fecha > hoy
@@ -81,8 +91,28 @@
 
     string TituloMes(MesConMarcaciones m) => m.TieneMarcaciones
         ? $"{NombreMes(m.Mes)} {m.Anio}: {m.Marcaciones.ToString("N0", cultura)} marcación(es) " +
-          $"en {m.DiasConMarcacion} día(s)"
+          $"en {m.DiasConMarcacion} día(s)" +
+          (m.DiasIncompletos > 0 ? $", {m.DiasIncompletos} con algún aparato sin cargar" : "")
         : $"{NombreMes(m.Mes)} {m.Anio}: sin marcaciones cargadas";
+
+    // Celda de la tabla por aparato. El número es cuántas personas marcaron en ese aparato
+    // ese día: un archivo a medias se nota ahí antes que en ninguna otra parte.
+    (string Clase, string Texto, string ParaLectores) CeldaDe(EquipoEnCobertura e, DiaConMarcaciones dia)
+    {
+        if (dia.De(e.EquipoId) is { } propias)
+        {
+            return ("celda-con-datos", propias.Personas.ToString(cultura), $"{propias.Personas} persona(s)");
+        }
+
+        if (dia.Fecha > hoy)
+        {
+            return ("celda-futura", "", "aún no ocurre");
+        }
+
+        return e.Esperado.EsperadoEn(dia.Fecha)
+            ? ("celda-faltante", "✕", "falta el archivo")
+            : ("celda-no-esperada", "", "no se esperaba");
+    }
 
     // El historial se agrupa por el mes en que se SUBIÓ el archivo, no por el que
     // contiene: son dos cosas distintas y la columna «Periodo cubierto» ya muestra la
@@ -109,15 +139,28 @@
     <div class="aviso aviso-alerta" role="alert">
         <strong>Este archivo ya se cargó antes.</strong>
         <p class="nota-compacta">
-            «@previa.NombreArchivo» se procesó el
+            «@previa.NombreArchivo» se cargó como marcador <strong>@previa.Equipo</strong> y se procesó el
             <strong>@previa.FechaCarga.ToString("dd/MM/yyyy HH:mm")</strong>
             por @previa.CargadoPorUsuario, e insertó @previa.FilasInsertadas marcación(es).
         </p>
-        <p class="nota-compacta">
-            Volver a cargarlo no duplica nada —la base lo impide—, pero probablemente
-            querías subir otro archivo. Si aun así deseas reprocesarlo, vuelve a
-            seleccionarlo y marca la casilla de confirmación.
-        </p>
+        @* Solo llega aquí una carga del mismo aparato o una anulada: la vigente en otro
+           aparato la rechaza el servicio sin pasar por esta confirmación. *@
+        @if (previa.Anulada)
+        {
+            <p class="nota-compacta">
+                Esa carga está <strong>anulada</strong>, así que sus marcaciones no cuentan para
+                el tareo. Si la anulaste para volver a cargar el archivo con el marcador
+                correcto, vuelve a seleccionarlo y marca la casilla de confirmación.
+            </p>
+        }
+        else
+        {
+            <p class="nota-compacta">
+                Volver a cargarlo con el mismo marcador no duplica nada —la base lo impide—,
+                pero probablemente querías subir otro archivo. Si aun así deseas reprocesarlo,
+                vuelve a seleccionarlo y marca la casilla de confirmación.
+            </p>
+        }
     </div>
 }
 
@@ -126,10 +169,69 @@
 <div class="tarjeta">
     <h2>Cargar archivo del marcador</h2>
 
+    @if (Model.Equipos.Count == 0)
+    {
+        <p class="aviso aviso-atencion">
+            No hay ningún marcador registrado, así que todavía no se puede cargar un archivo:
+            sin saber de qué aparato salió, sus marcaciones no se pueden atribuir a nadie.
+            Regístrelo en <a asp-controller="Marcadores" asp-action="Index">Catálogos → Marcadores</a>.
+        </p>
+    }
+
     <form method="post" asp-action="Cargar" enctype="multipart/form-data" id="formulario-carga">
         @Html.AntiForgeryToken()
         <input type="hidden" name="anio" value="@cobertura.Anio" />
         <input type="hidden" name="mes" value="@cobertura.Mes" />
+
+        @*
+            Planta y marcador, obligatorios y ANTES del archivo: el archivo no dice de qué
+            aparato salió, y en una planta con dos marcadores el mismo código identifica a
+            dos personas distintas. Elegir mal atribuye el mes a la gente equivocada, así
+            que el orden visual es deliberado — se declara el origen y después se suelta el
+            archivo.
+
+            Se elige el MARCADOR y la planta se rellena sola, de solo lectura. Antes era al
+            revés —planta primero, filtrando marcadores—, y eso pedía un dato que el sistema
+            ya conoce: la planta es del aparato, no del archivo. Con dos campos que decidir,
+            el operador podía elegir una planta que no era la de su marcador y descubrirlo
+            solo al ver el error; ahora esa combinación no se puede ni construir.
+
+            El nombre de la planta viaja en `data-planta` de cada opción: son un puñado de
+            aparatos y ya vienen todos en la respuesta, así que no hace falta ir al servidor.
+        *@
+        <div class="barra-filtros">
+            <div class="campo">
+                <label for="equipoId">Marcador de origen</label>
+                <select id="equipoId" name="equipoId" required aria-describedby="ayuda-equipo">
+                    <option value="">— Elija el marcador —</option>
+                    @foreach (var equipo in Model.Equipos)
+                    {
+                        <option value="@equipo.Id"
+                                data-planta="@equipo.PlantaId"
+                                data-planta-nombre="@equipo.Planta">
+                            @equipo.Nombre (@equipo.Codigo)
+                        </option>
+                    }
+                </select>
+                <small id="ayuda-equipo" class="texto-suave">
+                    El aparato del que se extrajo este archivo. Es obligatorio: el
+                    <code>.dat</code> no lo dice, y dentro de una planta el mismo código
+                    identifica a dos personas distintas.
+                </small>
+            </div>
+
+            <div class="campo">
+                <label for="plantaNombre">Planta</label>
+                <input type="text" id="plantaNombre" value="" readonly
+                       placeholder="— La define el marcador —" />
+
+                @*
+                    El valor que se envía va aparte, en un hidden: un input readonly SÍ se
+                    envía, pero aquí lleva el nombre y el servidor espera el id.
+                *@
+                <input type="hidden" id="plantaId" name="plantaId" value="" />
+            </div>
+        </div>
 
         @*
             El <input type="file"> real vive dentro del <label> y lo cubre entero,
@@ -164,10 +266,18 @@
             <label for="confirmarRecarga">Procesar aunque el archivo ya se haya cargado antes</label>
         </div>
 
+        @*
+            Arranca inhabilitado y lo suelta el script al elegir marcador. Es una ayuda,
+            no un control: el guardia real vive en el controlador y en el servicio, porque
+            un formulario manipulado no pasa por este atributo.
+        *@
         <div class="acciones">
-            <button type="submit" class="boton boton-primario" id="boton-cargar">
+            <button type="submit" class="boton boton-primario" id="boton-cargar" disabled>
                 Cargar y procesar
             </button>
+            <span class="texto-suave" id="aviso-sin-marcador">
+                Elija primero el marcador de origen.
+            </span>
         </div>
     </form>
 
@@ -241,6 +351,10 @@
                     <span class="pastilla-mes-dias">
                         @(m.TieneMarcaciones ? $"{m.DiasConMarcacion} día(s)" : "sin cargar")
                     </span>
+                    @if (m.DiasIncompletos > 0)
+                    {
+                        <span class="pastilla-mes-alerta">@m.DiasIncompletos incompleto(s)</span>
+                    }
                 </a>
             }
         </div>
@@ -258,6 +372,10 @@
             <div class="indicador @(huecos > 0 ? "indicador-alerta" : "")">
                 <span class="indicador-cifra">@huecos</span>
                 <span class="indicador-rotulo">Días transcurridos sin ninguna</span>
+            </div>
+            <div class="indicador @(incompletos > 0 ? "indicador-alerta" : "")">
+                <span class="indicador-cifra">@incompletos</span>
+                <span class="indicador-rotulo">Días con algún aparato sin cargar</span>
             </div>
             <div class="indicador">
                 <span class="indicador-cifra">@cobertura.MarcacionesDelAnio.ToString("N0", cultura)</span>
@@ -283,8 +401,9 @@
                 {
                     var esDomingo = dia.Fecha.DayOfWeek == DayOfWeek.Sunday;
                     var esHoy = dia.Fecha == hoy;
+                    var faltanEseDia = dia.TieneMarcaciones ? cobertura.FaltantesEn(dia, hoy).Count : 0;
 
-                    <div class="dia dia-@NivelDe(dia) @(esDomingo ? "dia-domingo" : "") @(esHoy ? "dia-hoy" : "")"
+                    <div class="dia dia-@NivelDe(dia) @(esDomingo ? "dia-domingo" : "") @(esHoy ? "dia-hoy" : "") @(faltanEseDia > 0 ? "dia-incompleto" : "")"
                          title="@TituloDia(dia)">
                         <span class="dia-numero">@dia.Fecha.Day</span>
                         <span class="dia-cifra">
@@ -293,6 +412,12 @@
                         <span class="dia-personas">
                             @(dia.Trabajadores > 0 ? $"{dia.Trabajadores} pers." : "")
                         </span>
+                        @* A la vista y no solo en el title: el título no existe en pantalla
+                           táctil ni en la hoja impresa, y es justo lo que hay que ir a cargar. *@
+                        @if (faltanEseDia > 0)
+                        {
+                            <span class="dia-faltan">@(faltanEseDia == 1 ? "falta 1 aparato" : $"faltan {faltanEseDia} aparatos")</span>
+                        }
                     </div>
                 }
             </div>
@@ -307,6 +432,7 @@
             <span class="leyenda-muestra dia-n4"></span>
             <span class="leyenda-texto">más marcaciones</span>
             <span class="leyenda-muestra dia-futuro"></span><span class="leyenda-texto">aún no ocurre</span>
+            <span class="leyenda-muestra dia-n1 dia-incompleto"></span><span class="leyenda-texto">algún aparato sin cargar</span>
         </div>
 
         @if (huecos > 0)
@@ -320,8 +446,125 @@
                 </p>
             </div>
         }
+
+        @if (faltantesPorEquipo.Count > 0)
+        {
+            <div class="aviso aviso-alerta" role="status">
+                <strong>Faltan archivos de @faltantesPorEquipo.Count aparato(s) en @NombreMes(cobertura.Mes):</strong>
+                <ul class="nota-compacta">
+                    @foreach (var (equipo, dias) in faltantesPorEquipo)
+                    {
+                        <li><strong>@equipo.Nombre</strong> (@equipo.Planta): @dias día(s) sin marcaciones</li>
+                    }
+                </ul>
+                <p class="nota-compacta">
+                    Quien usa ese aparato saldrá en falta esos días al calcular el tareo. Cargue su
+                    archivo; si el aparato ya no se usa, dé de baja el equipo y dejará de esperarse.
+                </p>
+            </div>
+        }
+
+        @* ---- Por aparato ---- *@
+        @* Con un solo aparato el calendario ya lo dice todo. Con dos o más, el calendario
+           suma y esta tabla separa: es donde se ve que el A-L está completo y el M-Z no. *@
+        @if (equiposDelMes.Count > 1)
+        {
+            <h3 class="subtitulo-seccion">Por aparato</h3>
+            <p class="subtitulo">
+                Cada cifra es cuántas personas marcaron en ese aparato ese día. Una ✕ es un día
+                ya transcurrido sin ninguna marcación suya; en gris, los días anteriores a su
+                primera marcación, cuando todavía no se usaba.
+            </p>
+
+            <div class="tabla-contenedor">
+                <table class="tabla matriz-cobertura">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="matriz-aparato">Aparato</th>
+                            @foreach (var dia in diasDelMes)
+                            {
+                                <th scope="col" class="@(dia.Fecha.DayOfWeek == DayOfWeek.Sunday ? "matriz-domingo" : "")">@dia.Fecha.Day</th>
+                            }
+                            <th scope="col">Faltan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var equipo in equiposDelMes)
+                        {
+                            <tr>
+                                <th scope="row" class="matriz-aparato">
+                                    @equipo.Nombre
+                                    <small class="texto-suave">@equipo.Codigo · @equipo.Planta@(equipo.Activo ? "" : " · de baja")</small>
+                                </th>
+                                @foreach (var dia in diasDelMes)
+                                {
+                                    var celda = CeldaDe(equipo, dia);
+
+                                    <td class="@celda.Clase">
+                                        <span aria-hidden="true">@celda.Texto</span>
+                                        <span class="solo-lectores">@dia.Fecha.Day: @celda.ParaLectores</span>
+                                    </td>
+                                }
+                                <td class="matriz-total">
+                                    @(diasFaltantesDe.TryGetValue(equipo.EquipoId, out var faltan) ? faltan : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     }
 </div>
+
+@* ------------------------------------------------------ Números sin asignar ---- *@
+
+@if (Model.NumerosSinAsignar.Count > 0)
+{
+    <div class="tarjeta">
+        <h2>Números sin trabajador en @NombreMes(cobertura.Mes) de @cobertura.Anio</h2>
+
+        <div class="aviso aviso-alerta" role="status">
+            <strong>@Model.NumerosSinAsignar.Count número(s) marcaron este mes y nadie los tiene
+            asignados en esas fechas.</strong>
+            <p class="nota-compacta">
+                Sus marcaciones están guardadas, pero el tareo de esas personas sale en falta
+                hasta que el sistema sepa quiénes son. Abra la ficha del trabajador en
+                <a asp-controller="Trabajadores" asp-action="Index">Personal</a>, ponga el
+                aparato y el número, y recalcule el periodo. Esta lista se vacía sola a
+                medida que se asignan.
+            </p>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Aparato</th>
+                        <th>N.º en el aparato</th>
+                        <th>Marcaciones</th>
+                        <th>Días</th>
+                        <th>Primera</th>
+                        <th>Última</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var numero in Model.NumerosSinAsignar)
+                    {
+                        <tr>
+                            <td>@numero.Equipo</td>
+                            <td><code>@numero.IdMarcador</code></td>
+                            <td>@numero.Marcaciones</td>
+                            <td>@numero.Dias</td>
+                            <td>@numero.PrimeraFecha.ToString("dd/MM/yyyy")</td>
+                            <td>@numero.UltimaFecha.ToString("dd/MM/yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 @* --------------------------------------------------------------- Historial ---- *@
 
@@ -369,12 +612,14 @@
                         <thead>
                             <tr>
                                 <th>Archivo</th>
+                                <th>Marcador</th>
                                 <th>Periodo cubierto</th>
                                 <th>Cargado</th>
-                                <th>Leídas</th>
+                                <th>Detectadas</th>
                                 <th>Insertadas</th>
                                 <th>Duplicadas</th>
-                                <th>Rechazadas</th>
+                                <th>Ignoradas</th>
+                                <th>Errores</th>
                                 <th>Estado</th>
                                 <th></th>
                             </tr>
@@ -385,6 +630,25 @@
                                 <tr class="@(i.Anulada ? "fila-anulada" : "")">
                                     <td class="celda-archivo">
                                         <a asp-action="Resultado" asp-route-id="@i.Id">@i.NombreArchivo</a>
+                                    </td>
+                                    <td>
+                                        @i.Equipo
+                                        <br />
+                                        @* El aviso de la pantalla de resultado se pierde; esto queda, para
+                                           saber meses después qué cargas nunca se verificaron. *@
+                                        @switch (i.OrigenVerificado)
+                                        {
+                                            case OrigenCarga.PorContenido:
+                                            case OrigenCarga.PorNombre:
+                                                <small class="texto-suave">Serie @i.SerieArchivo verificada</small>
+                                                break;
+                                            case OrigenCarga.SerieAprendida:
+                                                <small class="texto-suave">Serie @i.SerieArchivo aprendida en esta carga</small>
+                                                break;
+                                            default:
+                                                <span class="etiqueta etiqueta-tardanza">Origen no verificado</span>
+                                                break;
+                                        }
                                     </td>
                                     <td>
                                         @if (i.TieneCobertura)
@@ -404,6 +668,7 @@
                                     <td>@i.FilasLeidas.ToString("N0", cultura)</td>
                                     <td><strong>@i.FilasInsertadas.ToString("N0", cultura)</strong></td>
                                     <td>@(i.FilasDuplicadas == 0 ? "—" : i.FilasDuplicadas.ToString("N0", cultura))</td>
+                                    <td>@(i.FilasIgnoradas == 0 ? "—" : i.FilasIgnoradas.ToString("N0", cultura))</td>
                                     <td>
                                         @if (i.FilasRechazadas == 0)
                                         {

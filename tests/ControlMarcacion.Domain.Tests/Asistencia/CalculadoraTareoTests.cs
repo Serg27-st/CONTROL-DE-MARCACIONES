@@ -88,17 +88,18 @@ public class CalculadoraTareoTests
     [Fact]
     public void Reparte_la_jornada_en_ordinarias_y_extras_al_25_y_al_35()
     {
-        // 660 efectivos: 480 ordinarios + 180 extras.
-        // De esos 180: los primeros 120 al 25 %, los 60 restantes al 35 %.
+        // R-P0-03.1: DIU regular 07:00–17:22; ordinario hasta el fin teórico.
+        // 07:00 a 21:00 = 840 - 60 refrigerio = 780 efectivos: 622 ordinarios + 158 extras.
+        // De esos 158: los primeros 120 al 25 %, los 38 restantes al 35 %.
         var resultado = CalculadoraTareo.Calcular(Entrada(
-            Miercoles, TurnoDiurno(),
+            Miercoles, ConFin(TurnoDiurno(), 17, 22),
             new DateTime(2026, 7, 1, 7, 0, 0),
-            new DateTime(2026, 7, 1, 19, 0, 0)));
+            new DateTime(2026, 7, 1, 21, 0, 0)));
 
-        resultado.MinutosOrdinarios.ShouldBe(480);
+        resultado.MinutosOrdinarios.ShouldBe(622);
         resultado.MinutosExtra25.ShouldBe(120);
-        resultado.MinutosExtra35.ShouldBe(60);
-        resultado.MinutosExtraTotales.ShouldBe(180);
+        resultado.MinutosExtra35.ShouldBe(38);
+        resultado.MinutosExtraTotales.ShouldBe(158);
     }
 
     [Fact]
@@ -121,16 +122,16 @@ public class CalculadoraTareoTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Llegar_justo_en_el_limite_de_tolerancia_es_puntual()
+    public void La_tolerancia_configurada_no_perdona_tardanza_de_planilla()
     {
-        // La tolerancia es inclusiva: 07:05 con 5 minutos de tolerancia sigue siendo puntual.
+        // La configuración histórica conserva 5, pero planilla cuenta desde las 07:00.
         var resultado = CalculadoraTareo.Calcular(Entrada(
             Miercoles, TurnoDiurno(),
             new DateTime(2026, 7, 1, 7, 5, 0),
             new DateTime(2026, 7, 1, 19, 0, 0)));
 
-        resultado.Estado.ShouldBe(EstadoTareo.Puntual);
-        resultado.MinutosTardanza.ShouldBe(0);
+        resultado.Estado.ShouldBe(EstadoTareo.Tardanza);
+        resultado.MinutosTardanza.ShouldBe(5);
     }
 
     [Fact]
@@ -202,13 +203,14 @@ public class CalculadoraTareoTests
     public void Salir_despues_del_turno_si_genera_sobretiempo()
     {
         // Caso real del 06/07: salida a las 22:06. Aquí 07:00 a 22:00 = 900 - 60 = 840.
+        // R-P0-03.1: DIU regular 07:00–17:22; 622 ordinarios, el resto es sobretiempo.
         var resultado = CalculadoraTareo.Calcular(Entrada(
-            Miercoles, TurnoDiurno(),
+            Miercoles, ConFin(TurnoDiurno(), 17, 22),
             new DateTime(2026, 7, 1, 7, 0, 0),
             new DateTime(2026, 7, 1, 22, 0, 0)));
 
         resultado.MinutosTrabajados.ShouldBe(840);
-        resultado.MinutosExtraTotales.ShouldBe(360);
+        resultado.MinutosExtraTotales.ShouldBe(218);
     }
 
     // ------------------------------------------------------------------
@@ -479,19 +481,22 @@ public class CalculadoraTareoTests
     }
 
     /// <summary>
-    /// Turno nocturno 19:00–07:00: 660 efectivos, 480 ordinarias y 180 extras. Las extras
-    /// arrancan a las 04:00, así que las 2 primeras horas (25 %) caen íntegras dentro de la
-    /// franja —termina a las 06:00— y el 35 % restante ya es de día.
+    /// R-P0-03.1: NOC regular 19:00–05:22 (refrigerio pagado, 0 min), salida 08:00. Las
+    /// extras arrancan a las 05:22:
+    /// del 25 % (05:22–07:22) solo 05:22–06:00 cae en la franja, y el 35 % (07:22–08:00) ya
+    /// es de día.
     /// </summary>
     [Fact]
     public void En_el_turno_nocturno_el_veinticinco_cae_dentro_de_la_franja_y_el_treinta_y_cinco_fuera()
     {
         var resultado = CalculadoraTareo.Calcular(Entrada(
-            Miercoles, TurnoNocturno(),
+            Miercoles, ConFin(TurnoNocturnoGca(), 5, 22),
             new DateTime(2026, 7, 1, 19, 0, 0),
-            new DateTime(2026, 7, 2, 7, 0, 0)));
+            new DateTime(2026, 7, 2, 8, 0, 0)));
 
-        resultado.MinutosExtra25Nocturnos.ShouldBe(120);
+        resultado.MinutosExtra25.ShouldBe(120);
+        resultado.MinutosExtra35.ShouldBe(38);
+        resultado.MinutosExtra25Nocturnos.ShouldBe(38);
         resultado.MinutosExtra35Nocturnos.ShouldBe(0);
     }
 
@@ -503,13 +508,14 @@ public class CalculadoraTareoTests
     [Fact]
     public void La_nocturnidad_ordinaria_es_la_nocturnidad_total_menos_el_sobretiempo()
     {
+        // R-P0-03.1: NOC regular 19:00–05:22; las extras (05:22–07:00) tienen 38 min nocturnos.
         var resultado = CalculadoraTareo.Calcular(Entrada(
-            Miercoles, TurnoNocturno(),
+            Miercoles, ConFin(TurnoNocturnoGca(), 5, 22),
             new DateTime(2026, 7, 1, 19, 0, 0),
             new DateTime(2026, 7, 2, 7, 0, 0)));
 
         resultado.MinutosNocturnos.ShouldBe(480);
-        resultado.MinutosOrdinariosNocturnos.ShouldBe(360);
+        resultado.MinutosOrdinariosNocturnos.ShouldBe(442);
     }
 
     [Fact]
@@ -549,15 +555,15 @@ public class CalculadoraTareoTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Salir_dentro_de_la_ventana_no_cuenta_como_salida_anticipada()
+    public void La_anticipacion_configurada_no_perdona_salida_anticipada_de_planilla()
     {
-        // Ventana de salida de 5 min: irse 18:56 para un turno que termina 19:00 es normal.
+        // La configuración histórica conserva 5, pero planilla cuenta hasta las 19:00.
         var resultado = CalculadoraTareo.Calcular(Entrada(
             Miercoles, TurnoDiurno(),
             new DateTime(2026, 7, 1, 7, 0, 0),
             new DateTime(2026, 7, 1, 18, 56, 0)));
 
-        resultado.MinutosSalidaAnticipada.ShouldBe(0);
+        resultado.MinutosSalidaAnticipada.ShouldBe(4);
     }
 
     [Fact]
@@ -858,6 +864,148 @@ public class CalculadoraTareoTests
     }
 
     // ------------------------------------------------------------------
+    // Marcas de más: baño, rebote del lector y doble fichada
+    // ------------------------------------------------------------------
+    //
+    // Hasta aquí ningún test pasaba más de dos marcaciones, así que el comportamiento con
+    // marcas intermedias estaba sostenido solo por `marcaciones[0]` y `marcaciones[^1]`.
+    // Estos tests lo fijan, y separan los dos casos que se confunden con facilidad:
+    //
+    //   • marca INTERMEDIA (el baño): ocurre a media jornada y se ignora sin más
+    //   • REBOTE (marcar dos veces seguidas): ocurre pegado a otra marca y no es un evento
+    //
+    // La diferencia importa en un solo punto, pero es el que produce el error: si TODAS
+    // las marcas del día son el mismo rebote, el día no tiene jornada.
+
+    [Fact]
+    public void Una_marca_intermedia_no_altera_la_jornada()
+    {
+        var soloExtremos = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 19, 0, 0)));
+
+        var conVisitaAlBano = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 12, 30, 0),
+            new DateTime(2026, 7, 1, 19, 0, 0)));
+
+        conVisitaAlBano.EntradaReal.ShouldBe(soloExtremos.EntradaReal);
+        conVisitaAlBano.SalidaReal.ShouldBe(soloExtremos.SalidaReal);
+        conVisitaAlBano.MinutosTrabajados.ShouldBe(soloExtremos.MinutosTrabajados);
+        conVisitaAlBano.Estado.ShouldBe(soloExtremos.Estado);
+    }
+
+    [Fact]
+    public void Las_marcas_intermedias_quedan_declaradas_en_la_observacion()
+    {
+        // Quien audita ve seis marcas en el detalle del día y una jornada de 07:00 a 19:00.
+        // Sin esta frase no puede distinguir "el sistema las ignoró a propósito" de "el
+        // sistema perdió marcas".
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 10, 15, 0),
+            new DateTime(2026, 7, 1, 12, 30, 0),
+            new DateTime(2026, 7, 1, 15, 45, 0),
+            new DateTime(2026, 7, 1, 19, 0, 0)));
+
+        resultado.MinutosTrabajados.ShouldBe(660);
+        resultado.Observacion.ShouldContain("3 marca(s) intermedia(s)");
+    }
+
+    [Fact]
+    public void Un_rebote_al_entrar_no_agrava_la_tardanza()
+    {
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 20, 0),
+            new DateTime(2026, 7, 1, 7, 20, 40),
+            new DateTime(2026, 7, 1, 19, 0, 0)));
+
+        // La tardanza se mide desde la PRIMERA marca. Tomar la segunda castigaría a quien
+        // marca dos veces con minutos que no llegó tarde.
+        resultado.EntradaReal.ShouldBe(new DateTime(2026, 7, 1, 7, 20, 0));
+        resultado.MinutosTardanza.ShouldBe(20);
+    }
+
+    [Fact]
+    public void Un_rebote_al_salir_conserva_el_sobretiempo_completo()
+    {
+        var conRebote = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 19, 40, 0),
+            new DateTime(2026, 7, 1, 19, 41, 0)));
+
+        var sinRebote = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 19, 41, 0)));
+
+        // ⚠️ Este test es el que impide "simplificar" el motor tomando la salida de la
+        // lista consolidada: ahí la salida sería 19:40 y se perderían minutos trabajados.
+        // Consolidar cuenta pasos por el lector; no mueve las horas.
+        conRebote.SalidaReal.ShouldBe(new DateTime(2026, 7, 1, 19, 41, 0));
+        conRebote.MinutosTrabajados.ShouldBe(sinRebote.MinutosTrabajados);
+        conRebote.MinutosExtraTotales.ShouldBe(sinRebote.MinutosExtraTotales);
+    }
+
+    [Fact]
+    public void Dos_marcas_seguidas_y_salida_olvidada_dejan_el_dia_incompleto()
+    {
+        // El caso que motivó el debouncing. Sin él, estas dos marcas se leían como entrada
+        // y salida: el día salía con jornada y tardanza de 20 min, y por tanto NO aparecía
+        // en el filtro de días Incompletos, que es donde RRHH busca lo que hay que
+        // justificar. Una salida olvidada se disfrazaba de día trabajado.
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurnoGca(),
+            new DateTime(2026, 7, 1, 7, 20, 0),
+            new DateTime(2026, 7, 1, 7, 21, 0)));
+
+        resultado.Estado.ShouldBe(EstadoTareo.Incompleto);
+        resultado.MinutosTrabajados.ShouldBe(0);
+        resultado.MinutosTardanza.ShouldBe(0);
+        resultado.SalidaReal.ShouldBeNull();
+        resultado.Observacion.ShouldContain("Se descartó 1 marca(s) repetida(s)");
+    }
+
+    [Fact]
+    public void Un_racimo_de_rebotes_no_se_encadena_mas_alla_de_la_ventana()
+    {
+        // 07:00 → 07:01:30 → 07:03. Cada marca está a menos de 2 min de la ANTERIOR, pero
+        // 07:03 sí está a 3 min de la última ACEPTADA (07:00), así que cuenta como evento.
+        // Comparando contra la anterior en bruto, una cadena de marcas a 1 min de distancia
+        // se comería la jornada entera sin límite.
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoDiurno(),
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 7, 1, 30),
+            new DateTime(2026, 7, 1, 7, 3, 0),
+            new DateTime(2026, 7, 1, 19, 0, 0)));
+
+        resultado.Estado.ShouldBe(EstadoTareo.Puntual);
+        resultado.MinutosTrabajados.ShouldBe(660);
+        resultado.Observacion.ShouldContain("1 marca(s) intermedia(s)");
+    }
+
+    [Fact]
+    public void Un_dia_de_descanso_con_solo_rebotes_no_computa_jornada()
+    {
+        // La consolidación se aplica también en la rama de feriado y descanso: si no, un
+        // domingo con dos marcas pegadas generaría una jornada con sobretasa del 100 %.
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Domingo, TurnoDiurnoGca(),
+            new DateTime(2026, 7, 5, 8, 0, 0),
+            new DateTime(2026, 7, 5, 8, 1, 30)));
+
+        resultado.Estado.ShouldBe(EstadoTareo.Incompleto);
+        resultado.MinutosTrabajados.ShouldBe(0);
+        resultado.MinutosExtraTotales.ShouldBe(0);
+    }
+
+    // ------------------------------------------------------------------
     // Configuración de GCA: el refrigerio es tiempo pagado
     // ------------------------------------------------------------------
     //
@@ -900,19 +1048,19 @@ public class CalculadoraTareoTests
     public void Con_el_refrigerio_pagado_la_jornada_de_doce_horas_computa_720_minutos()
     {
         var resultado = CalculadoraTareo.Calcular(Entrada(
-            Miercoles, TurnoDiurnoGca(),
+            Miercoles, ConFin(TurnoDiurnoGca(), 17, 22),
             new DateTime(2026, 7, 1, 7, 0, 0),
             new DateTime(2026, 7, 1, 19, 0, 0)));
 
         // Las 12 horas completas, sin resta alguna.
         resultado.MinutosTrabajados.ShouldBe(720);
-        resultado.MinutosOrdinarios.ShouldBe(480);
 
-        // 240 de sobretiempo, no 180: las dos primeras horas al 25 % y las dos siguientes
-        // al 35 %. Es la hora extra adicional por jornada que trae computar el refrigerio.
-        resultado.MinutosExtraTotales.ShouldBe(240);
-        resultado.MinutosExtra25.ShouldBe(120);
-        resultado.MinutosExtra35.ShouldBe(120);
+        // R-P0-03.1: DIU regular 07:00–17:22 (622 min); 17:22–19:00 son 98 min de
+        // sobretiempo, todos dentro de las dos primeras horas al 25 %.
+        resultado.MinutosOrdinarios.ShouldBe(622);
+        resultado.MinutosExtraTotales.ShouldBe(98);
+        resultado.MinutosExtra25.ShouldBe(98);
+        resultado.MinutosExtra35.ShouldBe(0);
     }
 
     [Fact]
@@ -944,5 +1092,170 @@ public class CalculadoraTareoTests
         resultado.MinutosTrabajados.ShouldBe(480);
         resultado.MinutosOrdinarios.ShouldBe(480);
         resultado.MinutosExtraTotales.ShouldBe(0);
+    }
+
+    // ------------------------------------------------------------------
+    // Gracia de salida
+    // ------------------------------------------------------------------
+    //
+    // La entrada ya se computaba desde la hora del turno; la salida, no: salir 10 minutos
+    // después del fin —la cola del lector— daba 10 minutos de sobretiempo. La gracia es el
+    // simétrico, por turno y en 0 por omisión, para que nada cambie hasta que GCA la fije.
+
+    /// <summary>Turno nocturno de 22:00 a 06:00, el del ejemplo de rotación.</summary>
+    private static Turno TurnoNocheCorta(int graciaSalida) => new()
+    {
+        Id = 9,
+        Codigo = "N8",
+        Nombre = "Nocturno de 8 horas",
+        HoraInicio = new TimeOnly(22, 0),
+        HoraFin = new TimeOnly(6, 0),
+        MinutosRefrigerio = 0,
+        MinutosTolerancia = 15,
+        MinutosAnticipacionEntrada = 15,
+        MinutosAnticipacionSalida = 5,
+        MinutosGraciaSalida = graciaSalida,
+        MinutosJornadaOrdinaria = 480,
+        DiasAplicables = DiasSemana.LunesASabado
+    };
+
+    private static Turno ConFin(Turno turno, int hora, int minuto)
+    {
+        turno.HoraFin = new TimeOnly(hora, minuto);
+        return turno;
+    }
+
+    private static ResultadoCalculo NocheCorta(int graciaSalida, TimeOnly salida) =>
+        CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoNocheCorta(graciaSalida),
+            new DateTime(2026, 7, 1, 21, 50, 0),
+            new DateOnly(2026, 7, 2).ToDateTime(salida)));
+
+    // ------------------------------------------------------------------
+    // Turno que sale de una cuadrilla
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Con una cuadrilla la ficha no dice qué turno tuvo cada día: la observación lo dice.
+    /// </summary>
+    [Fact]
+    public void El_origen_del_turno_encabeza_la_observacion()
+    {
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, TurnoNocturnoGca(),
+            new DateTime(2026, 7, 1, 19, 0, 0),
+            new DateTime(2026, 7, 2, 7, 0, 0)) with { OrigenTurno = "Cuadrilla A: turno NOC." });
+
+        resultado.Observacion.ShouldStartWith("Cuadrilla A: turno NOC. ");
+        resultado.MinutosTrabajados.ShouldBe(720);
+    }
+
+    [Fact]
+    public void Sin_turno_el_motivo_conocido_reemplaza_al_generico()
+    {
+        var resultado = CalculadoraTareo.Calcular(new EntradaCalculo
+        {
+            Fecha = Miercoles,
+            Turno = null,
+            MotivoSinTurno = "La cuadrilla no tenía ciclo programado ese día."
+        });
+
+        resultado.Estado.ShouldBe(EstadoTareo.SinHorario);
+        resultado.Observacion.ShouldBe("La cuadrilla no tenía ciclo programado ese día.");
+    }
+
+    [Fact]
+    public void Un_turno_nuevo_nace_sin_gracia_de_salida()
+    {
+        new Turno().MinutosGraciaSalida.ShouldBe(0);
+    }
+
+    /// <summary>
+    /// R-P0-03.1: sin gracia rige el umbral de 15 min de lunes a viernes; diez minutos tras
+    /// el fin no alcanzan y no se computan.
+    /// </summary>
+    [Fact]
+    public void Sin_gracia_salir_diez_minutos_despues_del_fin_no_alcanza_el_umbral()
+    {
+        var resultado = NocheCorta(graciaSalida: 0, new TimeOnly(6, 10));
+
+        resultado.MinutosTrabajados.ShouldBe(480);
+        resultado.MinutosExtra25.ShouldBe(0);
+        resultado.Observacion.ShouldContain("umbral");
+    }
+
+    /// <summary>
+    /// El ejemplo completo: entra 21:50, sale 06:10, con 15 minutos de gracia.
+    /// </summary>
+    /// <remarks>
+    /// La entrada se computa desde las 22:00 y la salida hasta las 06:00: la jornada exacta,
+    /// toda en franja nocturna, puntual y sin sobretiempo. Las marcas reales se conservan y
+    /// la observación dice cuántos minutos absorbió la gracia, para que quien audita vea que
+    /// no se perdieron sino que se decidió no computarlos.
+    /// </remarks>
+    [Fact]
+    public void Con_gracia_salir_diez_minutos_despues_no_genera_sobretiempo()
+    {
+        var resultado = NocheCorta(graciaSalida: 15, new TimeOnly(6, 10));
+
+        resultado.MinutosTrabajados.ShouldBe(480);
+        resultado.MinutosOrdinarios.ShouldBe(480);
+        resultado.MinutosExtraTotales.ShouldBe(0);
+        resultado.MinutosNocturnos.ShouldBe(480);
+        resultado.MinutosTardanza.ShouldBe(0);
+        resultado.Estado.ShouldBe(EstadoTareo.Puntual);
+
+        resultado.EntradaReal.ShouldBe(new DateTime(2026, 7, 1, 21, 50, 0));
+        resultado.SalidaReal.ShouldBe(new DateTime(2026, 7, 2, 6, 10, 0));
+        resultado.Observacion.ShouldContain("10 min");
+        resultado.Observacion.ShouldContain("gracia de salida");
+    }
+
+    /// <summary>La gracia es inclusiva, igual que la tolerancia de tardanza.</summary>
+    [Fact]
+    public void Salir_justo_en_el_limite_de_la_gracia_tampoco_genera_sobretiempo()
+    {
+        var resultado = NocheCorta(graciaSalida: 15, new TimeOnly(6, 15));
+
+        resultado.MinutosExtraTotales.ShouldBe(0);
+    }
+
+    /// <summary>
+    /// Pasada la gracia se computa todo desde el fin del turno, no desde el fin de la gracia.
+    /// </summary>
+    /// <remarks>
+    /// La gracia es un margen para la cola del lector, no un corrimiento del horario: quien
+    /// se quedó 16 minutos trabajó 16 minutos de sobretiempo, no 1.
+    /// </remarks>
+    [Fact]
+    public void Pasada_la_gracia_cuenta_todo_el_sobretiempo_desde_el_fin_del_turno()
+    {
+        var resultado = NocheCorta(graciaSalida: 15, new TimeOnly(6, 16));
+
+        resultado.MinutosTrabajados.ShouldBe(496);
+        resultado.MinutosExtra25.ShouldBe(16);
+        resultado.Observacion.ShouldNotContain("gracia de salida");
+    }
+
+    /// <summary>
+    /// Las salidas reales a las 21:06 de un turno que cierra a las 19:00 siguen contando
+    /// enteras: la gracia no puede comerse sobretiempo de verdad.
+    /// </summary>
+    [Fact]
+    public void La_gracia_no_toca_el_sobretiempo_real_de_dos_horas()
+    {
+        // R-P0-03.1: DIU regular 07:00–17:22.
+        var turno = ConFin(TurnoDiurnoGca(), 17, 22);
+        turno.MinutosGraciaSalida = 15;
+
+        var resultado = CalculadoraTareo.Calcular(Entrada(
+            Miercoles, turno,
+            new DateTime(2026, 7, 1, 7, 0, 0),
+            new DateTime(2026, 7, 1, 21, 6, 0)));
+
+        resultado.MinutosTrabajados.ShouldBe(846);
+
+        // R-P0-03: todo lo posterior a las 17:22 (846 - 622).
+        resultado.MinutosExtraTotales.ShouldBe(224);
     }
 }

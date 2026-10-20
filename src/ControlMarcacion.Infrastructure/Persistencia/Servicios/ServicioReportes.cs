@@ -1,13 +1,16 @@
 using System.Globalization;
+using System.Text.Json;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Reportes;
 using ControlMarcacion.Application.Reportes.Dto;
 using ControlMarcacion.Domain.Asistencia;
+using ControlMarcacion.Domain.Auditoria;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Normativa;
 using ControlMarcacion.Domain.Reportes;
 using ControlMarcacion.Domain.Solicitudes;
+using ControlMarcacion.Infrastructure.Persistencia.Consultas;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
@@ -25,13 +28,20 @@ internal sealed class ServicioReportes(
     MarcacionDbContext contexto,
     IProveedorAlcancePlantas alcance) : IServicioReportes
 {
+    private readonly ConsultaContextoLaboral consultaContextoLaboral = new(contexto);
+
     /// <summary>Estados que representan una anomalía sobre la que alguien debe actuar.</summary>
     private static readonly EstadoTareo[] EstadosDeExcepcion =
     [
         EstadoTareo.Falta,
         EstadoTareo.Tardanza,
         EstadoTareo.AusenciaJustificada,
-        EstadoTareo.Incompleto
+        EstadoTareo.Incompleto,
+
+        // Un día que el sistema no pudo resolver es la excepción por excelencia: si no
+        // saliera aquí, la única forma de enterarse sería entrar a la bandeja, y el Excel
+        // de excepciones que se envía por correo lo ocultaría justo donde más importa.
+        EstadoTareo.PendienteValidacion
     ];
 
     public async Task<IReadOnlyList<ResumenTareoDto>> ResumenTareoAsync(
@@ -50,6 +60,7 @@ internal sealed class ServicioReportes(
         }
 
         var ids = trabajadores.Select(t => t.Id).ToList();
+        var trabajadorPorId = trabajadores.ToDictionary(t => t.Id);
 
         var tareos = await contexto.TareosDiarios
             .AsNoTracking()
@@ -72,6 +83,10 @@ internal sealed class ServicioReportes(
             })
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+
+        tareos = tareos
+            .Where(t => trabajadorPorId[t.TrabajadorId].IncluyeFecha(t.Fecha))
+            .ToList();
 
         var porTrabajador = tareos.ToLookup(t => t.TrabajadorId);
 
@@ -110,6 +125,7 @@ internal sealed class ServicioReportes(
                     trabajador.Id,
                     trabajador.Nombre,
                     trabajador.IdMarcador,
+                    trabajador.Equipo,
                     trabajador.Empresa,
                     trabajador.Planta,
                     trabajador.CentroCodigo ?? trabajador.AreaCodigo,
@@ -224,28 +240,17 @@ internal sealed class ServicioReportes(
             .ToDictionaryAsync(t => t.Id, t => t.Codigo, cancelacion)
             .ConfigureAwait(false);
 
-        var consulta = contexto.TareosDiarios
+        var excepciones = await contexto.TareosDiarios
             .AsNoTracking()
             .Where(t => t.Fecha >= rango.Desde && t.Fecha <= rango.Hasta
                         && ids.Contains(t.TrabajadorId)
-                        && EstadosDeExcepcion.Contains(t.Estado));
-
-        var total = await consulta.CountAsync(cancelacion).ConfigureAwait(false);
-
-        var ordenada = consulta.OrderBy(t => t.Fecha).ThenBy(t => t.TrabajadorId);
-
-        // El recorte baja a SQL. Sin paginación el Skip/Take no se aplica y la consulta
-        // queda exactamente como estaba, que es lo que exporta el Excel.
-        var recortada = pagina is { } numero
-            ? ordenada.Skip((numero - 1) * tamanioPagina).Take(tamanioPagina)
-            : (IQueryable<TareoDiario>)ordenada;
-
-        var excepciones = await recortada
+                        && EstadosDeExcepcion.Contains(t.Estado))
             .Select(t => new
             {
                 t.TrabajadorId,
                 t.Fecha,
                 t.TurnoId,
+                t.EsDescansoProgramado,
                 t.EntradaReal,
                 t.SalidaReal,
                 t.Estado,
@@ -256,12 +261,33 @@ internal sealed class ServicioReportes(
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
+        // Empresa/planta y alcance de seguridad se resuelven por la fecha de cada fila.
+        // El recorte se hace después de este filtro histórico para que Total y página no
+        // cuenten filas que pertenecían a otra organización en esa fecha.
+        excepciones = excepciones
+            .Where(e => porId[e.TrabajadorId].IncluyeFecha(e.Fecha))
+            .OrderBy(e => e.Fecha)
+            .ThenBy(e => e.TrabajadorId)
+            .ToList();
+
+        var total = excepciones.Count;
+        if (pagina is { } numero)
+        {
+            excepciones = excepciones
+                .Skip((numero - 1) * tamanioPagina)
+                .Take(tamanioPagina)
+                .ToList();
+        }
+
         var filas = excepciones.ConvertAll(e => new ExcepcionDto(
             e.TrabajadorId,
             porId[e.TrabajadorId].Nombre,
             porId[e.TrabajadorId].IdMarcador,
+            porId[e.TrabajadorId].Equipo,
             e.Fecha,
-            e.TurnoId is { } turnoId ? turnos.GetValueOrDefault(turnoId) : null,
+            e.EsDescansoProgramado
+                ? "DESCANSO PROGRAMADO"
+                : e.TurnoId is { } turnoId ? turnos.GetValueOrDefault(turnoId) : null,
             e.EntradaReal,
             e.SalidaReal,
             e.Estado,
@@ -379,7 +405,15 @@ internal sealed class ServicioReportes(
             partesFiltro.Add($"Centro de costo: {codigo}");
         }
 
-        var calculo = await EvaluarVigenciaDelCalculoAsync(rango, cancelacion).ConfigureAwait(false);
+        if (filtro.EquipoId is { } equipoDelFiltro)
+        {
+            var nombre = await contexto.EquiposMarcador.AsNoTracking()
+                .Where(e => e.Id == equipoDelFiltro).Select(e => e.Nombre).FirstOrDefaultAsync(cancelacion)
+                .ConfigureAwait(false);
+            partesFiltro.Add($"Aparato: {nombre}");
+        }
+
+        var calculo = await EvaluarVigenciaDelCalculoAsync(rango, filtro, cancelacion).ConfigureAwait(false);
 
         return new MetadatosReporte(
             rango.Etiqueta,
@@ -444,39 +478,73 @@ internal sealed class ServicioReportes(
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Compara cuándo se calculó el tareo del alcance contra lo último que pudo cambiarlo.
+    /// Compara el cálculo más antiguo del alcance contra lo último que pudo cambiarlo.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Este módulo consulta el tareo que dejó el motor y no lo recalcula: por eso un reporte
-    /// puede salir con cifras viejas sin verse distinto. Las tres cosas que mueven el
-    /// resultado de un día ya calculado son una <b>marcación</b> nueva sobre ese día, la
-    /// <b>anulación o reactivación</b> de la carga que la trajo, y una <b>justificación</b>
-    /// creada o modificada. Si alguna es posterior al último <c>CalculadoEn</c> del rango,
-    /// el reporte está desactualizado y hay que decirlo.
+    /// puede salir con cifras viejas sin verse distinto. Las seis cosas que mueven el
+    /// resultado de un día ya calculado se consultan con la misma planta del recálculo:
+    /// marcaciones y sus cargas, justificaciones, asignaciones, versiones de turno,
+    /// programación y tramos de cuadrilla, feriados y los campos laborales o de tipo de
+    /// ausencia que el motor consume. Un solo tareo antiguo basta para que el alcance no
+    /// esté al día; por eso se usa <c>MIN(CalculadoEn)</c>, nunca el máximo global.
     /// </para>
     /// <para>
-    /// Son cuatro agregados escalares sobre índices ya existentes, y solo se pagan al pedir
-    /// los metadatos —es decir, una vez por pantalla o por exportación—, no por fila.
+    /// Los borrados de justificación y feriado se resuelven con la bitácora automática ya
+    /// existente. Se leen solo eventos posteriores al cálculo y se filtran en memoria; no
+    /// se escanea la bitácora completa ni se consulta por cada fila.
     /// </para>
     /// <para>
-    /// ⚠️ Deliberadamente <b>no</b> se filtra por los trabajadores del filtro de organización:
-    /// la pregunta que responde es "¿el tareo de estas fechas está al día?", que es del
-    /// periodo y no de a quién se esté mirando. Filtrarlo haría que el mismo periodo
-    /// apareciera al día en una planta y desactualizado en otra.
+    /// La unidad de vigencia es periodo + plantas visibles (y la planta explícita del
+    /// filtro, si existe), igual que la unidad que puede recalcular el usuario. Una planta
+    /// recién recalculada no puede ocultar otra que conserva filas antiguas.
     /// </para>
     /// </remarks>
     private async Task<EstadoCalculoTareo> EvaluarVigenciaDelCalculoAsync(
         RangoReporte rango,
+        FiltroReporte filtro,
         CancellationToken cancelacion)
     {
-        var calculadoMasReciente = await contexto.TareosDiarios
+        var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+        IReadOnlyCollection<long>? plantasDelAlcance = plantasVisibles;
+
+        if (filtro.PlantaId is { } plantaElegida)
+        {
+            plantasDelAlcance = plantasVisibles is null || plantasVisibles.Contains(plantaElegida)
+                ? new[] { plantaElegida }
+                : Array.Empty<long>();
+        }
+
+        var historias = await consultaContextoLaboral
+            .CargarRangoAsync(rango.Desde, rango.Hasta, cancelacion: cancelacion)
+            .ConfigureAwait(false);
+        var plantasPermitidas = plantasDelAlcance?.ToHashSet();
+        var idsDelAlcance = historias.Values
+            .Where(h => h.EnRango(rango.Desde, rango.Hasta).Any(p =>
+                (filtro.EmpresaId is null || p.EmpresaId == filtro.EmpresaId.Value)
+                && (plantasPermitidas is null || p.Plantas.Any(ap =>
+                    plantasPermitidas.Contains(ap.PlantaId)
+                    && ap.FechaInicio <= rango.Hasta
+                    && (ap.FechaFin is null || ap.FechaFin.Value >= rango.Desde)))))
+            .Select(h => h.TrabajadorId)
+            .ToList();
+
+        var trabajadoresDelAlcance = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Fecha >= rango.Desde && t.Fecha <= rango.Hasta)
-            .MaxAsync(t => (DateTime?)t.CalculadoEn, cancelacion)
+            .Where(t => idsDelAlcance.Contains(t.Id));
+
+        // MIN y no MAX: si una planta o un trabajador conserva una fila vieja, el alcance
+        // entero sigue pendiente aunque otra planta se haya recalculado hace un minuto.
+        var calculadoMasAntiguo = await (
+                from tareo in contexto.TareosDiarios.AsNoTracking()
+                join trabajador in trabajadoresDelAlcance on tareo.TrabajadorId equals trabajador.Id
+                where tareo.Fecha >= rango.Desde && tareo.Fecha <= rango.Hasta
+                select (DateTime?)tareo.CalculadoEn)
+            .MinAsync(cancelacion)
             .ConfigureAwait(false);
 
-        if (calculadoMasReciente is null)
+        if (calculadoMasAntiguo is null)
         {
             return EstadoCalculoTareo.NuncaCalculado;
         }
@@ -489,7 +557,13 @@ internal sealed class ServicioReportes(
         // el tareo de julio en agosto.
         var ultimaMarcacion = await contexto.MarcacionesCrudas
             .AsNoTracking()
-            .Where(m => m.FechaHora >= desde && m.FechaHora <= hasta)
+            .Where(m => m.FechaHora >= desde && m.FechaHora <= hasta
+                        && contexto.AsignacionesMarcador.Any(a =>
+                            idsDelAlcance.Contains(a.TrabajadorId)
+                            && a.EquipoId == m.EquipoId
+                            && a.IdMarcador == m.IdMarcador
+                            && a.FechaInicio <= rango.Hasta
+                            && (a.FechaFin == null || a.FechaFin >= rango.Desde)))
             .MaxAsync(m => (DateTime?)m.CreadoEn, cancelacion)
             .ConfigureAwait(false);
 
@@ -499,21 +573,220 @@ internal sealed class ServicioReportes(
         var ultimaAnulacion = await contexto.Importaciones
             .AsNoTracking()
             .Where(i => contexto.MarcacionesCrudas
-                .Any(m => m.ImportacionId == i.Id && m.FechaHora >= desde && m.FechaHora <= hasta))
+                .Any(m => m.ImportacionId == i.Id
+                          && m.FechaHora >= desde && m.FechaHora <= hasta
+                          && contexto.AsignacionesMarcador.Any(a =>
+                              idsDelAlcance.Contains(a.TrabajadorId)
+                              && a.EquipoId == m.EquipoId
+                              && a.IdMarcador == m.IdMarcador
+                              && a.FechaInicio <= rango.Hasta
+                              && (a.FechaFin == null || a.FechaFin >= rango.Desde))))
             .MaxAsync(i => i.ModificadoEn, cancelacion)
             .ConfigureAwait(false);
 
         var ultimaJustificacion = await contexto.Justificaciones
             .AsNoTracking()
-            .Where(j => j.Fecha >= rango.Desde && j.Fecha <= rango.Hasta)
+            .Where(j => j.Fecha >= rango.Desde && j.Fecha <= rango.Hasta
+                        && j.Estado == Domain.Justificaciones.EstadoJustificacion.Aprobada
+                        && idsDelAlcance.Contains(j.TrabajadorId))
             .MaxAsync(j => (DateTime?)(j.ModificadoEn ?? j.CreadoEn), cancelacion)
             .ConfigureAwait(false);
+
+        // Las marcaciones se atribuyen al calcular, con la asignación de ID vigente en su
+        // fecha: asignar o corregir un ID que rige en el rango cambia de quién son sus
+        // marcaciones, igual que cargar un archivo nuevo.
+        var ultimaAsignacionId = await contexto.AsignacionesMarcador
+            .AsNoTracking()
+            .Where(a => idsDelAlcance.Contains(a.TrabajadorId)
+                        && a.FechaInicio <= rango.Hasta
+                        && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+            .MaxAsync(a => (DateTime?)(a.ModificadoEn ?? a.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        // Una rotación registrada con fecha pasada cambia el turno de días ya calculados.
+        // Cada forma de registrarla —abrir un tramo, cerrar el anterior, correr la frontera
+        // entre los dos— deja creada o modificada la asignación que hoy cubre esos días, así
+        // que basta con mirar las que se solapan con el rango.
+        var ultimaAsignacionTurno = await contexto.AsignacionesTurno
+            .AsNoTracking()
+            .Where(a => idsDelAlcance.Contains(a.TrabajadorId)
+                        && a.FechaInicio <= rango.Hasta
+                        && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+            .MaxAsync(a => (DateTime?)(a.ModificadoEn ?? a.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        // Editar el turno mismo —horario, tolerancia, ventanas, gracia de salida— cambia el
+        // cálculo de todos los días de quienes lo tienen asignado. Solo cuentan los turnos
+        // que alguien tiene en el rango: tocar uno sin uso no desactualiza nada.
+        var ultimaEdicionTurno = await contexto.Turnos
+            .AsNoTracking()
+            .Where(t => contexto.AsignacionesTurno.Any(a =>
+                            a.TurnoId == t.Id
+                            && idsDelAlcance.Contains(a.TrabajadorId)
+                            && a.FechaInicio <= rango.Hasta
+                            && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+                        || contexto.TramosRotacion.Any(tr =>
+                            tr.TurnoId == t.Id
+                            && tr.Programacion!.Activo
+                            && tr.Programacion.FechaInicio <= rango.Hasta
+                            && (tr.Programacion.FechaFin == null || tr.Programacion.FechaFin >= rango.Desde)
+                            && contexto.AsignacionesTurno.Any(a =>
+                                a.CuadrillaId == tr.Programacion.CuadrillaId
+                                && idsDelAlcance.Contains(a.TrabajadorId)
+                                && a.FechaInicio <= rango.Hasta
+                                && (a.FechaFin == null || a.FechaFin >= rango.Desde))))
+            .MaxAsync(t => t.ModificadoEn, cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimaVersionTurno = await contexto.VersionesTurno
+            .AsNoTracking()
+            .Where(v => v.Activo
+                        && v.FechaInicio <= rango.Hasta
+                        && (v.FechaFin == null || v.FechaFin >= rango.Desde.AddDays(-1))
+                        && (contexto.AsignacionesTurno.Any(a =>
+                                a.TurnoId == v.TurnoId
+                                && idsDelAlcance.Contains(a.TrabajadorId)
+                                && a.FechaInicio <= rango.Hasta
+                                && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+                            || contexto.TramosRotacion.Any(tr =>
+                                tr.TurnoId == v.TurnoId
+                                && tr.Programacion!.Activo
+                                && tr.Programacion.FechaInicio <= rango.Hasta
+                                && (tr.Programacion.FechaFin == null || tr.Programacion.FechaFin >= rango.Desde)
+                                && contexto.AsignacionesTurno.Any(a =>
+                                    a.CuadrillaId == tr.Programacion.CuadrillaId
+                                    && idsDelAlcance.Contains(a.TrabajadorId)
+                                    && a.FechaInicio <= rango.Hasta
+                                    && (a.FechaFin == null || a.FechaFin >= rango.Desde)))))
+            .MaxAsync(v => (DateTime?)(v.ModificadoEn ?? v.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        // El ciclo de una cuadrilla decide el turno de sus integrantes: programarla, correr su
+        // rotación o reemplazar una programación cambia días ya calculados. Se miran también
+        // las dadas de baja, porque darlas de baja es justamente el cambio.
+        var ultimaProgramacion = await contexto.ProgramacionesCuadrilla
+            .AsNoTracking()
+            .Where(p => p.FechaInicio <= rango.Hasta
+                        && (p.FechaFin == null || p.FechaFin >= rango.Desde)
+                        && contexto.AsignacionesTurno.Any(a =>
+                            a.CuadrillaId == p.CuadrillaId
+                            && idsDelAlcance.Contains(a.TrabajadorId)
+                            && a.FechaInicio <= rango.Hasta
+                            && (a.FechaFin == null || a.FechaFin >= rango.Desde)))
+            .MaxAsync(p => (DateTime?)(p.ModificadoEn ?? p.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimoTramoRotacion = await contexto.TramosRotacion
+            .AsNoTracking()
+            .Where(t => t.Programacion!.Activo
+                        && t.Programacion.FechaInicio <= rango.Hasta
+                        && (t.Programacion.FechaFin == null || t.Programacion.FechaFin >= rango.Desde)
+                        && contexto.AsignacionesTurno.Any(a =>
+                            a.CuadrillaId == t.Programacion.CuadrillaId
+                            && idsDelAlcance.Contains(a.TrabajadorId)
+                            && a.FechaInicio <= rango.Hasta
+                            && (a.FechaFin == null || a.FechaFin >= rango.Desde)))
+            .MaxAsync(t => (DateTime?)(t.ModificadoEn ?? t.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimoFeriado = await contexto.Feriados
+            .AsNoTracking()
+            .Where(f => f.Activo
+                        && f.Fecha >= rango.Desde && f.Fecha <= rango.Hasta
+                        && (plantasDelAlcance == null
+                            || f.PlantaId == null
+                            || plantasDelAlcance.Contains(f.PlantaId.Value)))
+            .MaxAsync(f => (DateTime?)(f.ModificadoEn ?? f.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        // Un alta laboral dentro del alcance exige generar sus días; no tener aún filas de
+        // tareo para esa persona no puede volver invisible el alta.
+        var ultimoTrabajadorNuevo = await contexto.PeriodosLaborales
+            .AsNoTracking()
+            .Where(p => idsDelAlcance.Contains(p.TrabajadorId)
+                        && p.FechaIngreso <= rango.Hasta
+                        && (p.FechaCese == null || p.FechaCese >= rango.Desde)
+                        && !contexto.TareosDiarios.Any(td =>
+                            td.TrabajadorId == p.TrabajadorId
+                            && td.Fecha >= rango.Desde && td.Fecha <= rango.Hasta))
+            .MaxAsync(p => (DateTime?)(p.ModificadoEn ?? p.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimoCambioVinculo = await contexto.PeriodosLaborales
+            .AsNoTracking()
+            .Where(p => idsDelAlcance.Contains(p.TrabajadorId)
+                        && p.FechaIngreso <= rango.Hasta
+                        && (p.FechaCese == null || p.FechaCese >= rango.Desde))
+            .MaxAsync(p => (DateTime?)(p.ModificadoEn ?? p.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var ultimoCambioPlantaLaboral = await contexto.AsignacionesPlanta
+            .AsNoTracking()
+            .Where(a => idsDelAlcance.Contains(a.PeriodoLaboral!.TrabajadorId)
+                        && a.FechaInicio <= rango.Hasta
+                        && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+            .MaxAsync(a => (DateTime?)(a.ModificadoEn ?? a.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
+        var eventosAuditados = await contexto.RegistrosAuditoria
+            .AsNoTracking()
+            // Filtrar primero por tiempo permite que SQLite use el índice dedicado
+            // fecha_hora. El índice (tabla, clave, fecha) no puede acotar bien por fecha si
+            // no hay una clave concreta; las cuatro tablas se recortan después sobre el
+            // conjunto, ya pequeño, de eventos posteriores al cálculo.
+            .Where(r => r.FechaHora > calculadoMasAntiguo)
+            .Select(r => new EventoAuditoria(
+                r.Tabla, r.ClaveRegistro, r.Operacion, r.FechaHora, r.Detalle))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+        eventosAuditados = eventosAuditados
+            .Where(e => e.Tabla is "justificacion" or "feriado" or "trabajador" or "tipo_ausencia")
+            .ToList();
+
+        (DateTime? Momento, string Motivo) ultimaAuditoriaRelevante = (null, string.Empty);
+
+        if (eventosAuditados.Count > 0)
+        {
+            var idsTrabajadoresDelAlcance = idsDelAlcance.ToHashSet();
+            var idsTiposAusenciaUsados = eventosAuditados.Any(e => e.Tabla == "tipo_ausencia")
+                ? await contexto.Justificaciones
+                    .AsNoTracking()
+                    .Where(j => j.TipoAusenciaId != null
+                                && j.Estado == Domain.Justificaciones.EstadoJustificacion.Aprobada
+                                && j.Fecha >= rango.Desde && j.Fecha <= rango.Hasta
+                                && idsDelAlcance.Contains(j.TrabajadorId))
+                    .Select(j => j.TipoAusenciaId!.Value)
+                    .Distinct()
+                    .ToListAsync(cancelacion)
+                    .ConfigureAwait(false)
+                : [];
+
+            ultimaAuditoriaRelevante = await ResolverAuditoriaRelevanteAsync(
+                    eventosAuditados,
+                    idsTrabajadoresDelAlcance,
+                    idsTiposAusenciaUsados,
+                    plantasDelAlcance,
+                    rango,
+                    cancelacion)
+                .ConfigureAwait(false);
+        }
 
         var cambios = new (DateTime? Momento, string Motivo)[]
         {
             (ultimaMarcacion, "una carga de marcaciones"),
             (ultimaAnulacion, "un cambio en el estado de una carga de marcaciones"),
-            (ultimaJustificacion, "una justificación nueva o modificada")
+            (ultimaJustificacion, "una justificación nueva o modificada"),
+            (ultimaAsignacionId, "una asignación de ID de marcador nueva o corregida"),
+            (ultimaAsignacionTurno, "un cambio de turno que rige en esas fechas"),
+            (ultimaEdicionTurno, "una edición de un turno que rige en esas fechas"),
+            (ultimaVersionTurno, "un cambio en la versión de un turno que rige en esas fechas"),
+            (ultimaProgramacion, "un cambio en la programación de una cuadrilla en esas fechas"),
+            (ultimoTramoRotacion, "un cambio en el ciclo de una cuadrilla en esas fechas"),
+            (ultimoFeriado, "un cambio de feriado que rige en esas fechas"),
+            (ultimoTrabajadorNuevo, "un alta laboral que alcanza esas fechas"),
+            (ultimoCambioVinculo, "un cambio de periodo laboral que alcanza esas fechas"),
+            (ultimoCambioPlantaLaboral, "un cambio de planta histórica que alcanza esas fechas"),
+            ultimaAuditoriaRelevante
         };
 
         var ultimo = cambios
@@ -521,8 +794,178 @@ internal sealed class ServicioReportes(
             .OrderByDescending(c => c.Momento)
             .FirstOrDefault();
 
-        return new EstadoCalculoTareo(calculadoMasReciente, ultimo.Momento, ultimo.Motivo);
+        return new EstadoCalculoTareo(calculadoMasAntiguo, ultimo.Momento, ultimo.Motivo);
     }
+
+    private async Task<(DateTime? Momento, string Motivo)> ResolverAuditoriaRelevanteAsync(
+        IReadOnlyCollection<EventoAuditoria> eventos,
+        HashSet<long> trabajadoresDelAlcance,
+        IReadOnlyCollection<long> tiposAusenciaUsados,
+        IReadOnlyCollection<long>? plantasDelAlcance,
+        RangoReporte rango,
+        CancellationToken cancelacion)
+    {
+        var candidatos = new List<(DateTime Momento, string Motivo)>();
+        var modificacionesJustificacion = eventos
+            .Where(e => e.Tabla == "justificacion"
+                        && e.Operacion is OperacionAuditada.Modificacion or OperacionAuditada.BajaLogica
+                        && CambioTocaEstadoAprobado(LeerCambios(e.Detalle)))
+            .Select(e => LeerId(e.ClaveRegistro))
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        var justificacionesModificadas = modificacionesJustificacion.Count == 0
+            ? new Dictionary<long, (long TrabajadorId, DateOnly Fecha)>()
+            : await contexto.Justificaciones.AsNoTracking()
+                .Where(j => modificacionesJustificacion.Contains(j.Id))
+                .Select(j => new { j.Id, j.TrabajadorId, j.Fecha })
+                .ToDictionaryAsync(j => j.Id, j => (j.TrabajadorId, j.Fecha), cancelacion)
+                .ConfigureAwait(false);
+
+        foreach (var evento in eventos)
+        {
+            var cambios = LeerCambios(evento.Detalle);
+
+            if (evento.Tabla == "justificacion")
+            {
+                long? trabajadorId = LeerLong(cambios, "TrabajadorId", anterior: true);
+                DateOnly? fecha = LeerFecha(cambios, "Fecha", anterior: true);
+
+                if ((trabajadorId is null || fecha is null)
+                    && LeerId(evento.ClaveRegistro) is { } justificacionId
+                    && justificacionesModificadas.TryGetValue(justificacionId, out var actual))
+                {
+                    trabajadorId = actual.TrabajadorId;
+                    fecha = actual.Fecha;
+                }
+
+                var eliminaAprobada = evento.Operacion == OperacionAuditada.Eliminacion
+                                      && string.Equals(
+                                          LeerTexto(cambios, "Estado", anterior: true),
+                                          Domain.Justificaciones.EstadoJustificacion.Aprobada.ToString(),
+                                          StringComparison.Ordinal);
+                var cambiaAprobacion = evento.Operacion
+                                           is OperacionAuditada.Modificacion or OperacionAuditada.BajaLogica
+                                       && CambioTocaEstadoAprobado(cambios);
+
+                if ((eliminaAprobada || cambiaAprobacion)
+                    && trabajadorId is { } id
+                    && fecha is { } dia
+                    && trabajadoresDelAlcance.Contains(id)
+                    && dia >= rango.Desde && dia <= rango.Hasta)
+                {
+                    candidatos.Add((evento.FechaHora, "la eliminación o anulación de una justificación aprobada"));
+                }
+            }
+            else if (evento.Tabla == "feriado" && evento.Operacion == OperacionAuditada.Eliminacion)
+            {
+                var fecha = LeerFecha(cambios, "Fecha", anterior: true);
+                var plantaId = LeerLong(cambios, "PlantaId", anterior: true);
+
+                if (fecha is { } dia
+                    && dia >= rango.Desde && dia <= rango.Hasta
+                    && (plantasDelAlcance is null
+                        || plantaId is null
+                        || plantasDelAlcance.Contains(plantaId.Value)))
+                {
+                    candidatos.Add((evento.FechaHora, "la eliminación de un feriado que regía en esas fechas"));
+                }
+            }
+            else if (evento.Tabla == "trabajador"
+                     && evento.Operacion is OperacionAuditada.Modificacion or OperacionAuditada.BajaLogica
+                     && LeerId(evento.ClaveRegistro) is { } trabajadorId
+                     && trabajadoresDelAlcance.Contains(trabajadorId)
+                     && cambios.Any(c => CamposLaboralesQueCambianTareo.Contains(c.Campo)))
+            {
+                candidatos.Add((evento.FechaHora, "un cambio de vigencia laboral o planta"));
+            }
+            else if (evento.Tabla == "tipo_ausencia"
+                     && evento.Operacion is OperacionAuditada.Modificacion or OperacionAuditada.BajaLogica
+                     && LeerId(evento.ClaveRegistro) is { } tipoId
+                     && tiposAusenciaUsados.Contains(tipoId)
+                     && cambios.Any(c => CamposTipoAusenciaQueCambianTareo.Contains(c.Campo)))
+            {
+                candidatos.Add((evento.FechaHora, "un cambio en el tratamiento de una ausencia usada"));
+            }
+        }
+
+        return candidatos.Count == 0
+            ? (null, string.Empty)
+            : candidatos.OrderByDescending(c => c.Momento).First();
+    }
+
+    private static readonly HashSet<string> CamposLaboralesQueCambianTareo =
+        new(StringComparer.Ordinal) { "Activo", "FechaIngreso", "FechaCese", "PlantaId" };
+
+    private static readonly HashSet<string> CamposTipoAusenciaQueCambianTareo =
+        new(StringComparer.Ordinal) { "Activo", "Comportamiento", "ComputaComoAsistencia" };
+
+    private static bool CambioTocaEstadoAprobado(IReadOnlyCollection<CambioAuditoria> cambios)
+    {
+        var cambio = cambios.FirstOrDefault(c => c.Campo == "Estado");
+        return cambio is not null
+               && (string.Equals(cambio.Anterior, "Aprobada", StringComparison.Ordinal)
+                   || string.Equals(cambio.Nuevo, "Aprobada", StringComparison.Ordinal));
+    }
+
+    private static List<CambioAuditoria> LeerCambios(string detalle)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<CambioAuditoria>>(detalle) ?? [];
+        }
+        catch (JsonException)
+        {
+            // Una fila histórica ilegible no debe derribar todos los reportes. Se conserva
+            // en auditoría para revisión, pero no se inventa que afectaba este alcance.
+            return [];
+        }
+    }
+
+    private static long? LeerId(string clave) =>
+        long.TryParse(clave, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
+
+    private static string? LeerTexto(
+        IReadOnlyCollection<CambioAuditoria> cambios,
+        string campo,
+        bool anterior)
+    {
+        var cambio = cambios.FirstOrDefault(c => c.Campo == campo);
+        return anterior ? cambio?.Anterior : cambio?.Nuevo;
+    }
+
+    private static long? LeerLong(
+        IReadOnlyCollection<CambioAuditoria> cambios,
+        string campo,
+        bool anterior)
+    {
+        var texto = LeerTexto(cambios, campo, anterior);
+        return long.TryParse(texto, NumberStyles.Integer, CultureInfo.InvariantCulture, out var valor)
+            ? valor
+            : null;
+    }
+
+    private static DateOnly? LeerFecha(
+        IReadOnlyCollection<CambioAuditoria> cambios,
+        string campo,
+        bool anterior)
+    {
+        var texto = LeerTexto(cambios, campo, anterior);
+        return DateOnly.TryParse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha)
+            ? fecha
+            : null;
+    }
+
+    private sealed record EventoAuditoria(
+        string Tabla,
+        string ClaveRegistro,
+        OperacionAuditada Operacion,
+        DateTime FechaHora,
+        string Detalle);
+
+    private sealed record CambioAuditoria(string Campo, string? Anterior, string? Nuevo);
 
     // ------------------------------------------------------------------
 
@@ -531,6 +974,7 @@ internal sealed class ServicioReportes(
         long Id,
         string Nombre,
         string? IdMarcador,
+        string? Equipo,
         string Empresa,
         string Planta,
         string Area,
@@ -544,7 +988,28 @@ internal sealed class ServicioReportes(
         bool TieneHijos,
         string? CentroCodigo,
         string? CentroCostoCodigo,
-        string? CentroCostoDescripcion);
+        string? CentroCostoDescripcion,
+        HistoriaLaboralTrabajador Historia,
+        long? EmpresaFiltrada,
+        long? PlantaFiltrada,
+        IReadOnlySet<long>? PlantasVisibles)
+    {
+        public bool IncluyeFecha(DateOnly fecha)
+        {
+            var contexto = Historia.Resolver(fecha).ObtenerOError();
+
+            if (contexto is null
+                || EmpresaFiltrada is { } empresaId && contexto.EmpresaId != empresaId
+                || PlantaFiltrada is { } plantaId && contexto.PlantaId != plantaId
+                || PlantasVisibles is not null
+                    && (contexto.PlantaId is null || !PlantasVisibles.Contains(contexto.PlantaId.Value)))
+            {
+                return false;
+            }
+
+            return true;
+        }
+    }
 
     /// <summary>
     /// Los trabajadores que el reporte debe listar: los que tuvieron vínculo laboral
@@ -578,21 +1043,22 @@ internal sealed class ServicioReportes(
         RangoReporte rango,
         CancellationToken cancelacion)
     {
+        // La población sale primero de la autoridad histórica. No se filtra por Activo ni
+        // por las fechas planas: una ficha cesada o reingresada sigue siendo visible en el
+        // rango donde sí tuvo vínculo.
+        var historias = await consultaContextoLaboral
+            .CargarRangoAsync(rango.Desde, rango.Hasta, cancelacion: cancelacion)
+            .ConfigureAwait(false);
+
+        if (historias.Count == 0)
+        {
+            return [];
+        }
+
+        var idsHistoricos = historias.Keys.ToList();
         var consulta = contexto.Trabajadores
             .AsNoTracking()
-            .Where(t => t.Activo
-                        && t.FechaIngreso <= rango.Hasta
-                        && (t.FechaCese == null || t.FechaCese >= rango.Desde));
-
-        if (filtro.EmpresaId is { } empresaId)
-        {
-            consulta = consulta.Where(t => t.EmpresaId == empresaId);
-        }
-
-        if (filtro.PlantaId is { } plantaId)
-        {
-            consulta = consulta.Where(t => t.PlantaId == plantaId);
-        }
+            .Where(t => idsHistoricos.Contains(t.Id));
 
         if (filtro.CentroId is { } centroId)
         {
@@ -605,56 +1071,270 @@ internal sealed class ServicioReportes(
             consulta = consulta.Where(t => t.CentroCostoId == centroCostoId);
         }
 
+        // Por solapamiento con el rango y no por la asignación abierta hoy: quien cambió de
+        // aparato en agosto tiene que seguir saliendo en el reporte de julio, porque las
+        // marcaciones de julio salieron del aparato que tenía entonces. Es el invariante 5
+        // aplicado al filtro.
+        if (filtro.EquipoId is { } equipoId)
+        {
+            consulta = consulta.Where(t => contexto.AsignacionesMarcador.Any(a =>
+                a.TrabajadorId == t.Id
+                && a.EquipoId == equipoId
+                && a.FechaInicio <= rango.Hasta
+                && (a.FechaFin == null || a.FechaFin >= rango.Desde)));
+        }
+
         // Aislamiento por planta: un ADMINISTRADOR solo reporta sobre sus plantas. Como TODAS
         // las salidas de reporte (resumen, excepciones, tareo final) resuelven su padrón por
         // aquí, filtrar este único método las cubre a las tres. Hoy Reportes es de COORDINADOR
         // y GERENCIA —ambos sin restricción—, así que es defensa en profundidad; mantiene el
-        // invariante uniforme y queda listo si algún día la matriz de roles cambia. No
-        // reemplaza a EvaluarVigenciaDelCalculoAsync, que a propósito no se filtra por planta.
+        // invariante uniforme y queda listo si algún día la matriz de roles cambia. El
+        // detector de vigencia usa este mismo proveedor para evaluar exactamente el alcance
+        // que el usuario puede recalcular.
         var plantasVisibles = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+        var conjuntoPlantasVisibles = plantasVisibles?.ToHashSet();
 
-        if (plantasVisibles is not null)
-        {
-            consulta = consulta.Where(t => plantasVisibles.Contains(t.PlantaId));
-        }
-
-        return await consulta
+        var planos = await consulta
             .OrderBy(t => t.ApellidoPaterno).ThenBy(t => t.ApellidoMaterno)
-            .Select(t => new TrabajadorResuelto(
+            .Select(t => new
+            {
                 t.Id,
-                t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres,
-                contexto.AsignacionesMarcador
-                    .Where(a => a.TrabajadorId == t.Id && a.FechaFin == null)
-                    .Select(a => a.IdMarcador)
-                    .FirstOrDefault(),
-                contexto.Empresas.Where(e => e.Id == t.EmpresaId).Select(e => e.RazonSocial).FirstOrDefault() ?? "-",
-                contexto.Plantas.Where(p => p.Id == t.PlantaId).Select(p => p.Nombre).FirstOrDefault() ?? "-",
-                contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Nombre).FirstOrDefault() ?? "-",
-                contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Codigo).FirstOrDefault() ?? "-",
-                contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Nombre).FirstOrDefault() ?? "-",
-                contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Codigo).FirstOrDefault() ?? "-",
-                contexto.Puestos.Where(p => p.Id == t.PuestoId).Select(p => p.Nombre).FirstOrDefault() ?? "-",
+                Nombre = t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres,
+                Area = contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Nombre).FirstOrDefault() ?? "-",
+                AreaCodigo = contexto.Areas.Where(a => a.Id == t.AreaId).Select(a => a.Codigo).FirstOrDefault() ?? "-",
+                Seccion = contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Nombre).FirstOrDefault() ?? "-",
+                SeccionCodigo = contexto.Secciones.Where(s => s.Id == t.SeccionId).Select(s => s.Codigo).FirstOrDefault() ?? "-",
+                Puesto = contexto.Puestos.Where(p => p.Id == t.PuestoId).Select(p => p.Nombre).FirstOrDefault() ?? "-",
                 t.NumeroDocumento,
-                t.FechaIngreso,
-                t.FechaCese,
                 t.TieneHijos,
-                // Catálogo real de CECO (Centro/CentroCosto). Nulo mientras nadie le haya
-                // asignado uno al trabajador: ArmarFilasTareoAsync recurre entonces a la
-                // aproximación con Área/Sección, no a un "-" que rompería el cruce.
-                contexto.CentrosCosto
+                CentroCodigo = contexto.CentrosCosto
                     .Where(cc => cc.Id == t.CentroCostoId)
                     .Select(cc => cc.Centro!.Codigo)
                     .FirstOrDefault(),
-                contexto.CentrosCosto
+                CentroCostoCodigo = contexto.CentrosCosto
                     .Where(cc => cc.Id == t.CentroCostoId)
                     .Select(cc => cc.Codigo)
                     .FirstOrDefault(),
-                contexto.CentrosCosto
+                CentroCostoDescripcion = contexto.CentrosCosto
                     .Where(cc => cc.Id == t.CentroCostoId)
                     .Select(cc => cc.Descripcion)
-                    .FirstOrDefault()))
+                    .FirstOrDefault()
+            })
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+
+        var empresaIds = historias.Values
+            .SelectMany(h => h.Periodos)
+            .Select(p => p.EmpresaId)
+            .Distinct()
+            .ToList();
+        var plantaIds = historias.Values
+            .SelectMany(h => h.Periodos)
+            .SelectMany(p => p.Plantas)
+            .Select(p => p.PlantaId)
+            .Distinct()
+            .ToList();
+
+        var empresas = await contexto.Empresas.AsNoTracking()
+            .Where(e => empresaIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, e => e.RazonSocial, cancelacion)
+            .ConfigureAwait(false);
+        var plantas = await contexto.Plantas.AsNoTracking()
+            .Where(p => plantaIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Nombre, cancelacion)
+            .ConfigureAwait(false);
+
+        var trabajadores = new List<TrabajadorResuelto>(planos.Count);
+
+        foreach (var plano in planos)
+        {
+            var historia = historias[plano.Id];
+            var periodos = historia.EnRango(rango.Desde, rango.Hasta);
+
+            if (filtro.EmpresaId is { } empresaId
+                && !periodos.Any(p => p.EmpresaId == empresaId))
+            {
+                continue;
+            }
+
+            var tramosPlanta = periodos
+                .SelectMany(p => p.Plantas)
+                .Where(p => p.FechaInicio <= rango.Hasta
+                            && (p.FechaFin is null || p.FechaFin.Value >= rango.Desde))
+                .OrderBy(p => p.FechaInicio)
+                .ToList();
+
+            if (filtro.PlantaId is { } plantaId
+                && !tramosPlanta.Any(p => p.PlantaId == plantaId))
+            {
+                continue;
+            }
+
+            if (conjuntoPlantasVisibles is not null
+                && !tramosPlanta.Any(p => conjuntoPlantasVisibles.Contains(p.PlantaId)))
+            {
+                continue;
+            }
+
+            var empresasDelRango = periodos
+                .Where(p => filtro.EmpresaId is null || p.EmpresaId == filtro.EmpresaId.Value)
+                .Select(p => empresas.GetValueOrDefault(p.EmpresaId, "-"))
+                .Distinct()
+                .ToList();
+            var plantasDelRango = tramosPlanta
+                .Where(p => filtro.PlantaId is null || p.PlantaId == filtro.PlantaId.Value)
+                .Where(p => conjuntoPlantasVisibles is null || conjuntoPlantasVisibles.Contains(p.PlantaId))
+                .Select(p => plantas.GetValueOrDefault(p.PlantaId, "-"))
+                .Distinct()
+                .ToList();
+
+            var primero = periodos[0];
+            var ultimo = periodos[^1];
+
+            trabajadores.Add(new TrabajadorResuelto(
+                plano.Id,
+                plano.Nombre,
+                null,
+                null,
+                string.Join(" → ", empresasDelRango),
+                plantasDelRango.Count == 0 ? "-" : string.Join(" → ", plantasDelRango),
+                plano.Area,
+                plano.AreaCodigo,
+                plano.Seccion,
+                plano.SeccionCodigo,
+                plano.Puesto,
+                plano.NumeroDocumento,
+                primero.FechaInicio,
+                ultimo.FechaFin,
+                plano.TieneHijos,
+                plano.CentroCodigo,
+                plano.CentroCostoCodigo,
+                plano.CentroCostoDescripcion,
+                historia,
+                filtro.EmpresaId,
+                filtro.PlantaId,
+                conjuntoPlantasVisibles));
+        }
+
+        trabajadores = await ResolverMarcadoresDelRangoAsync(trabajadores, rango, cancelacion)
+            .ConfigureAwait(false);
+
+        return await ResolverAreasDelRangoAsync(trabajadores, rango, cancelacion).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reemplaza el área de cada trabajador por la que tuvo <b>dentro del rango</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠️ Salía de <c>Trabajador.AreaId</c>, que es la de <b>hoy</b>: un resumen de julio
+    /// emitido en setiembre mostraba a la persona en el área a la que la movieron después, y
+    /// la columna <c>AREA</c> del tareo final —que va a planilla— cambiaba sola en un mes ya
+    /// entregado. Es el mismo error que <see cref="ResolverMarcadoresDelRangoAsync"/> corrige
+    /// para el número y el aparato.
+    /// </para>
+    /// <para>
+    /// Quien cambió de área dentro del rango sale con las dos, en orden y en la misma celda
+    /// («AEROSOLES → ENVASADO»), por lo mismo que el marcador: la fila TOTAL del Excel va en
+    /// columnas fijas y una columna más correría todos los datos.
+    /// </para>
+    /// <para>
+    /// Sin ninguna asignación en el rango se conserva lo ya proyectado desde la ficha. Es el
+    /// caso de las fichas anteriores a esta vigencia cuyo relleno no alcanzó, y el valor de
+    /// hoy es mejor respaldo que un «-» que rompería el cruce con SAP.
+    /// </para>
+    /// </remarks>
+    private async Task<List<TrabajadorResuelto>> ResolverAreasDelRangoAsync(
+        List<TrabajadorResuelto> trabajadores,
+        RangoReporte rango,
+        CancellationToken cancelacion)
+    {
+        if (trabajadores.Count == 0)
+        {
+            return trabajadores;
+        }
+
+        var ids = trabajadores.ConvertAll(t => t.Id);
+
+        var asignaciones = await contexto.AsignacionesArea
+            .AsNoTracking()
+            .Where(a => ids.Contains(a.TrabajadorId)
+                        && a.FechaInicio <= rango.Hasta
+                        && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+            .OrderBy(a => a.FechaInicio)
+            .Select(a => new { a.TrabajadorId, Nombre = a.Area!.Nombre, Codigo = a.Area!.Codigo })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        var porTrabajador = asignaciones
+            .GroupBy(a => a.TrabajadorId)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    Nombres: string.Join(" → ", g.Select(a => a.Nombre).Distinct()),
+                    Codigos: string.Join(" → ", g.Select(a => a.Codigo).Distinct())));
+
+        return trabajadores.ConvertAll(t => porTrabajador.TryGetValue(t.Id, out var suyas)
+            ? t with { Area = suyas.Nombres, AreaCodigo = suyas.Codigos }
+            : t);
+    }
+
+    /// <summary>
+    /// Completa el número de marcador y el aparato de cada trabajador con los que tuvo
+    /// <b>dentro del rango</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠️ Antes salían de la asignación <b>abierta hoy</b> (<c>FechaFin == null</c>). Un
+    /// reporte de julio emitido en setiembre mostraba entonces el número que la persona tiene
+    /// ahora, no aquel del que salieron las marcaciones que produjeron ese tareo: la columna
+    /// contradecía a la pantalla de Tareo y a la carga de marcaciones. Es el invariante 5,
+    /// que el motor ya respeta al atribuir.
+    /// </para>
+    /// <para>
+    /// Quien cambió de número o de aparato dentro del rango sale con los dos, en orden
+    /// («14 → 27»), en la misma celda: el Excel de resumen y el de excepciones escriben la
+    /// fila TOTAL en columnas fijas, así que una columna más correría los datos y dejaría
+    /// cada total bajo el título equivocado.
+    /// </para>
+    /// <para>
+    /// Sin ninguna asignación en el rango queda nulo, y la pantalla muestra «—». Es lo
+    /// correcto: esa persona no tenía número entonces y sus días salen sin marcaciones.
+    /// </para>
+    /// </remarks>
+    private async Task<List<TrabajadorResuelto>> ResolverMarcadoresDelRangoAsync(
+        List<TrabajadorResuelto> trabajadores,
+        RangoReporte rango,
+        CancellationToken cancelacion)
+    {
+        if (trabajadores.Count == 0)
+        {
+            return trabajadores;
+        }
+
+        var ids = trabajadores.ConvertAll(t => t.Id);
+
+        var asignaciones = await contexto.AsignacionesMarcador
+            .AsNoTracking()
+            .Where(a => ids.Contains(a.TrabajadorId)
+                        && a.FechaInicio <= rango.Hasta
+                        && (a.FechaFin == null || a.FechaFin >= rango.Desde))
+            .OrderBy(a => a.FechaInicio)
+            .Select(a => new { a.TrabajadorId, a.IdMarcador, Equipo = a.Equipo!.Nombre })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        var porTrabajador = asignaciones
+            .GroupBy(a => a.TrabajadorId)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    Numeros: string.Join(" → ", g.Select(a => a.IdMarcador).Distinct()),
+                    Equipos: string.Join(" → ", g.Select(a => a.Equipo).Distinct())));
+
+        return trabajadores.ConvertAll(t => porTrabajador.TryGetValue(t.Id, out var suyas)
+            ? t with { IdMarcador = suyas.Numeros, Equipo = suyas.Equipos }
+            : t);
     }
 
     // ------------------------------------------------------------------
@@ -840,6 +1520,7 @@ internal sealed class ServicioReportes(
             .Select(t => new
             {
                 t.TrabajadorId,
+                t.Fecha,
                 t.EntradaReal,
                 t.SalidaReal,
                 t.Estado,
@@ -861,6 +1542,11 @@ internal sealed class ServicioReportes(
             })
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+
+        var trabajadorPorId = trabajadores.ToDictionary(t => t.Id);
+        dias = dias
+            .Where(d => trabajadorPorId[d.TrabajadorId].IncluyeFecha(d.Fecha))
+            .ToList();
 
         var porTrabajador = dias.ToLookup(d => d.TrabajadorId);
 

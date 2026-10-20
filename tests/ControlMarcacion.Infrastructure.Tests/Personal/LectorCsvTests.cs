@@ -107,4 +107,27 @@ public class LectorCsvTests
     {
         LectorCsv.Leer(Contenido(string.Empty)).ShouldBeEmpty();
     }
+
+    /// <summary>
+    /// Así llegó el padrón de Planta 1 del 18/09/2026: Excel entrecomilla la celda escrita
+    /// con Alt+Enter y el salto viaja dentro del campo. Partirlo por cada salto rechazaba
+    /// el archivo entero por columnas faltantes.
+    /// </summary>
+    [Fact]
+    public void Un_salto_de_linea_entre_comillas_queda_dentro_del_campo()
+    {
+        var filas = LectorCsv.Leer(Contenido("\"tipo\r\ndocumento\";nombres\r\nDNI;ANA\r\n"));
+
+        filas.Count.ShouldBe(2);
+        filas[0].ShouldBe(["tipo\ndocumento", "nombres"]);
+        filas[1].ShouldBe(["DNI", "ANA"]);
+    }
+
+    [Fact]
+    public void Las_filas_de_puros_delimitadores_se_ignoran()
+    {
+        var filas = LectorCsv.Leer(Contenido("a;b;c\n1;2;3\n;;\n;;\n"));
+
+        filas.Count.ShouldBe(2);
+    }
 }

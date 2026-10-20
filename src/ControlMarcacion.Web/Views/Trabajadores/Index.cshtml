@@ -15,22 +15,14 @@
 <div class="tarjeta">
     <h2>Filtros</h2>
     <form method="get" asp-action="Index">
+        @* Los de uso diario, a la vista. El resto en «Más filtros», que se abre solo si
+           alguno está puesto: un filtro aplicado que no se ve deja un listado incompleto
+           sin explicación. *@
         <div class="rejilla">
             <div class="campo">
-                <label for="Busqueda">Buscar</label>
+                <label for="Busqueda">Trabajador</label>
                 <input type="search" id="Busqueda" name="Busqueda" value="@Model.Filtro.Busqueda"
-                       placeholder="Documento, apellidos o nombres" />
-            </div>
-
-            <div class="campo">
-                <label for="EmpresaId">Empresa</label>
-                <select id="EmpresaId" name="EmpresaId" class="select-buscable">
-                    <option value="">Todas</option>
-                    @foreach (var empresa in Model.Empresas)
-                    {
-                        <option value="@empresa.Id" selected="@(Model.Filtro.EmpresaId == empresa.Id)">@empresa.Nombre</option>
-                    }
-                </select>
+                       placeholder="Documento, apellidos, nombres o N.º de marcador" />
             </div>
 
             <div class="campo">
@@ -45,33 +37,26 @@
             </div>
 
             <div class="campo">
-                <label for="CentroId">Centro</label>
-                <select id="CentroId" name="CentroId" class="select-buscable">
+                <label for="EquipoId">Aparato marcador</label>
+                <select id="EquipoId" name="EquipoId" class="select-buscable">
                     <option value="">Todos</option>
-                    @foreach (var centro in Model.Centros)
+                    @foreach (var equipo in Model.Equipos)
                     {
-                        <option value="@centro.Id" selected="@(Model.Filtro.CentroId == centro.Id)">@centro.Nombre</option>
+                        @* Sin planta elegida se muestra también la planta del aparato. *@
+                        var etiqueta = Model.Filtro.PlantaId is null
+                            ? $"{equipo.Nombre} ({equipo.Codigo}) · {equipo.Planta}"
+                            : $"{equipo.Nombre} ({equipo.Codigo})";
+                        <option value="@equipo.Id" selected="@(Model.Filtro.EquipoId == equipo.Id)">@etiqueta</option>
                     }
                 </select>
             </div>
 
             <div class="campo">
-                <label for="CentroCostoId">Centro de costo</label>
-                <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
-                    <option value="">Todos</option>
-                    @foreach (var centroCosto in Model.CentrosCosto)
-                    {
-                        <option value="@centroCosto.Id" selected="@(Model.Filtro.CentroCostoId == centroCosto.Id)">@centroCosto.Nombre</option>
-                    }
-                </select>
-            </div>
-
-            <div class="campo">
-                <label for="TipoPlanilla">Tipo de planilla</label>
-                <select id="TipoPlanilla" name="TipoPlanilla">
-                    <option value="">Todos</option>
-                    <option value="@((int)TipoPlanilla.Obrero)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Obrero)">Obrero (OBM)</option>
-                    <option value="@((int)TipoPlanilla.Empleado)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Empleado)">Empleado (EMP)</option>
+                <label for="ConNumeroMarcador">N.º de marcador</label>
+                <select id="ConNumeroMarcador" name="ConNumeroMarcador">
+                    <option value="" selected="@(Model.Filtro.ConNumeroMarcador == null)">Todos</option>
+                    <option value="true" selected="@(Model.Filtro.ConNumeroMarcador == true)">Con número</option>
+                    <option value="false" selected="@(Model.Filtro.ConNumeroMarcador == false)">Sin número (pendientes)</option>
                 </select>
             </div>
 
@@ -84,6 +69,116 @@
                 </select>
             </div>
         </div>
+
+        <details class="mas-filtros" open="@(Model.FiltrosAvanzadosActivos > 0)">
+            <summary>
+                Más filtros
+                @if (Model.FiltrosAvanzadosActivos > 0)
+                {
+                    <span class="etiqueta etiqueta-puntual">@Model.FiltrosAvanzadosActivos activo(s)</span>
+                }
+            </summary>
+
+            <div class="rejilla">
+                <div class="campo">
+                    <label for="EmpresaId">Empresa</label>
+                    <select id="EmpresaId" name="EmpresaId" class="select-buscable">
+                        <option value="">Todas</option>
+                        @foreach (var empresa in Model.Empresas)
+                        {
+                            <option value="@empresa.Id" selected="@(Model.Filtro.EmpresaId == empresa.Id)">@empresa.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="CentroId">Centro</label>
+                    <select id="CentroId" name="CentroId" class="select-buscable">
+                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una planta" : "Todos")</option>
+                        @foreach (var centro in Model.Centros)
+                        {
+                            <option value="@centro.Id" selected="@(Model.Filtro.CentroId == centro.Id)">@centro.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="CentroCostoId">Centro de costo</label>
+                    <select id="CentroCostoId" name="CentroCostoId" class="select-buscable">
+                        <option value="">Todos</option>
+                        @foreach (var centroCosto in Model.CentrosCosto)
+                        {
+                            <option value="@centroCosto.Id" selected="@(Model.Filtro.CentroCostoId == centroCosto.Id)">@centroCosto.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="AreaId">Área</label>
+                    <select id="AreaId" name="AreaId" class="select-buscable">
+                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una planta" : "Todas")</option>
+                        @foreach (var area in Model.Areas)
+                        {
+                            <option value="@area.Id" selected="@(Model.Filtro.AreaId == area.Id)">@area.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="PuestoId">Puesto</label>
+                    <select id="PuestoId" name="PuestoId" class="select-buscable">
+                        <option value="">Todos</option>
+                        @foreach (var puesto in Model.Puestos)
+                        {
+                            <option value="@puesto.Id" selected="@(Model.Filtro.PuestoId == puesto.Id)">@puesto.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="TurnoId">Turno</label>
+                    <select id="TurnoId" name="TurnoId" class="select-buscable">
+                        <option value="">Todos</option>
+                        <option value="@FiltroTrabajadores.SinTurno" selected="@(Model.Filtro.TurnoId == FiltroTrabajadores.SinTurno)">Sin turno asignado</option>
+                        @foreach (var turno in Model.Turnos)
+                        {
+                            <option value="@turno.Id" selected="@(Model.Filtro.TurnoId == turno.Id)">@turno.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="TipoPlanilla">Tipo de planilla</label>
+                    <select id="TipoPlanilla" name="TipoPlanilla">
+                        <option value="">Todos</option>
+                        <option value="@((int)TipoPlanilla.Obrero)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Obrero)">Obrero (OBM)</option>
+                        <option value="@((int)TipoPlanilla.Empleado)" selected="@(Model.Filtro.TipoPlanilla == TipoPlanilla.Empleado)">Empleado (EMP)</option>
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="IngresoDesde">Ingreso desde</label>
+                    <input type="date" id="IngresoDesde" name="IngresoDesde"
+                           value="@(Model.Filtro.IngresoDesde?.ToString("yyyy-MM-dd"))" />
+                </div>
+
+                <div class="campo">
+                    <label for="IngresoHasta">Ingreso hasta</label>
+                    <input type="date" id="IngresoHasta" name="IngresoHasta"
+                           value="@(Model.Filtro.IngresoHasta?.ToString("yyyy-MM-dd"))" />
+                </div>
+
+                <div class="campo">
+                    <label for="TamanioPagina">Filas por página</label>
+                    <select id="TamanioPagina" name="TamanioPagina">
+                        @foreach (var tamanio in ListadoTrabajadoresVm.TamaniosPagina)
+                        {
+                            <option value="@tamanio" selected="@(Model.Filtro.TamanioPagina == tamanio)">@tamanio</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </details>
 
         <div class="acciones">
             <button type="submit" class="boton boton-primario">Buscar</button>
@@ -113,13 +208,20 @@
                     <tr>
                         <th>Documento</th>
                         <th>Apellidos y nombres</th>
+                        @* Dos columnas y no una: dentro de una planta, «14» a secas lo llevan
+                           dos personas, y el aparato es lo que las distingue. Va el código y
+                           no el nombre, que no cabe y partiría la fila en dos líneas.
+                           Van junto al nombre y no al final porque identifican a la persona,
+                           como el documento: con trece columnas la tabla mide ~1 430 px y el
+                           último tercio solo se ve después de desplazarse. *@
+                        <th>ID marcador</th>
+                        <th>Aparato</th>
                         <th>Empresa</th>
                         <th>Planta</th>
                         <th>Centro</th>
                         <th>Centro de costo</th>
                         <th>Puesto</th>
                         <th>Turno</th>
-                        <th>ID marcador</th>
                         <th>Ingreso</th>
                         <th>Situación</th>
                         <th></th>
@@ -131,13 +233,14 @@
                         <tr>
                             <td>@t.TipoDocumento @t.NumeroDocumento</td>
                             <td>@t.ApellidosYNombres</td>
+                            <td><code>@(t.IdMarcador ?? "—")</code></td>
+                            <td title="@t.Equipo">@(t.EquipoCodigo ?? "—")</td>
                             <td>@t.Empresa</td>
                             <td>@t.Planta</td>
                             <td>@(t.Centro ?? "—")</td>
                             <td>@(t.CentroCosto ?? "—")</td>
                             <td>@t.Puesto</td>
                             <td>@(t.TurnoVigente ?? "—")</td>
-                            <td>@(t.IdMarcador ?? "—")</td>
                             <td>@t.FechaIngreso.ToString("dd/MM/yyyy")</td>
                             <td>
                                 @if (t.EstaActivo)

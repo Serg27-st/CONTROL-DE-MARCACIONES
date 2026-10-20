@@ -297,7 +297,11 @@ internal sealed class ServicioSolicitudes(
                 Origen = OrigenJustificacion.Solicitud,
                 SolicitudAusenciaId = solicitud.Id,
                 TipoAusenciaId = solicitud.TipoAusenciaId,
-                Tipo = tipo.EsPorHoras ? TipoJustificacion.Tardanza : TipoJustificacion.Ausencia,
+                // Un permiso por horas NO es una tardanza: puede caer al final de la jornada,
+                // y registrarlo como tardanza descontaba de un contador que ese día valía
+                // cero mientras la salida anticipada quedaba intacta pese al permiso
+                // aprobado. El motor ubica la ventana contra el turno del día.
+                Tipo = tipo.EsPorHoras ? TipoJustificacion.PermisoParcial : TipoJustificacion.Ausencia,
                 MinutosJustificados = MinutosDelPermiso(solicitud, tipo),
                 Motivo = $"{tipo.Nombre}. Solicitud #{solicitud.Id}" +
                          (string.IsNullOrWhiteSpace(solicitud.Sustento)

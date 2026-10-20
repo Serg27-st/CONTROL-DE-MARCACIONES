@@ -11,22 +11,65 @@
 
 <div class="tarjeta">
     <h2>@r.NombreArchivo</h2>
+    <p class="subtitulo">
+        Cargado como marcador <strong>@r.Equipo</strong>. Cada número de este archivo es de
+        quien lo tenga asignado <em>en ese aparato</em> en la fecha de la marcación, y se
+        atribuye al calcular el tareo: si no es el aparato del que salió el archivo, anule
+        esta carga y vuelva a subirlo eligiendo el correcto.
+    </p>
+
+    @switch (r.OrigenVerificado)
+    {
+        case OrigenCarga.PorContenido:
+        case OrigenCarga.PorNombre:
+            <div class="aviso aviso-exito" role="status">
+                <strong>Origen verificado.</strong> La serie del archivo, <strong>@r.SerieArchivo</strong>,
+                es la registrada para <strong>@r.Equipo</strong>
+                (@(r.OrigenVerificado == OrigenCarga.PorContenido ? "leída de su contenido" : "leída de su nombre")).
+            </div>
+            break;
+
+        case OrigenCarga.SerieAprendida:
+            <div class="aviso aviso-info" role="status">
+                <strong>Se registró la serie @r.SerieArchivo en @r.Equipo.</strong>
+                El equipo no tenía serie y este es el primer archivo suyo que la trae. Desde
+                ahora, un archivo de otro aparato declarado como @r.Equipo se rechazará, y uno
+                de este aparato declarado como otro, también.
+                <br />
+                Si @r.Equipo no era el aparato del que salió el archivo, corrija la serie en
+                <a asp-controller="Equipos" asp-action="Index">Equipos</a> y anule esta carga.
+            </div>
+            break;
+
+        default:
+            <div class="aviso aviso-alerta" role="status">
+                <strong>Origen no verificado.</strong> El archivo no trae la serie del aparato:
+                se renombró a mano y su nombre no empieza por <code>SERIE_attlog</code>. Se cargó
+                como <strong>@r.Equipo</strong> porque así se declaró, sin nada que lo confirme.
+                Si no es ese aparato, anule esta carga.
+            </div>
+            break;
+    }
 
     <div class="tabla-contenedor">
         <table class="tabla">
             <thead>
                 <tr>
-                    <th>Líneas leídas</th>
+                    <th>Registros detectados</th>
+                    <th>Marcaciones importables</th>
                     <th>Insertadas</th>
                     <th>Duplicadas</th>
-                    <th>Rechazadas</th>
+                    <th>Eventos de equipo ignorados</th>
+                    <th>Errores</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>@r.FilasLeidas</td>
+                    <td>@r.FilasAceptadas</td>
                     <td><strong class="texto-exito">@r.FilasInsertadas</strong></td>
                     <td>@r.FilasDuplicadas</td>
+                    <td>@r.FilasIgnoradas</td>
                     <td>
                         @if (r.FilasRechazadas == 0)
                         {
@@ -48,21 +91,31 @@
             El archivo se procesó sin incidencias.
         </div>
     }
+
+    @if (r.FilasIgnoradas > 0)
+    {
+        <div class="aviso aviso-info" style="margin-top: 16px;" role="status">
+            <strong>@r.FilasIgnoradas evento(s) de equipo ignorado(s).</strong>
+            Son registros estructuralmente válidos sin una persona asociada. No son errores,
+            no generan marcaciones y no afectan el estado completado de la importación.
+        </div>
+    }
 </div>
 
 @if (r.IdsSinAsignar.Count > 0)
 {
     <div class="tarjeta">
-        <h2>Identificadores sin trabajador asignado</h2>
+        <h2>Números sin trabajador asignado</h2>
 
-        <div class="aviso aviso-error" role="alert">
-            <strong>Estos identificadores marcaron, pero no hay nadie registrado con ese ID
-            en esas fechas.</strong>
+        <div class="aviso aviso-alerta" role="alert">
+            <strong>Estos números marcaron, pero nadie los tiene asignados en esas fechas.</strong>
             <p class="nota-compacta">
-                No es un error del archivo: son trabajadores que faltan dar de alta, o
-                asignaciones cuya vigencia no cubre el periodo. Sus marcaciones
-                <strong>no se cargaron</strong>. Regístralos en Personal y vuelve a subir
-                el mismo archivo: las ya cargadas no se duplicarán.
+                No es un error del archivo: son trabajadores que faltan dar de alta, o que
+                todavía no tienen su número del aparato en la ficha. Sus marcaciones
+                <strong>se guardaron</strong>: en cuanto les asignes el número en Personal
+                (con «Rige desde» vacío la primera vez cuenta desde su ingreso) y
+                <strong>recalcules el periodo</strong>, entran a su tareo. No hace falta
+                volver a subir el archivo.
             </p>
         </div>
 
@@ -70,7 +123,7 @@
             <table class="tabla">
                 <thead>
                     <tr>
-                        <th>ID de marcador</th>
+                        <th>N.º en el aparato</th>
                         <th>Marcaciones</th>
                         <th>Desde</th>
                         <th>Hasta</th>
@@ -91,7 +144,8 @@
         </div>
 
         <p class="nota-pie">
-            @r.IdsSinAsignar.Count identificador(es) sin asignar.
+            @r.IdsSinAsignar.Count número(s) sin asignar. La lista de pendientes del mes está en
+            la pantalla de Marcaciones y se vacía sola a medida que se asignan.
         </p>
     </div>
 }
@@ -99,7 +153,7 @@
 @if (r.Rechazadas.Count > 0)
 {
     <div class="tarjeta">
-        <h2>Líneas que no se pudieron leer</h2>
+        <h2>Registros con errores</h2>
 
         <div class="tabla-contenedor">
             <table class="tabla">

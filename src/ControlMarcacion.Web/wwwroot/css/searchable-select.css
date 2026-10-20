@@ -130,6 +130,23 @@
   cursor: pointer;
 }
 
+/* Cabecera de <optgroup>. No se elige ni se navega: es un rótulo, y tiene que leerse
+   como tal para que dos códigos iguales de aparatos distintos no parezcan repetidos. */
+.select-buscable-grupo {
+  padding: 10px 10px 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-suave, #64748b);
+  cursor: default;
+}
+
+/* Las opciones del grupo se sangran para que se lea la pertenencia de un vistazo. */
+.select-buscable-grupo ~ .select-buscable-opcion {
+  padding-left: 20px;
+}
+
 .select-buscable-opcion.resaltada,
 .select-buscable-opcion:hover {
   background: #f1f5f9;

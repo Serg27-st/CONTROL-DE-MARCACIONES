@@ -47,6 +47,7 @@ public sealed record PanelInicioDto(
     public bool HayPendientes =>
         Marcaciones?.HayHuecos == true
         || Tareo?.Calculo.EstaAlDia == false
+        || Tareo?.PendientesDeValidar > 0
         || SolicitudesPendientes > 0;
 }
 
@@ -66,4 +67,5 @@ public sealed record TareoDelPeriodoDto(
     int Faltas,
     int Tardanzas,
     int MinutosExtra,
+    int PendientesDeValidar,
     EstadoCalculoTareo Calculo);

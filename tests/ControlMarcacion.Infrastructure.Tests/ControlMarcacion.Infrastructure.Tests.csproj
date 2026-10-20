@@ -26,6 +26,11 @@
     <PackageReference Include="Shouldly" Version="4.3.0" />
     <PackageReference Include="NSubstitute" Version="6.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
+
+    <!-- SQLite real (en memoria) para las pruebas cuya semántica depende del MOTOR y no
+         de .NET: la búsqueda sin distinguir mayúsculas es una de ellas. InMemory compara
+         con las reglas de C# y daba por buena una consulta que SQLite rechazaba. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
   </ItemGroup>
 

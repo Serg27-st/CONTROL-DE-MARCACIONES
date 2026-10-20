@@ -46,4 +46,29 @@ public interface IConsultaTrabajadores
     Task<HistorialTrabajadorDto?> ObtenerHistorialAsync(
         long id,
         CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Resuelve en lote el vínculo y la planta aplicables a <paramref name="fecha"/>.
+    /// Los ids sin periodo se omiten; una historia ambigua produce error explícito.
+    /// </summary>
+    Task<IReadOnlyDictionary<long, ContextoLaboralFechaDto>> ContextosLaboralesEnFechaAsync(
+        IReadOnlyCollection<long> trabajadorIds,
+        DateOnly fecha,
+        CancellationToken cancelacion = default);
+
+    /// <summary>Quienes integran la cuadrilla en <paramref name="fecha"/>, por apellidos.</summary>
+    Task<IReadOnlyList<IntegranteCuadrillaDto>> IntegrantesDeCuadrillaAsync(
+        long cuadrillaId,
+        DateOnly fecha,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Trabajadores con vínculo y planta vigentes en <paramref name="fecha"/> que no
+    /// integran esa cuadrilla entonces, con su asignación actual como información auxiliar.
+    /// </summary>
+    Task<IReadOnlyList<CandidatoCuadrillaDto>> CandidatosParaCuadrillaAsync(
+        long cuadrillaId,
+        long plantaId,
+        DateOnly fecha,
+        CancellationToken cancelacion = default);
 }

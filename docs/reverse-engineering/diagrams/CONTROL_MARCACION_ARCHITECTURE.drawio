@@ -1,0 +1,28 @@
+<mxfile host="app.diagrams.net" modified="2026-10-05T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="control-marcacion" name="Arquitectura">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="user" value="Usuario" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="80" width="100" height="60" as="geometry"/></mxCell>
+        <mxCell id="web" value="Web&#xa;MVC / Razor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1"><mxGeometry x="170" y="75" width="140" height="70" as="geometry"/></mxCell>
+        <mxCell id="app" value="Application&#xa;contratos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1"><mxGeometry x="370" y="75" width="150" height="70" as="geometry"/></mxCell>
+        <mxCell id="domain" value="Domain&#xa;reglas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1"><mxGeometry x="590" y="75" width="150" height="70" as="geometry"/></mxCell>
+        <mxCell id="infra" value="Infrastructure&#xa;EF / archivos / Excel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="370" y="210" width="190" height="80" as="geometry"/></mxCell>
+        <mxCell id="db" value="SQLite" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="640" y="220" width="120" height="70" as="geometry"/></mxCell>
+        <mxCell id="zk" value="ZKTeco&#xa;TXT / DAT" style="shape=document;whiteSpace=wrap;html=1;fillColor=#ffe6cc;" vertex="1" parent="1"><mxGeometry x="155" y="225" width="140" height="60" as="geometry"/></mxCell>
+        <mxCell id="nager" value="Nager.Date&#xa;feriados" style="cloud;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1"><mxGeometry x="390" y="350" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="pmv" value="PMV&#xa;staging aislado&#xa;P0 alcance planta" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;" vertex="1" parent="1"><mxGeometry x="630" y="350" width="170" height="80" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="user" target="web"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="web" target="app"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="app" target="domain"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="web" target="infra"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="infra" target="domain"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="infra" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="zk" target="infra"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="nager" target="infra"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="lectores" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=block;" edge="1" parent="1" source="zk" target="pmv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="tablas prov_*" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=block;" edge="1" parent="1" source="pmv" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

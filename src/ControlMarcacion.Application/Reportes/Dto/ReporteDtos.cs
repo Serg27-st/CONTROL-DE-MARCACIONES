@@ -43,6 +43,20 @@ public sealed record FiltroReporte
     public long? CentroId { get; init; }
 
     public long? CentroCostoId { get; init; }
+
+    /// <summary>Aparato marcador: entran los que tuvieron un número suyo dentro del rango.</summary>
+    /// <remarks>
+    /// ⚠️ Se resuelve por <b>solapamiento con el rango</b>, igual que el padrón, y no por la
+    /// asignación abierta hoy. Filtrar por la de hoy es el mismo error que el invariante 5
+    /// prohíbe en el motor: quien cambió de aparato en agosto desaparecería del reporte de
+    /// julio, donde sus marcaciones sí salieron del aparato filtrado.
+    ///
+    /// Consecuencia deliberada: <b>el tareo sigue siendo por persona, no por aparato</b>.
+    /// Quien cambió de aparato a mitad de rango aparece en los reportes de los dos, con sus
+    /// totales completos —partir su mes por aparato sería inventar dos medias jornadas—, y
+    /// la celda del marcador muestra el cambio («14 → 27»).
+    /// </remarks>
+    public long? EquipoId { get; init; }
 }
 
 /// <summary>
@@ -72,6 +86,7 @@ public sealed record ResumenTareoDto(
     long TrabajadorId,
     string Trabajador,
     string? IdMarcador,
+    string? Equipo,
     string Empresa,
     string Planta,
     string? Centro,
@@ -196,6 +211,7 @@ public sealed record ExcepcionDto(
     long TrabajadorId,
     string Trabajador,
     string? IdMarcador,
+    string? Equipo,
     DateOnly Fecha,
     string? Turno,
     DateTime? EntradaReal,
@@ -252,10 +268,13 @@ public sealed record MetadatosReporte(
 /// <see cref="UltimoCambioRelevante"/> es lo más nuevo entre lo que puede mover el
 /// resultado del periodo: una marcación cargada, una carga anulada o reactivada, y una
 /// justificación creada o modificada. Si algo de eso es posterior a
-/// <see cref="CalculadoMasReciente"/>, hay que recalcular antes de entregar.
+/// la marca de cálculo que limita el alcance, hay que recalcular antes de entregar.
 /// </para>
 /// </remarks>
 public sealed record EstadoCalculoTareo(
+    // Nombre conservado por compatibilidad: el detector entrega aquí el CalculadoEn más
+    // antiguo del alcance, que es el único valor seguro para decidir si todas sus filas
+    // reflejan un cambio posterior.
     DateTime? CalculadoMasReciente,
     DateTime? UltimoCambioRelevante,
     string? MotivoUltimoCambio)
@@ -263,7 +282,7 @@ public sealed record EstadoCalculoTareo(
     /// <summary>No hay ni una fila de tareo en el alcance: nunca se calculó.</summary>
     public bool SinCalcular => CalculadoMasReciente is null;
 
-    /// <summary>Entró un dato después del último cálculo.</summary>
+    /// <summary>Entró un dato después del cálculo más antiguo que aún integra el alcance.</summary>
     public bool Desactualizado =>
         CalculadoMasReciente is { } calculado
         && UltimoCambioRelevante is { } cambio
@@ -278,7 +297,7 @@ public sealed record EstadoCalculoTareo(
             "No hay tareo calculado para este alcance: el reporte sale vacío hasta que se "
             + "calcule el periodo desde Tareo.",
         { Desactualizado: true } =>
-            $"⚠️ Tareo desactualizado: se calculó el {CalculadoMasReciente:dd/MM/yyyy HH:mm} y "
+            $"⚠️ Tareo desactualizado: el alcance conserva cálculos del {CalculadoMasReciente:dd/MM/yyyy HH:mm} y "
             + $"después hubo {MotivoUltimoCambio} ({UltimoCambioRelevante:dd/MM/yyyy HH:mm}). "
             + "Recalcule el periodo antes de entregar este reporte.",
         _ => null

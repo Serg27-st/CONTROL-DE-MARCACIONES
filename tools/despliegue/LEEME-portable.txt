@@ -1,0 +1,14 @@
+CONTROL DE MARCACION - PORTABLE / EJECUCION LOCAL
+
+1. Ejecute ControlMarcacion.Web.exe.
+2. Espere a que se abra el navegador.
+3. No cierre el proceso mientras use el sistema.
+4. En el primer arranque, complete la configuracion en /setup si no configuro credenciales iniciales.
+5. Las credenciales de appsettings.Production.json solo se usan para crear el primer usuario.
+6. Los datos se guardan en:
+   C:\ProgramData\ControlMarcacion\data\
+7. Los logs se encuentran en:
+   C:\ProgramData\ControlMarcacion\logs\
+
+No requiere Visual Studio, dotnet, PowerShell, CMD ni IIS.
+Solo escucha en 127.0.0.1. Esta carpeta no es un instalador.

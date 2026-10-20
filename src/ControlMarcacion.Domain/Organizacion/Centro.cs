@@ -6,7 +6,8 @@ namespace ControlMarcacion.Domain.Organizacion;
 /// Centro SAP: dimensión propia de costos de Intradevco, independiente de la
 /// jerarquía Planta → Área → Sección. Cuelga de <see cref="Empresa"/>, igual que
 /// <see cref="Planta"/>, pero no se corresponde 1 a 1 con ninguna planta sembrada
-/// (5 centros SAP contra 4 plantas del sistema).
+/// (5 centros SAP contra 4 plantas del sistema): el vínculo <see cref="PlantaId"/> es
+/// opcional.
 /// </summary>
 /// <remarks>
 /// En el tareo final, el código de este catálogo llena la columna "Centro" y
@@ -30,6 +31,21 @@ public class Centro : EntidadBase
     /// "Texto Centro" vacío en ese caso, no un texto inventado.
     /// </remarks>
     public string? Descripcion { get; set; }
+
+    /// <summary>
+    /// Planta a la que atiende este centro, si atiende a alguna.
+    /// </summary>
+    /// <remarks>
+    /// Sirve para desempatar un código de centro de costo que existe bajo varios centros
+    /// de la misma empresa (<c>PE21430001</c> "Gerencia de la producción" está en tres de
+    /// CA Outsourcing): el padrón de las plantas trae el código pero no el centro, y sin
+    /// este dato la carga masiva elegía el primero que encontraba.
+    /// Es anulable porque la relación no es 1 a 1: Planta Intracloro (066D) no tiene
+    /// planta propia en el sistema.
+    /// </remarks>
+    public long? PlantaId { get; set; }
+
+    public Planta? Planta { get; set; }
 
     public ICollection<CentroCosto> CentrosCosto { get; set; } = [];
 }

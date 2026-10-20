@@ -258,6 +258,51 @@ public class ExportadorTareoFinalTests
     }
 
     /// <summary>
+    /// La columna SUSPENSION sale vacía, no en cero, y no corre las que van después.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No existe el concepto de suspensión en el sistema. Salía en cero y se sumaba en la
+    /// fila TOTAL, lo que la hacía parecer calculada: con el formato de número el cero se
+    /// pinta como «-», indistinguible de «esta persona no tuvo suspensiones». En el archivo
+    /// que va a planilla eso es afirmar algo que nadie comprobó.
+    /// </para>
+    /// <para>
+    /// La segunda mitad del test es la que de verdad importa: la columna <b>se conserva</b>
+    /// en su posición. El bloque de días se escribe por índice desde la 12, así que sacarla
+    /// correría todo lo que va después y dejaría cada total bajo el título equivocado, sin
+    /// ningún error.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void La_columna_suspension_sale_vacia_y_no_corre_a_las_demas()
+    {
+        var fila = Fila() with { DiasFalta = 2, DiasFaltaJustificada = 1, DiasVacaciones = 5 };
+
+        using var libro = Exportar(Tareo([fila]));
+        var hoja = libro.Worksheet("Tareo");
+
+        // El título sigue ahí: es el formato de GCA.
+        hoja.Cell("M6").GetString().ShouldBe("SUSPENSION");
+
+        // Pero ni la fila ni el TOTAL afirman un cero que nadie calculó.
+        hoja.Cell("M7").IsEmpty().ShouldBeTrue();
+
+        // Y las vecinas siguen en su sitio, con su dato: nada se corrió.
+        hoja.Cell("L7").GetDouble().ShouldBe(2);   // FALTAS
+        hoja.Cell("N7").GetDouble().ShouldBe(1);   // FALTAS JUS.
+        hoja.Cell("O7").GetDouble().ShouldBe(3);   // TOTAL FALTAS
+        hoja.Cell("Q7").GetDouble().ShouldBe(5);   // VACACI.
+
+        var total = hoja.Column(1).CellsUsed(c => c.GetString() == "TOTAL").Single().Address.RowNumber;
+
+        hoja.Cell(total, 13).IsEmpty().ShouldBeTrue();
+        hoja.Cell(total, 12).GetDouble().ShouldBe(2);
+        hoja.Cell(total, 14).GetDouble().ShouldBe(1);
+        hoja.Cell(total, 17).GetDouble().ShouldBe(5);
+    }
+
+    /// <summary>
     /// Bloque de identificación del formato vigente de GCA: CENTRO (E) / CENTRO DE COSTO (F) /
     /// DESCRIP. CECO (G) salen del catálogo real de SAP, y AREA (H) es el área interna.
     /// </summary>

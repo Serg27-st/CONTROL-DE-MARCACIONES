@@ -1,0 +1,123 @@
+@model ListaCuadrillasVm
+@{
+    ViewData["Title"] = "Cuadrillas";
+}
+
+<div class="titulo-pagina">
+    <h1>Cuadrillas</h1>
+    <a class="boton boton-primario" asp-action="Editar">Nueva cuadrilla</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Una cuadrilla es el <strong>grupo de obreros que rota de turno a la vez</strong>. Se
+        programa una sola vez su ciclo —por ejemplo, 14 días de diurno y 14 de nocturno— y el
+        turno de cada día de cada integrante sale de ahí: ya no hay que editar ficha por ficha
+        en cada rotación. Los domingos de descanso los pone el turno, no el ciclo.
+    </p>
+
+    <form method="get" asp-action="Index">
+        <div class="campo campo-casilla">
+            <input type="checkbox" id="incluirInactivas" name="incluirInactivas" value="true"
+                   checked="@Model.IncluirInactivas" onchange="this.form.submit()" />
+            <label for="incluirInactivas">Mostrar también las dadas de baja</label>
+        </div>
+    </form>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Cuadrillas.Count == 0)
+    {
+        <div class="sin-resultados">
+            No hay cuadrillas registradas. Cree una por cada grupo que rota junto en cada planta.
+        </div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Planta</th>
+                        <th>Integrantes</th>
+                        <th>Ciclo</th>
+                        <th>Hoy (@Model.Hoy.ToString("dd/MM"))</th>
+                        <th>Próxima rotación</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model.Cuadrillas)
+                    {
+                        <tr>
+                            <td><code>@c.Codigo</code></td>
+                            <td><a asp-action="Detalle" asp-route-id="@c.Id">@c.Nombre</a></td>
+                            <td>@c.Planta</td>
+                            <td>@(c.IntegrantesVigentes == 0 ? "—" : c.IntegrantesVigentes.ToString())</td>
+                            <td>
+                                @if (c.ProgramacionVigente is { } programacion)
+                                {
+                                    @programacion.Ciclo
+                                    <br /><small class="texto-suave">desde @programacion.FechaInicio.ToString("dd/MM/yyyy")</small>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">Sin programar</span>
+                                }
+                            </td>
+                            <td>@(c.TurnoHoy ?? "—")</td>
+                            <td>
+                                @if (c.ProximosCambios.Count > 0)
+                                {
+                                    var proximo = c.ProximosCambios[0];
+                                    <text>@proximo.Fecha.ToString("ddd dd/MM") → <strong>@proximo.TurnoCodigo</strong></text>
+                                }
+                                else
+                                {
+                                    <span class="texto-suave">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (c.Activo)
+                                {
+                                    <span class="etiqueta etiqueta-puntual">Activa</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-incompleto">De baja</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Detalle" asp-route-id="@c.Id">Ver</a>
+                                · <a asp-action="Editar" asp-route-id="@c.Id">Editar</a>
+
+                                <form method="post" asp-action="CambiarEstado" class="en-linea-sep">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@c.Id" />
+                                    <input type="hidden" name="activo" value="@((!c.Activo).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="boton boton-secundario boton-chico"
+                                            data-confirmar="@(c.Activo
+                                                ? $"¿Dar de baja la cuadrilla '{c.Nombre}'?"
+                                                : $"¿Reactivar la cuadrilla '{c.Nombre}'?")">
+                                        @(c.Activo ? "Dar de baja" : "Activar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="paginacion">
+            <span class="conteo">@Model.Cuadrillas.Count cuadrilla(s)</span>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

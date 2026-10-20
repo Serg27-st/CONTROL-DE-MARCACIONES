@@ -5,6 +5,7 @@ using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Justificaciones;
 using ControlMarcacion.Domain.Marcaciones;
+using ControlMarcacion.Domain.MarcacionesProvisionales;
 using ControlMarcacion.Domain.Normativa;
 using ControlMarcacion.Domain.Organizacion;
 using ControlMarcacion.Domain.Personal;
@@ -41,15 +42,26 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
     public DbSet<AsignacionMarcador> AsignacionesMarcador => Set<AsignacionMarcador>();
     public DbSet<AsignacionTurno> AsignacionesTurno => Set<AsignacionTurno>();
     public DbSet<AsignacionSueldo> AsignacionesSueldo => Set<AsignacionSueldo>();
+
+    /// <summary>El área que tuvo cada trabajador por fecha. Ver <see cref="AsignacionArea"/>.</summary>
+    public DbSet<AsignacionArea> AsignacionesArea => Set<AsignacionArea>();
     public DbSet<PeriodoLaboral> PeriodosLaborales => Set<PeriodoLaboral>();
+    public DbSet<AsignacionPlanta> AsignacionesPlanta => Set<AsignacionPlanta>();
 
     // Catálogos
     public DbSet<TipoDocumento> TiposDocumento => Set<TipoDocumento>();
     public DbSet<Puesto> Puestos => Set<Puesto>();
     public DbSet<Marcador> Marcadores => Set<Marcador>();
+    public DbSet<EquipoMarcador> EquiposMarcador => Set<EquipoMarcador>();
     public DbSet<Feriado> Feriados => Set<Feriado>();
     public DbSet<Turno> Turnos => Set<Turno>();
+
+    /// <summary>El horario que rigió en cada turno por fecha. Ver <see cref="VersionTurno"/>.</summary>
+    public DbSet<VersionTurno> VersionesTurno => Set<VersionTurno>();
     public DbSet<TurnoPlanta> TurnosPlanta => Set<TurnoPlanta>();
+    public DbSet<Cuadrilla> Cuadrillas => Set<Cuadrilla>();
+    public DbSet<ProgramacionCuadrilla> ProgramacionesCuadrilla => Set<ProgramacionCuadrilla>();
+    public DbSet<TramoRotacion> TramosRotacion => Set<TramoRotacion>();
     public DbSet<Periodo> Periodos => Set<Periodo>();
     public DbSet<TipoAusencia> TiposAusencia => Set<TipoAusencia>();
 
@@ -64,6 +76,7 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
 
     // Asistencia y normativa
     public DbSet<TareoDiario> TareosDiarios => Set<TareoDiario>();
+    public DbSet<DescansoSustitutorio> DescansosSustitutorios => Set<DescansoSustitutorio>();
     public DbSet<TasaSobretasa> TasasSobretasa => Set<TasaSobretasa>();
     public DbSet<ParametroLegal> ParametrosLegales => Set<ParametroLegal>();
     public DbSet<ReintegroTareo> ReintegrosTareo => Set<ReintegroTareo>();
@@ -71,6 +84,12 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
     // Seguridad. Los usuarios y roles los aporta IdentityDbContext; esta es la única
     // tabla propia del módulo.
     public DbSet<UsuarioPlanta> UsuariosPlanta => Set<UsuarioPlanta>();
+
+    // Módulo provisional — eliminar estos DbSets y las tablas prov_* cuando el
+    // motor principal cubra este flujo.
+    public DbSet<ImportacionProvisional> ImportacionesProvisionales => Set<ImportacionProvisional>();
+    public DbSet<MarcacionProvisional> MarcacionesProvisionales => Set<MarcacionProvisional>();
+    public DbSet<ErrorImportacionProvisional> ErroresImportacionProvisional => Set<ErrorImportacionProvisional>();
 
     // Auditoría. La escribe InterceptorAuditoria al guardar; nadie más la toca.
     public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();

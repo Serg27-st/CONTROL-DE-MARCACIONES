@@ -269,10 +269,7 @@
     // del panel se insertan dinámicamente y usan ids distintos para no chocar con los
     // filtros de la tabla.
 
-    // Los marcadores se identifican por su código en texto y no por el id de la fila del
-    // catálogo: es el texto lo que se guarda en la asignación y lo que cruza con el
-    // archivo del marcador. Por eso su desplegable lee otra propiedad del JSON.
-    function repoblarOpciones(select, opciones, textoVacio, clave) {
+    function repoblarOpciones(select, opciones, textoVacio) {
         select.innerHTML = "";
 
         var vacia = document.createElement("option");
@@ -282,32 +279,68 @@
 
         opciones.forEach(function (opcion) {
             var elemento = document.createElement("option");
-            elemento.value = opcion[clave || "id"];
+            elemento.value = opcion.id;
             // textContent, nunca innerHTML: el nombre viene de la base de datos.
             elemento.textContent = opcion.nombre;
             select.appendChild(elemento);
         });
     }
 
-    function cargarOpciones(url, destino, textoVacio, clave) {
+    // Los aparatos de la planta. Con uno solo se deja elegido y sin opción vacía: el
+    // número que se escriba al lado es de ese aparato. Ver Editar.cshtml.
+    function repoblarAparatos(select, opciones, textoVacio) {
+        select.innerHTML = "";
+
+        if (opciones.length !== 1) {
+            var vacia = document.createElement("option");
+            vacia.value = "";
+            vacia.textContent = opciones.length === 0 ? textoVacio : "Seleccione el aparato…";
+            select.appendChild(vacia);
+        }
+
+        opciones.forEach(function (opcion) {
+            var elemento = document.createElement("option");
+            elemento.value = opcion.id;
+            elemento.textContent = opcion.nombre + " (" + opcion.codigo + ")";
+            select.appendChild(elemento);
+        });
+    }
+
+    function pedirJson(url) {
         return fetch(url, { headers: { "Accept": "application/json" } })
             .then(function (respuesta) {
                 if (!respuesta.ok) {
                     throw new Error("No se pudo cargar el catálogo.");
                 }
                 return respuesta.json();
-            })
+            });
+    }
+
+    function cargarAparatos(url, destino) {
+        return pedirJson(url)
             .then(function (datos) {
-                repoblarOpciones(destino, datos, textoVacio, clave);
+                repoblarAparatos(destino, datos, "La unidad no tiene aparatos");
             })
             .catch(function () {
-                repoblarOpciones(destino, [], "No se pudo cargar", clave);
+                repoblarAparatos(destino, [], "No se pudo cargar");
+            });
+    }
+
+    function cargarOpciones(url, destino, textoVacio) {
+        return pedirJson(url)
+            .then(function (datos) {
+                repoblarOpciones(destino, datos, textoVacio);
+            })
+            .catch(function () {
+                repoblarOpciones(destino, [], "No se pudo cargar");
             });
     }
 
     document.addEventListener("change", function (evento) {
         var campo = evento.target;
 
+        // Delegado en `document` porque el panel se inyecta después de cargar la página:
+        // un listener puesto sobre el select no sobreviviría al siguiente render.
         if (campo.id === "PanelEmpresaId") {
             var planta = document.getElementById("PanelPlantaId");
             var turno = document.getElementById("PanelTurnoId");
@@ -345,7 +378,7 @@
             var turnoDestino = document.getElementById("PanelTurnoId");
             var centroDestino = document.getElementById("PanelCentroId");
             var centroCostoDestino = document.getElementById("PanelCentroCostoId");
-            var marcadorDestino = document.getElementById("PanelIdMarcador");
+            var aparatoDestino = document.getElementById("PanelEquipoMarcadorId");
 
             if (!turnoDestino || !centroDestino || !centroCostoDestino) {
                 return;
@@ -357,21 +390,19 @@
                 repoblarOpciones(turnoDestino, [], "Sin turno asignado");
                 repoblarOpciones(centroDestino, [], "Seleccione una planta…");
 
-                if (marcadorDestino) {
-                    repoblarOpciones(marcadorDestino, [], "Seleccione una unidad…", "valor");
+                if (aparatoDestino) {
+                    repoblarAparatos(aparatoDestino, [], "Seleccione una unidad…");
                 }
 
                 return;
             }
 
-            // Cada marcador pertenece a una planta: al cambiarla, los que estaban
+            // Cada aparato pertenece a una planta: al cambiarla, los que estaban
             // ofrecidos dejan de ser válidos y el servidor rechazaría el guardado.
-            if (marcadorDestino) {
-                cargarOpciones(
-                    "/Trabajadores/MarcadoresDePlanta?plantaId=" + encodeURIComponent(campo.value),
-                    marcadorDestino,
-                    "Sin marcador asignado",
-                    "valor");
+            if (aparatoDestino) {
+                cargarAparatos(
+                    "/Trabajadores/EquiposDePlanta?plantaId=" + encodeURIComponent(campo.value),
+                    aparatoDestino);
             }
 
             cargarOpciones(
@@ -430,7 +461,9 @@
 
         var detalleTexto = t.tipoDocumento + " " + t.numeroDocumento +
             " · " + t.empresa + " / " + t.planta +
-            (t.idMarcador ? " · Marcador " + t.idMarcador : "") +
+            (t.idMarcador
+                ? " · Marcador " + t.idMarcador + (t.equipo ? " (" + t.equipo + ")" : "")
+                : "") +
             (t.estaActivo ? "" : " · Cesado");
 
         var detalleSpan = document.createElement("span");

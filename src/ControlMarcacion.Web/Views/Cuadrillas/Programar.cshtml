@@ -1,0 +1,111 @@
+@model ProgramarCuadrillaVm
+@{
+    ViewData["Title"] = $"Programar {Model.Cuadrilla.Nombre}";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Detalle" asp-route-id="@Model.Cuadrilla.Id">Volver a la cuadrilla</a>
+</div>
+
+<form method="post" asp-action="Programar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.CuadrillaId" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo programar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <h2>Desde cuándo</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Desde">Rige desde</label>
+                <input asp-for="Datos.Desde" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.Desde"></span>
+                <small class="texto-suave">
+                    Ese día empieza el <strong>primer tramo</strong> del ciclo. Lo anterior sigue
+                    calculándose con la programación que regía entonces. Puede ser una fecha pasada
+                    —si la rotación ya ocurrió— mientras no caiga en un periodo cerrado.
+                </small>
+            </div>
+        </div>
+
+        @if (Model.Cuadrilla.ProgramacionVigente is { } vigente)
+        {
+            <p class="nota-pie">
+                Hoy rige <strong>@vigente.Ciclo</strong>, desde el
+                @vigente.FechaInicio.ToString("dd/MM/yyyy"). Se cerrará el día anterior a la fecha
+                que elija; si empezaba ese día o después, queda reemplazada entera y pasa al
+                historial como dada de baja.
+            </p>
+        }
+    </div>
+
+    <div class="tarjeta">
+        <h2>Ciclo</h2>
+        <p class="subtitulo">
+            La secuencia se ejecuta una sola vez en este orden. Un descanso es explícito,
+            dura un día y no utiliza un turno ficticio. Deje vacías las filas que no use.
+        </p>
+
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tipo</th>
+                        <th>Turno</th>
+                        <th>Días</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.Datos.Tramos.Count; i++)
+                    {
+                        var tramo = Model.Datos.Tramos[i];
+                        <tr>
+                            <td>@(i + 1)</td>
+                            <td>
+                                <select name="Datos.Tramos[@i].Tipo" class="tipo-tramo" data-fila="@i">
+                                    <option value="Trabajo" selected="@(tramo.Tipo == TipoTramoRotacion.Trabajo)">Trabajo</option>
+                                    <option value="Descanso" selected="@(tramo.Tipo == TipoTramoRotacion.Descanso)">Descanso</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="Datos.Tramos[@i].TurnoId" class="select-buscable turno-tramo" data-fila="@i">
+                                    <option value="">—</option>
+                                    @foreach (var turno in Model.Turnos)
+                                    {
+                                        <option value="@turno.Id" selected="@(turno.Id == tramo.TurnoId)">@turno.Nombre</option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <input name="Datos.Tramos[@i].Dias" class="dias-tramo" data-fila="@i" type="number" min="1" max="366"
+                                       value="@tramo.Dias" placeholder="14" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Programar</button>
+        <a class="boton boton-secundario" asp-action="Detalle" asp-route-id="@Model.Cuadrilla.Id">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/programacion-cuadrilla.js" asp-append-version="true"></script>
+}

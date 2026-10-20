@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Marcaciones;
 using ControlMarcacion.Domain.Personal;
@@ -19,6 +20,9 @@ namespace ControlMarcacion.Infrastructure.Tests.Marcaciones;
 /// </remarks>
 public sealed class CargaAnuladaNoCuentaTests : IDisposable
 {
+    /// <summary>Aparato de las marcaciones de prueba.</summary>
+    private const long EquipoDePrueba = 1;
+
     private const long PlantaP01 = 3;
     private const long PuestoOperario = 1;
     private const long EmpresaOutsourcing = 2;
@@ -38,7 +42,7 @@ public sealed class CargaAnuladaNoCuentaTests : IDisposable
         contexto = new MarcacionDbContext(opciones);
         contexto.Database.EnsureCreated();
 
-        servicio = new ServicioCalculoTareo(contexto, new AlcanceSinRestriccion());
+        servicio = new ServicioCalculoTareo(contexto, new AlcanceSinRestriccion(), CoberturaDePrueba.TodoCargado(), NullLogger<ServicioCalculoTareo>.Instance);
     }
 
     public void Dispose() => contexto.Dispose();
@@ -135,6 +139,7 @@ public sealed class CargaAnuladaNoCuentaTests : IDisposable
             FechaInicio = new DateOnly(2020, 1, 1)
         });
 
+        trabajador.AbrirVinculo("prueba");
         await contexto.Trabajadores.AddAsync(trabajador, CancellationToken.None);
         await contexto.SaveChangesAsync(CancellationToken.None);
 
@@ -163,16 +168,43 @@ public sealed class CargaAnuladaNoCuentaTests : IDisposable
 
     private async Task CrearMarcacionesAsync(long trabajadorId, long cargaId, params DateTime[] momentos)
     {
+        await AsegurarNumeroAsignadoAsync(trabajadorId);
+
         foreach (var momento in momentos)
         {
             await contexto.MarcacionesCrudas.AddAsync(new MarcacionCruda
             {
-                TrabajadorId = trabajadorId,
-                IdMarcador = "1",
+                EquipoId = EquipoDePrueba,
+                IdMarcador = NumeroDe(trabajadorId),
                 FechaHora = momento,
                 ImportacionId = cargaId
             }, CancellationToken.None);
         }
+
+        await contexto.SaveChangesAsync(CancellationToken.None);
+    }
+
+    /// <summary>Número de cada trabajador en el aparato de prueba: uno distinto por persona.</summary>
+    private static string NumeroDe(long trabajadorId) => trabajadorId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// La marcación se atribuye al calcular, por el número que el trabajador tiene en el
+    /// aparato: sin esta asignación sus marcaciones no serían de nadie.
+    /// </summary>
+    private async Task AsegurarNumeroAsignadoAsync(long trabajadorId)
+    {
+        if (await contexto.AsignacionesMarcador.AnyAsync(a => a.TrabajadorId == trabajadorId, CancellationToken.None))
+        {
+            return;
+        }
+
+        await contexto.AsignacionesMarcador.AddAsync(new AsignacionMarcador
+        {
+            TrabajadorId = trabajadorId,
+            EquipoId = EquipoDePrueba,
+            IdMarcador = NumeroDe(trabajadorId),
+            FechaInicio = new DateOnly(2020, 1, 1)
+        }, CancellationToken.None);
 
         await contexto.SaveChangesAsync(CancellationToken.None);
     }

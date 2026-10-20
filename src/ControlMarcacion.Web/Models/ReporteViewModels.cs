@@ -34,6 +34,9 @@ public sealed class FiltroReporteVm
 
     public long? CentroCostoId { get; init; }
 
+    /// <summary>Aparato marcador del que salieron las marcaciones.</summary>
+    public long? EquipoId { get; init; }
+
     /// <summary>
     /// Si el alcance elegido está completo como para consultar.
     /// </summary>
@@ -72,7 +75,8 @@ public sealed class FiltroReporteVm
         ["EmpresaId"] = EmpresaId?.ToString(CultureInfo.InvariantCulture),
         ["PlantaId"] = PlantaId?.ToString(CultureInfo.InvariantCulture),
         ["CentroId"] = CentroId?.ToString(CultureInfo.InvariantCulture),
-        ["CentroCostoId"] = CentroCostoId?.ToString(CultureInfo.InvariantCulture)
+        ["CentroCostoId"] = CentroCostoId?.ToString(CultureInfo.InvariantCulture),
+        ["EquipoId"] = EquipoId?.ToString(CultureInfo.InvariantCulture)
     };
 
 }
@@ -91,6 +95,11 @@ public abstract class ReporteVm
     public IReadOnlyList<OpcionDto> Centros { get; init; } = [];
 
     public IReadOnlyList<OpcionDto> CentrosCosto { get; init; } = [];
+
+    /// <summary>
+    /// Aparatos ofrecidos en el filtro, ya acotados a la planta elegida si la hay.
+    /// </summary>
+    public IReadOnlyList<EquipoOpcionDto> Equipos { get; init; } = [];
 
     /// <summary>
     /// Encabezado de trazabilidad del alcance consultado, o <c>null</c> si todavía no se

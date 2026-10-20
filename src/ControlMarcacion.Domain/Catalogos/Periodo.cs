@@ -34,6 +34,26 @@ public class Periodo : EntidadBase
     /// <summary>Motivo de la reapertura. Obligatorio: es información de auditoría.</summary>
     public string? MotivoReapertura { get; set; }
 
+    /// <summary>
+    /// Token de concurrencia. Lo incrementa <b>solo</b> quien cierra o reabre el periodo.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Es lo que hace atómica la regla «periodo cerrado, nada se escribe». Sin él,
+    /// comprobar que está abierto y escribir eran dos operaciones separadas, y entre las dos
+    /// cabía un cierre: el recálculo lee el estado al empezar y guarda decenas de miles de
+    /// filas <b>minutos después</b>, así que la ventana no era teórica.
+    /// </para>
+    /// <para>
+    /// ⚠️ Quien escribe <i>dentro</i> del periodo no lo incrementa: <b>lo afirma</b>. Marca
+    /// esta propiedad como modificada sin cambiarle el valor, y EF la mete en el <c>WHERE</c>
+    /// del <c>UPDATE</c> — de modo que la escritura se pierde si alguien cerró mientras
+    /// tanto, y no choca con otra escritura que solo esté afirmando lo mismo. Por eso dos
+    /// recálculos simultáneos siguen conviviendo y un recálculo contra un cierre no.
+    /// </para>
+    /// </remarks>
+    public int Version { get; set; }
+
     public bool EstaAbierto => Estado == EstadoPeriodo.Abierto;
 
     public bool Contiene(DateOnly fecha) => fecha >= FechaInicio && fecha <= FechaFin;

@@ -15,6 +15,7 @@ namespace ControlMarcacion.Application.Personal.Dto;
 public sealed record BajaTrabajadorRequest
 {
     [Required]
+    [Range(1, long.MaxValue, ErrorMessage = "No se indicó qué trabajador se va a reingresar.")]
     public long TrabajadorId { get; init; }
 
     [Required(ErrorMessage = "La fecha de cese es obligatoria.")]
@@ -26,6 +27,30 @@ public sealed record BajaTrabajadorRequest
 
     [StringLength(300, ErrorMessage = "La observación no puede pasar de 300 caracteres.")]
     public string? Observacion { get; init; }
+}
+
+/// <summary>
+/// Datos mínimos para abrir un nuevo vínculo laboral de una persona ya registrada.
+/// </summary>
+/// <remarks>
+/// Turno, marcador, sueldo y área conservan sus operaciones propias. Un reingreso no
+/// inventa asignaciones para esos conceptos: solo abre el vínculo y su planta inicial.
+/// </remarks>
+public sealed record ReingresarTrabajadorRequest
+{
+    [Required]
+    public long TrabajadorId { get; init; }
+
+    [Required(ErrorMessage = "La nueva fecha de ingreso es obligatoria.")]
+    public DateOnly FechaIngreso { get; init; }
+
+    [Required(ErrorMessage = "Seleccione la empresa del nuevo vínculo.")]
+    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la empresa del nuevo vínculo.")]
+    public long EmpresaId { get; init; }
+
+    [Required(ErrorMessage = "Seleccione la planta inicial del nuevo vínculo.")]
+    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la planta inicial del nuevo vínculo.")]
+    public long PlantaId { get; init; }
 }
 
 /// <summary>
@@ -62,6 +87,7 @@ public sealed record HistorialSueldoDto(
 public sealed record HistorialMarcadorDto(
     long Id,
     string IdMarcador,
+    string? Equipo,
     string? Planta,
     DateOnly FechaInicio,
     DateOnly? FechaFin,

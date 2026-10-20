@@ -2,6 +2,7 @@
 //   empresa → planta → turnos habilitados
 //   empresa → puesto
 //   planta  → centro SAP → centro de costo
+//   planta  → aparato marcador
 //
 // El turno depende de la planta porque el turno especial de sábado solo existe en
 // Planta 01, y esa restricción vive en el catálogo, no en el código. Centro depende
@@ -22,16 +23,45 @@
     var centro = document.getElementById("CentroId");
     var centroCosto = document.getElementById("CentroCostoId");
     var puesto = document.getElementById("PuestoId");
-    var marcador = document.getElementById("IdMarcador");
+    var aparato = document.getElementById("EquipoMarcadorId");
+    var numero = document.getElementById("IdMarcador");
 
     if (!empresa || !planta || !turno || !centro || !centroCosto || !puesto) {
         return;
     }
 
-    // Los marcadores se identifican por su código en texto y no por el id de la fila del
-    // catálogo: es el texto lo que se guarda en la asignación y lo que cruza con el
-    // archivo del marcador. Por eso su desplegable lee otra propiedad del JSON.
-    function repoblar(select, opciones, textoVacio, clave) {
+    // Los aparatos de la planta. Con uno solo se deja elegido y sin opción vacía: no hay
+    // nada que preguntar, y se cargan de una vez sus números.
+    function repoblarAparatos(opciones, textoVacio) {
+        if (!aparato) {
+            return;
+        }
+
+        aparato.innerHTML = "";
+
+        if (opciones.length !== 1) {
+            var vacia = document.createElement("option");
+            vacia.value = "";
+            vacia.textContent = opciones.length === 0 ? textoVacio : "Seleccione el aparato…";
+            aparato.appendChild(vacia);
+        }
+
+        opciones.forEach(function (opcion) {
+            var elemento = document.createElement("option");
+            elemento.value = opcion.id;
+            // textContent, nunca innerHTML: el nombre viene de la base de datos.
+            elemento.textContent = opcion.nombre + " (" + opcion.codigo + ")";
+            aparato.appendChild(elemento);
+        });
+
+        if (opciones.length === 1) {
+            cargarNumeros(opciones[0].id);
+        } else {
+            repoblarNumeros([], opciones.length === 0 ? textoVacio : "Elija un marcador…");
+        }
+    }
+
+    function repoblar(select, opciones, textoVacio) {
         select.innerHTML = "";
 
         var vacia = document.createElement("option");
@@ -41,26 +71,67 @@
 
         opciones.forEach(function (opcion) {
             var elemento = document.createElement("option");
-            elemento.value = opcion[clave || "id"];
+            elemento.value = opcion.id;
             // textContent, nunca innerHTML: el nombre viene de la base de datos.
             elemento.textContent = opcion.nombre;
             select.appendChild(elemento);
         });
     }
 
-    function cargar(url, destino, textoVacio, clave) {
+    // Los números registrados del marcador elegido, con quién tiene hoy cada uno. Solo se
+    // elige entre estos: los números se dan de alta a mano en Marcadores.
+    function repoblarNumeros(opciones, textoVacio) {
+        if (!numero) {
+            return;
+        }
+
+        numero.innerHTML = "";
+
+        var vacia = document.createElement("option");
+        vacia.value = "";
+        vacia.textContent = opciones.length === 0 ? textoVacio : "Sin número asignado";
+        numero.appendChild(vacia);
+
+        opciones.forEach(function (opcion) {
+            var elemento = document.createElement("option");
+            elemento.value = opcion.codigo;
+            elemento.textContent = opcion.codigo + " · " + (opcion.asignadoA || "libre");
+            numero.appendChild(elemento);
+        });
+    }
+
+    function cargarNumeros(equipoId) {
+        if (!equipoId) {
+            repoblarNumeros([], "Elija un marcador…");
+            return;
+        }
+
+        pedir("/Trabajadores/NumerosDeEquipo?equipoId=" + encodeURIComponent(equipoId))
+            .then(function (datos) {
+                repoblarNumeros(datos, "El marcador no tiene números registrados");
+            })
+            .catch(function () {
+                repoblarNumeros([], "No se pudo cargar");
+            });
+    }
+
+    function pedir(url) {
         return fetch(url, { headers: { "Accept": "application/json" } })
             .then(function (respuesta) {
                 if (!respuesta.ok) {
                     throw new Error("No se pudo cargar el catálogo.");
                 }
                 return respuesta.json();
-            })
+            });
+    }
+
+    function cargar(url, destino, textoVacio) {
+        return pedir(url)
             .then(function (datos) {
-                repoblar(destino, datos, textoVacio, clave);
+                repoblar(destino, datos, textoVacio);
             })
             .catch(function () {
-                repoblar(destino, [], "No se pudo cargar", clave);
+                repoblar(destino, [], "No se pudo cargar");
             });
     }
 
@@ -91,9 +162,7 @@
             repoblar(turno, [], "Sin turno asignado");
             repoblar(centro, [], "Seleccione una planta…");
 
-            if (marcador) {
-                repoblar(marcador, [], "Seleccione una unidad…", "valor");
-            }
+            repoblarAparatos([], "Seleccione una unidad…");
 
             return;
         }
@@ -106,15 +175,22 @@
                centro,
                "Seleccione…");
 
-        // Cada marcador pertenece a una planta: al cambiarla, los que estaban ofrecidos
+        // Cada aparato pertenece a una planta: al cambiarla, los que estaban ofrecidos
         // dejan de ser válidos y el servidor rechazaría el guardado.
-        if (marcador) {
-            cargar("/Trabajadores/MarcadoresDePlanta?plantaId=" + encodeURIComponent(planta.value),
-                   marcador,
-                   "Sin marcador asignado",
-                   "valor");
-        }
+        pedir("/Trabajadores/EquiposDePlanta?plantaId=" + encodeURIComponent(planta.value))
+            .then(function (datos) {
+                repoblarAparatos(datos, "La unidad no tiene aparatos");
+            })
+            .catch(function () {
+                repoblarAparatos([], "No se pudo cargar");
+            });
     });
+
+    if (aparato) {
+        aparato.addEventListener("change", function () {
+            cargarNumeros(aparato.value);
+        });
+    }
 
     centro.addEventListener("change", function () {
         if (!centro.value) {

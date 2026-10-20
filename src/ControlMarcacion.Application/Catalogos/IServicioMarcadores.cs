@@ -31,6 +31,14 @@ public interface IServicioMarcadores
         string usuario,
         CancellationToken cancelacion = default);
 
-    /// <summary>Plantas disponibles, con su empresa, para el desplegable del formulario.</summary>
+    /// <summary>Plantas disponibles, con su empresa, para el filtro del listado.</summary>
     Task<IReadOnlyList<OpcionDto>> PlantasAsync(CancellationToken cancelacion = default);
+
+    /// <summary>Equipos activos, con su planta, para el desplegable del formulario.</summary>
+    /// <remarks>
+    /// Un marcador se da de alta contra un <b>equipo</b>, no contra una planta: la planta
+    /// se hereda del aparato. Si la lista vuelve vacía no hay nada que registrar todavía y
+    /// el formulario debe decirlo, en vez de ofrecer un desplegable sin opciones.
+    /// </remarks>
+    Task<IReadOnlyList<EquipoOpcionDto>> EquiposAsync(CancellationToken cancelacion = default);
 }

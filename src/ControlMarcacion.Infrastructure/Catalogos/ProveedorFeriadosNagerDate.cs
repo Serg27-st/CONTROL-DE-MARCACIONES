@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ControlMarcacion.Application.Catalogos;
 using ControlMarcacion.Domain.Comun;
-
 namespace ControlMarcacion.Infrastructure.Catalogos;
 
 /// <summary>

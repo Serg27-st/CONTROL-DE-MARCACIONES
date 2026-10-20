@@ -31,16 +31,55 @@ internal static class LectorCsv
             return [];
         }
 
-        var lineas = texto
+        var lineas = PartirRegistros(texto
             .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Split('\n');
+            .Replace('\r', '\n'));
 
         var delimitador = DetectarDelimitador(lineas.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)));
 
+        // Una fila de puros delimitadores (";;;;;;") es lo que deja Excel al guardar como
+        // CSV una hoja con filas borradas al final: no es un trabajador sin datos, y
+        // listarla como rechazada solo añade ruido al resultado de la carga.
         return [.. lineas
             .Where(linea => !string.IsNullOrWhiteSpace(linea))
-            .Select(linea => PartirLinea(linea, delimitador))];
+            .Select(linea => PartirLinea(linea, delimitador))
+            .Where(campos => campos.Any(campo => campo.Length > 0))];
+    }
+
+    /// <summary>
+    /// Separa el texto en registros por salto de línea, salvo los que caen dentro de
+    /// comillas.
+    /// </summary>
+    /// <remarks>
+    /// Excel escribe entre comillas una celda con Alt+Enter, y el salto viaja dentro del
+    /// campo: el padrón de Planta 1 del 18/09/2026 traía así su encabezado
+    /// (<c>"tipo⏎documento"</c>). Partir por cada salto de línea lo convertía en cinco
+    /// registros sueltos y rechazaba el archivo entero por columnas faltantes.
+    /// Dos comillas seguidas cambian el estado dos veces, así que la comilla escapada no
+    /// necesita un caso aparte.
+    /// </remarks>
+    private static List<string> PartirRegistros(string texto)
+    {
+        var registros = new List<string>();
+        var inicio = 0;
+        var dentroDeComillas = false;
+
+        for (var i = 0; i < texto.Length; i++)
+        {
+            if (texto[i] == '"')
+            {
+                dentroDeComillas = !dentroDeComillas;
+            }
+            else if (texto[i] == '\n' && !dentroDeComillas)
+            {
+                registros.Add(texto[inicio..i]);
+                inicio = i + 1;
+            }
+        }
+
+        registros.Add(texto[inicio..]);
+
+        return registros;
     }
 
     /// <summary>

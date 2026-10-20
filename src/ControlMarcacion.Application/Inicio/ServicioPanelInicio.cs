@@ -130,6 +130,7 @@ public sealed class ServicioPanelInicio(
             resumen.Conteo(Domain.Asistencia.EstadoTareo.Falta),
             resumen.Conteo(Domain.Asistencia.EstadoTareo.Tardanza),
             resumen.MinutosExtra,
+            resumen.Conteo(Domain.Asistencia.EstadoTareo.PendienteValidacion),
             calculo);
     }
 }

@@ -115,6 +115,13 @@ public sealed class LectorRespaldoZkteco(IOptions<OpcionesMarcador> opciones) : 
                 $"El respaldo del equipo {respaldo.Serie} no contiene ningún registro completo.");
         }
 
+        if (cuerpo.Length % respaldo.TamanoRegistro != 0)
+        {
+            return Rechazo(
+                $"El respaldo del equipo {respaldo.Serie} está truncado: contiene " +
+                $"{cuerpo.Length % respaldo.TamanoRegistro} byte(s) de un registro incompleto.");
+        }
+
         var registros = cuerpo.Length / respaldo.TamanoRegistro;
 
         // El último campo declarado es el que tiene que ser la fecha. Si no mide cuatro
@@ -152,6 +159,7 @@ public sealed class LectorRespaldoZkteco(IOptions<OpcionesMarcador> opciones) : 
     {
         var marcaciones = new List<MarcacionLeida>();
         var rechazadas = new List<LineaRechazada>();
+        var ignoradas = new List<EventoEquipoIgnorado>();
         var limiteAntiguedad = DateTime.Now.AddDays(-_opciones.DiasAntiguedadMaxima);
 
         for (var i = 0; i < registros; i++)
@@ -175,10 +183,11 @@ public sealed class LectorRespaldoZkteco(IOptions<OpcionesMarcador> opciones) : 
             // sería inventarse una marcación.
             if (campos[0] == 0)
             {
-                rechazadas.Add(new LineaRechazada(
-                    numero, original,
-                    "El registro no tiene identificador de marcador: no corresponde a " +
-                    "ninguna persona y el equipo lo escribió para sí mismo."));
+                // El timestamp y el layout ya fueron validados. Un ID físico cero no se
+                // atribuye a nadie: es un evento del equipo, no una marcación inválida.
+                // Los campos 5 y 6 forman el código opaco observado en el respaldo; se
+                // conserva sin inventarle un significado funcional.
+                ignoradas.Add(new EventoEquipoIgnorado(numero, CodigoEvento(campos)));
                 continue;
             }
 
@@ -203,8 +212,13 @@ public sealed class LectorRespaldoZkteco(IOptions<OpcionesMarcador> opciones) : 
                 original));
         }
 
-        return new ResultadoLectura(marcaciones, rechazadas);
+        // La serie viaja hasta la ingesta para poder contrastarla con el equipo que declaró
+        // quien carga: es la única comprobación automática de que el archivo salió de ese
+        // aparato y no del de al lado.
+        return new ResultadoLectura(marcaciones, rechazadas, respaldo.Serie, ignoradas);
     }
+
+    private static uint CodigoEvento(uint[] campos) => campos[4] | (campos[5] << 8);
 
     /// <summary>
     /// Busca en qué byte del registro empieza el bloque de campos.

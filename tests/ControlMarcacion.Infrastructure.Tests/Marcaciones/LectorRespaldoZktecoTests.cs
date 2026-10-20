@@ -57,6 +57,25 @@ public class LectorRespaldoZktecoTests
             .ShouldBe(fecha);
     }
 
+    [Theory]
+    [InlineData(2026, 1, 31, 23, 59, 59)]
+    [InlineData(2026, 2, 1, 0, 0, 0)]
+    [InlineData(2026, 12, 31, 23, 59, 59)]
+    [InlineData(2027, 1, 1, 0, 0, 0)]
+    public void Conserva_segundos_y_limites_de_mes_y_anio(
+        int anio,
+        int mes,
+        int dia,
+        int hora,
+        int minuto,
+        int segundo)
+    {
+        var fecha = new DateTime(anio, mes, dia, hora, minuto, segundo);
+
+        LectorRespaldoZkteco.DecodificarTiempo(RespaldoDePrueba.CodificarTiempo(fecha))
+            .ShouldBe(fecha);
+    }
+
     /// <summary>
     /// El empaquetado permite combinaciones como el 31 de febrero. Que existan es la señal
     /// de que se está leyendo el campo equivocado, así que devolver <c>null</c> es lo que
@@ -129,7 +148,7 @@ public class LectorRespaldoZktecoTests
     /// marcación que después se paga.
     /// </summary>
     [Fact]
-    public void Un_registro_sin_identificador_se_rechaza_en_vez_de_atribuirse()
+    public void BKIGN_01_un_evento_sin_identificador_se_ignora_en_vez_de_atribuirse_o_rechazarse()
     {
         var datos = RespaldoDePrueba.Archivo(
             new RespaldoDePrueba.Marca(0, new DateTime(2026, 8, 24, 15, 11, 43)),
@@ -139,8 +158,98 @@ public class LectorRespaldoZktecoTests
 
         resultado.Marcaciones.Count.ShouldBe(1);
         resultado.Marcaciones[0].IdMarcador.ShouldBe("2");
+        resultado.EventosEquipoIgnorados.Count.ShouldBe(1);
+        resultado.EventosEquipoIgnorados[0].CodigoEvento.ShouldBe(3u);
+        resultado.Rechazadas.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(27)]
+    [InlineData(751)]
+    [InlineData(752)]
+    public void BKIGN_03_04_05_conserva_el_codigo_opaco_del_evento_ignorado(ushort codigo)
+    {
+        var datos = RespaldoDePrueba.Archivo(
+            new RespaldoDePrueba.Marca(
+                0,
+                new DateTime(2026, 10, 1, 8, 0, 0),
+                Verificacion: codigo > byte.MaxValue ? (byte)200 : (byte)1,
+                Evento: codigo));
+
+        var resultado = Leer(datos);
+
+        resultado.Marcaciones.ShouldBeEmpty();
+        resultado.Rechazadas.ShouldBeEmpty();
+        resultado.EventosEquipoIgnorados.ShouldBe(
+            [new EventoEquipoIgnorado(1, codigo)]);
+    }
+
+    [Fact]
+    public void BKIGN_06_un_timestamp_imposible_sigue_siendo_error()
+    {
+        var fecha = new DateTime(2026, 10, 1, 8, 0, 0);
+        var marcas = Enumerable.Range(0, 11)
+            .Select(i => new RespaldoDePrueba.Marca((uint)(i + 1), fecha.AddMinutes(i)))
+            .ToArray();
+        var datos = RespaldoDePrueba.Archivo(marcas);
+        var febrero31 = (uint)(((((2026 - 2000) * 12) + 1) * 31 + 30) * 86400);
+        BitConverter.GetBytes(febrero31).CopyTo(
+            datos,
+            RespaldoDePrueba.Cabecera().Length + RespaldoDePrueba.DesplazamientoReal + 12);
+
+        var resultado = Leer(datos);
+
+        resultado.Marcaciones.Count.ShouldBe(10);
+        resultado.EventosEquipoIgnorados.ShouldBeEmpty();
         resultado.Rechazadas.Count.ShouldBe(1);
-        resultado.Rechazadas[0].Motivo.ShouldContain("identificador");
+        resultado.Rechazadas[0].Motivo.ShouldContain("no es una fecha real");
+    }
+
+    [Fact]
+    public void BKIGN_07_un_registro_truncado_sigue_siendo_error_estructural()
+    {
+        var completo = RespaldoDePrueba.Archivo(
+            new RespaldoDePrueba.Marca(1, new DateTime(2026, 10, 1, 8, 0, 0)),
+            new RespaldoDePrueba.Marca(2, new DateTime(2026, 10, 1, 8, 1, 0)));
+
+        var resultado = Leer(completo[..^1]);
+
+        resultado.Marcaciones.ShouldBeEmpty();
+        resultado.EventosEquipoIgnorados.ShouldBeEmpty();
+        resultado.Rechazadas.Count.ShouldBe(1);
+        resultado.Rechazadas[0].Motivo.ShouldContain("truncado");
+    }
+
+    [Fact]
+    public void BKIGN_08_fixture_estructural_981_reparte_851_aceptadas_130_ignoradas_y_cero_errores()
+    {
+        var inicio = new DateTime(2026, 10, 1, 3, 26, 9);
+        var marcas = new List<RespaldoDePrueba.Marca>(981);
+
+        for (var i = 0; i < 851; i++)
+        {
+            marcas.Add(new RespaldoDePrueba.Marca((uint)((i % 127) + 1), inicio.AddSeconds(i)));
+        }
+
+        for (var i = 0; i < 126; i++)
+        {
+            marcas.Add(new RespaldoDePrueba.Marca(0, inicio.AddSeconds(851 + i), Evento: 27));
+        }
+
+        marcas.Add(new RespaldoDePrueba.Marca(0, inicio.AddSeconds(977), Verificacion: 200, Evento: 751));
+        marcas.Add(new RespaldoDePrueba.Marca(0, inicio.AddSeconds(978), Verificacion: 200, Evento: 752));
+        marcas.Add(new RespaldoDePrueba.Marca(0, inicio.AddSeconds(979), Verificacion: 200, Evento: 751));
+        marcas.Add(new RespaldoDePrueba.Marca(0, inicio.AddSeconds(980), Verificacion: 200, Evento: 752));
+
+        var resultado = Leer(RespaldoDePrueba.Archivo([.. marcas]));
+
+        resultado.TotalLineas.ShouldBe(981);
+        resultado.Marcaciones.Count.ShouldBe(851);
+        resultado.EventosEquipoIgnorados.Count.ShouldBe(130);
+        resultado.Rechazadas.ShouldBeEmpty();
+        resultado.EventosEquipoIgnorados.Count(x => x.CodigoEvento == 27).ShouldBe(126);
+        resultado.EventosEquipoIgnorados.Count(x => x.CodigoEvento == 751).ShouldBe(2);
+        resultado.EventosEquipoIgnorados.Count(x => x.CodigoEvento == 752).ShouldBe(2);
     }
 
     /// <summary>

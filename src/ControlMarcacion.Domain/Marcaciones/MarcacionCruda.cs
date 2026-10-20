@@ -1,9 +1,10 @@
+using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 
 namespace ControlMarcacion.Domain.Marcaciones;
 
 /// <summary>
-/// Marcación tal como la reportó el marcador ZKTeco. <b>Dato duro e inmutable.</b>
+/// Marcación tal como la reportó un equipo ZKTeco. <b>Dato duro e inmutable.</b>
 /// </summary>
 /// <remarks>
 /// Esta es la piedra angular de la auditabilidad del sistema:
@@ -15,16 +16,32 @@ namespace ControlMarcacion.Domain.Marcaciones;
 /// realmente, y con ella la capacidad de defender la planilla ante una inspección.
 ///
 /// La protección real contra recargar dos veces el mismo archivo es el índice único
-/// sobre (TrabajadorId, FechaHora, IdMarcador), no una validación en C#.
+/// sobre (EquipoId, IdMarcador, FechaHora), no una validación en C#. ⚠️ El equipo forma
+/// parte de la clave: sin él, dos aparatos que numeran a su gente desde el 1 producirían
+/// marcaciones que el índice tomaría por repetidas y descartaría en silencio.
+///
+/// <b>No guarda de quién es.</b> Solo lo que dijo el aparato: equipo, número y hora. El
+/// dueño lo decide <see cref="AtribucionMarcaciones"/> al calcular, con la asignación de
+/// ID vigente en la fecha de la marcación. Guardarlo aquí congelaba la atribución del
+/// momento de la carga: un número sin dueño ese día se descartaba, y uno asignado mal
+/// quedaba para siempre a nombre de otra persona.
 /// </remarks>
 public class MarcacionCruda : EntidadBase
 {
-    /// <summary>Trabajador resuelto por la asignación de marcador vigente a la fecha.</summary>
-    public long TrabajadorId { get; set; }
+    /// <summary>Aparato del que salió esta marcación.</summary>
+    /// <remarks>
+    /// Es lo que hace atribuible el archivo: el TXT del G3 no trae ninguna columna que
+    /// diga de qué equipo salió, así que este dato lo declara quien carga el archivo y se
+    /// contrasta contra la serie cuando el formato la trae.
+    /// </remarks>
+    public long EquipoId { get; set; }
+
+    public EquipoMarcador? Equipo { get; set; }
 
     /// <summary>
-    /// Identificador tal como vino en el archivo. Se conserva textualmente aunque ya
-    /// esté resuelto el trabajador: es la evidencia de lo que dijo el equipo.
+    /// Número del usuario en el aparato, tal como vino en el archivo, con sus ceros a la
+    /// izquierda. Junto con <see cref="EquipoId"/> y la fecha es lo que identifica a la
+    /// persona.
     /// </summary>
     public string IdMarcador { get; set; } = null!;
 

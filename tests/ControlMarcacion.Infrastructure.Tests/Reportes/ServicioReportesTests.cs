@@ -391,6 +391,7 @@ public sealed class ServicioReportesTests : IDisposable
             FechaIngreso = new DateOnly(2020, 1, 1)
         };
 
+        trabajador.AbrirVinculo("prueba");
         await contexto.Trabajadores.AddAsync(trabajador, CancellationToken.None);
         await contexto.SaveChangesAsync(CancellationToken.None);
 

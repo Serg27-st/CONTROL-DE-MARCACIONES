@@ -146,7 +146,12 @@ internal sealed class ServicioPeriodos(MarcacionDbContext contexto) : IServicioP
         periodo.CerradoPor = usuario;
         periodo.ModificadoPor = usuario;
 
-        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        // Cerrar es de las dos únicas operaciones que INCREMENTAN la versión (la otra es
+        // reabrir): invalida toda escritura que estuviera en vuelo dentro del periodo, que
+        // es justamente lo que se quiere al cerrar el mes.
+        periodo.Version++;
+
+        await GuardarConcurrenteAsync(periodo, "cerraba el periodo", cancelacion).ConfigureAwait(false);
     }
 
     public async Task ReabrirAsync(
@@ -174,8 +179,34 @@ internal sealed class ServicioPeriodos(MarcacionDbContext contexto) : IServicioP
         periodo.ReabiertoPor = usuario;
         periodo.MotivoReapertura = motivo.Trim();
         periodo.ModificadoPor = usuario;
+        periodo.Version++;
 
-        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        await GuardarConcurrenteAsync(periodo, "reabría el periodo", cancelacion).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Guarda el cambio de estado del periodo traduciendo el choque de concurrencia.
+    /// </summary>
+    /// <remarks>
+    /// Dos cierres simultáneos pasaban los dos la comprobación y escribían los dos: el
+    /// último ganaba, y <c>CerradoPor</c> quedaba a nombre de quien llegó después mientras
+    /// la auditoría mostraba dos cierres del mismo periodo. Ahora el segundo se entera.
+    /// </remarks>
+    private async Task GuardarConcurrenteAsync(
+        Periodo periodo,
+        string queSeEstabaHaciendo,
+        CancellationToken cancelacion)
+    {
+        try
+        {
+            await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw await contexto
+                .ExplicarChoqueAsync(periodo.Id, queSeEstabaHaciendo, cancelacion)
+                .ConfigureAwait(false);
+        }
     }
 
     public async Task<IReadOnlyList<DiaSinPeriodo>> DetectarDiasSinPeriodoAsync(

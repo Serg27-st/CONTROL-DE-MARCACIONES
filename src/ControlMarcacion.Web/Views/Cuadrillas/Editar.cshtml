@@ -1,0 +1,67 @@
+@model EditarCuadrillaVm
+@{
+    ViewData["Title"] = Model.EsNuevo ? "Nueva cuadrilla" : "Editar cuadrilla";
+}
+
+<div class="titulo-pagina">
+    <h1>@ViewData["Title"]</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver a cuadrillas</a>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Datos.Id" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo guardar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.Codigo">Código</label>
+                <input asp-for="Datos.Codigo" type="text" maxlength="20" placeholder="A" />
+                <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
+                <small class="texto-suave">Único dentro de la planta: «A» y «B» en cada una.</small>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.Nombre">Nombre</label>
+                <input asp-for="Datos.Nombre" type="text" maxlength="80" placeholder="Cuadrilla A" />
+                <span class="error-campo" asp-validation-for="Datos.Nombre"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.PlantaId">Planta</label>
+                <select asp-for="Datos.PlantaId" class="select-buscable"
+                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+                <small class="texto-suave">
+                    Solo pueden integrarla trabajadores de esta planta, y su ciclo solo admite
+                    turnos habilitados en ella.
+                </small>
+            </div>
+
+            <div class="campo campo-casilla">
+                <input asp-for="Datos.Activo" type="checkbox" />
+                <label asp-for="Datos.Activo">Activa</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Guardar</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

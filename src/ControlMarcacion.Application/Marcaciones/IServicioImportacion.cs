@@ -21,9 +21,22 @@ public interface IServicioImportacion
     /// <summary>
     /// Lee el archivo, resuelve cada marcación contra el padrón y persiste las nuevas.
     /// </summary>
+    /// <param name="plantaId">Planta declarada por quien carga.</param>
+    /// <param name="equipoId">Aparato del que se extrajo el archivo.</param>
+    /// <remarks>
+    /// ⚠️ <b>Planta y equipo son obligatorios y no se deducen del archivo.</b> El TXT del
+    /// G3 no trae ninguna columna que diga de qué aparato salió, y en una planta con dos
+    /// marcadores el mismo código identifica a dos personas distintas. Sin declararlo, la
+    /// resolución ID → trabajador es ambigua y funde las jornadas de ambas.
+    ///
+    /// La planta es redundante —el equipo ya la conoce— y esa redundancia es el control:
+    /// si no coinciden, la carga se rechaza en vez de atribuir el archivo a otra planta.
+    /// </remarks>
     Task<ResultadoImportacion> ImportarAsync(
         Stream contenido,
         string nombreArchivo,
+        long plantaId,
+        long equipoId,
         string usuario,
         CancellationToken cancelacion = default);
 
@@ -58,6 +71,23 @@ public interface IServicioImportacion
     /// Cuenta <b>solo cargas vigentes</b>, igual que el calendario y que el motor: las
     /// marcaciones de una importación anulada existen pero no alimentan ningún tareo.
     /// </remarks>
+    /// <summary>
+    /// Por cada día del rango, los aparatos de los que se esperaba archivo y no llegó.
+    /// </summary>
+    /// <remarks>
+    /// Lo consume el motor de cálculo: un día sin archivo del aparato de una persona no es
+    /// una falta suya, es un dato que no llegó. Vive aquí y no en Asistencia para que haya
+    /// <b>una sola regla de cobertura</b> en el sistema — la misma que pinta el calendario
+    /// de Marcaciones y la tarjeta de la portada—. Si divergieran, el calendario diría que
+    /// el mes está cubierto y el tareo sacaría faltas de los días que faltan.
+    ///
+    /// Los días sin faltantes no aparecen en el diccionario.
+    /// </remarks>
+    Task<IReadOnlyDictionary<DateOnly, IReadOnlyList<long>>> AparatosSinCargaAsync(
+        DateOnly desde,
+        DateOnly hasta,
+        CancellationToken cancelacion = default);
+
     Task<CoberturaDeRango> CoberturaDeRangoAsync(
         DateOnly desde,
         DateOnly hasta,
@@ -65,6 +95,19 @@ public interface IServicioImportacion
 
     Task<ResultadoImportacion?> ObtenerResultadoAsync(
         long importacionId,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Números de aparato con marcaciones vigentes en el rango que ningún trabajador tenía
+    /// asignados en esas fechas.
+    /// </summary>
+    /// <remarks>
+    /// Se calcula en vivo con la misma regla que el motor, así que se vacía sola a medida
+    /// que se asignan los números: no depende de lo que se avisó al cargar el archivo.
+    /// </remarks>
+    Task<IReadOnlyList<NumeroSinAsignarDto>> NumerosSinAsignarAsync(
+        DateOnly desde,
+        DateOnly hasta,
         CancellationToken cancelacion = default);
 
     /// <summary>

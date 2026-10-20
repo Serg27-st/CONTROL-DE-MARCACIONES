@@ -3,7 +3,8 @@
 Instalación del sistema en una sola PC con Windows, arrancando solo con el equipo y
 **sin instalar nada**.
 
-El destino es **una PC, no un servidor**: la aplicación escucha en `http://localhost:5000`
+El destino es **una PC, no un servidor**: la aplicación escucha solo en
+`http://127.0.0.1:5000`
 y solo se usa desde esa máquina. Nada de esto sirve para publicarla en red — para eso
 harían falta certificado, HTTPS y revisar `AllowedHosts`.
 
@@ -68,7 +69,8 @@ dígito**.
 
 Ese archivo también fija:
 
-- `Urls`: `http://localhost:5000` — solo esta PC.
+- `Despliegue:PuertoPreferido`: `5000` — primer puerto que intenta Kestrel.
+- `Urls`: `http://127.0.0.1:5000` — solo esta PC; el modo local fuerza loopback IPv4.
 - `Despliegue:ExigirHttps`: `false` — sin esto la aplicación redirige a `https://localhost`,
   donde no escucha nadie, y queda inaccesible.
 - `Despliegue:RutaBaseDatos`: vacío usa `C:\ProgramData`. Se puede apuntar a otra unidad.
@@ -106,7 +108,8 @@ catálogos.
 
 ## 4. Comprobar
 
-1. Abre `http://localhost:5000` — debe salir la pantalla de ingreso.
+1. Abre `http://127.0.0.1:5000` — debe salir la pantalla de ingreso. Si el puerto estaba
+   ocupado, usa el puerto mostrado por la aplicación o el acceso directo.
 2. Entra con el correo y la contraseña que pusiste en `Seguridad` dentro de
    `appsettings.Production.json`.
 3. **Cambia la contraseña desde la aplicación** y luego vacía `Seguridad:AdminClave` en
@@ -161,21 +164,95 @@ protege del fallo más probable, que es que ese disco muera.
 
 Las migraciones pendientes se aplican solas al arrancar. No hay script de base que correr.
 
-Para regenerar el paquete desde el repositorio:
+### Generar el paquete nuevo (en la PC de desarrollo)
+
+Se arma con un solo script, desde la raíz del repositorio:
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools\despliegue\publicar.ps1
+```
+
+Requiere el SDK de .NET 10 (`winget install Microsoft.DotNet.SDK.10`) **solo en esa PC**; la
+PC destino no necesita nada. El resultado queda en `despliegue\ControlMarcaciones.zip`.
+
+Hace siete cosas y se detiene en la primera que falle:
+
+1. **Comprueba que el `.exe` anterior no esté en uso.** Mientras corre, Windows lo bloquea y
+   la publicación muere a mitad de camino.
+2. **Corre la suite de pruebas.** Si alguna falla, no publica.
+3. **Publica** el `.exe` autocontenido en `despliegue\exe\`.
+4. **Conserva `appsettings.Production.json`** —la configuración con la contraseña, que no
+   está en el código fuente— y copia la guía (`LEEME-despliegue.md`) y el instalador.
+5. **Arranca el `.exe` contra una base temporal** y espera a que responda. Prueba lo mismo
+   que vivirá la PC destino el primer día —base nueva, migraciones desde cero, catálogos
+   sembrados— sin tocar la base real de esta PC.
+6. **Arma el ZIP.**
+7. **Lo revisa**: que tenga el `.exe`, las dos configuraciones, el instalador, la guía y
+   `wwwroot\`. Al final avisa si lleva la contraseña real o la de relleno.
+
+`-SinPruebas` y `-SinArranque` saltan los pasos 2 y 5; úsalos solo para reempaquetar algo
+que ya se probó.
+
+#### Qué hace `dotnet publish`, opción por opción
+
+| Opción | Qué hace | Por qué |
+|---|---|---|
+| `-c Release` | Compila optimizado | Es la versión que va a producción |
+| `-r win-x64` | Genera para Windows de 64 bits | Un paquete autocontenido es de un sistema operativo concreto |
+| `--self-contained true` | Mete el runtime de .NET dentro | La PC destino no instala .NET |
+| `PublishSingleFile=true` | Junta todo en un solo `.exe` | Un archivo que copiar, no cientos de `.dll` |
+| `IncludeNativeLibrariesForSelfExtract=true` | Mete también las librerías nativas (el motor de SQLite) | Sin esto quedarían `.dll` sueltas al lado |
+| `EnableCompressionInSingleFile=true` | Comprime el contenido del `.exe` | Hoy queda en ~57 MB |
+| `DebugType=none` | No genera `.pdb` | Nadie depura en la PC destino |
+| `-o despliegue\exe` | Carpeta de salida | Fuera de git: ahí vive la contraseña |
+
+Lo que **no** entra en el `.exe` queda al lado: `wwwroot\` (estilos y scripts, que el
+navegador pide como archivos), los dos `appsettings` (se leen al arrancar y se editan sin
+recompilar) y `web.config` (lo genera el SDK para IIS; aquí no se usa).
+
+#### Dónde vive cada pieza
+
+| Pieza | Dónde | ¿Se versiona? |
+|---|---|---|
+| `publicar.ps1`, `instalar.ps1` | `tools\despliegue\` | Sí |
+| Plantilla de configuración | `tools\despliegue\appsettings.Production.plantilla.json` | Sí, con la contraseña de relleno |
+| Configuración real | `despliegue\exe\appsettings.Production.json` | **No**: lleva la contraseña |
+| `.exe` y ZIP | `despliegue\` | **No**: se regeneran |
+
+Si `despliegue\exe\appsettings.Production.json` no existe —en un clon nuevo del
+repositorio—, el script copia la plantilla y avisa. **Sin ese archivo el paquete no
+funcionaría**: la aplicación arrancaría con los valores por defecto, redirigiría a HTTPS y
+quedaría inaccesible.
+
+#### Sin el script
+
+Son los mismos pasos a mano, desde la raíz del repositorio y con el sistema cerrado:
+
+```bash
+dotnet test
+```
 
 ```bash
 dotnet publish src/ControlMarcacion.Web -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o despliegue/exe
 ```
 
+```bash
+Copy-Item docs\05-despliegue.md despliegue\exe\LEEME-despliegue.md; Copy-Item tools\despliegue\instalar.ps1 despliegue\exe\; Compress-Archive -Path despliegue\exe\* -DestinationPath despliegue\ControlMarcaciones.zip -Force
+```
+
+⚠️ El ZIP lleva `appsettings.Production.json` tal como esté en `despliegue\exe\`. Si ahí
+está la contraseña real, el ZIP también: no lo mandes por correo y bórralo del USB después
+de instalar.
+
 ## Si algo falla
 
-**El sistema no está en el 5000.** Es normal y no hay que hacer nada: si ese puerto lo tiene
-otra aplicación —en Windows está muy disputado (UPnP/SSDP dentro de `svchost`, Docker
-Desktop, IIS Express)—, el sistema arranca en el primero libre de `PuertosRespaldo` y lo
-avisa al iniciarse:
+**El sistema no está en el 5000.** Es normal y no hay que hacer nada: si Kestrel recibe
+`AddressInUse` —el 5000 está muy disputado en Windows—, el ejecutable se relanza en 5001,
+5002, 5003 y así sucesivamente hasta conseguir el bind real. No se basa en una prueba previa
+que abra y cierre el puerto.
 
 ```
-El puerto 5000 está ocupado por otra aplicación. El sistema se inicia en http://localhost:5080
+El puerto 5000 fue rechazado por Kestrel (AddressInUse). Se reintentará en http://127.0.0.1:5001
 ```
 
 El acceso directo del escritorio sigue funcionando: apunta al ejecutable, que busca la
@@ -186,8 +263,9 @@ ocupaba el puerto:
 Get-NetTCPConnection -LocalPort 5000 -State Listen | Select-Object OwningProcess,@{n='Proceso';e={(Get-Process -Id $_.OwningProcess).ProcessName}}
 ```
 
-Solo hay que tocar la configuración si estuvieran ocupados **todos** los de la lista; en ese
-caso el arranque lo dice y basta con agregar otro a `Despliegue:PuertosRespaldo`.
+El navegador solo se abre después de que `/vivo` identifica la aplicación y `/estado` responde
+HTTP 200 con `ControlMarcaciones-OK;LISTO`. Si readiness devuelve 503, el proceso sigue vivo,
+no abre el navegador y muestra el motivo seguro devuelto por `/estado`.
 
 **No responde en ningún puerto.** Ejecuta el `.exe` a mano desde una consola: en consola el
 error se ve, en la tarea programada no.

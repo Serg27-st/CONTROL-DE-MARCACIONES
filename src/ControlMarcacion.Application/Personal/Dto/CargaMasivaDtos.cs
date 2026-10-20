@@ -11,6 +11,15 @@ namespace ControlMarcacion.Application.Personal.Dto;
 public sealed record ErrorCargaMasiva(int Fila, string Referencia, string Motivo);
 
 /// <summary>
+/// ID de marcador que la carga dio de alta en el catálogo de su aparato porque faltaba.
+/// </summary>
+/// <remarks>
+/// Se lista en el resultado, agrupado por aparato, para que un error de tipeo en el padrón
+/// salte a la vista en vez de quedar registrado como un número más.
+/// </remarks>
+public sealed record MarcadorRegistradoEnCarga(int Fila, string Codigo, string Equipo);
+
+/// <summary>
 /// Resultado de procesar el archivo.
 /// </summary>
 /// <remarks>
@@ -24,7 +33,15 @@ public sealed record ResultadoCargaMasiva(
     int FilasLeidas,
     int Creados,
     IReadOnlyList<ErrorCargaMasiva> Errores,
-    bool SoloValidacion)
+    bool SoloValidacion,
+    /// <summary>ID de marcador que la carga registró en el catálogo porque faltaban.</summary>
+    IReadOnlyList<MarcadorRegistradoEnCarga> MarcadoresRegistrados,
+    /// <summary>
+    /// Filas rechazadas porque su número de marcador no está en el catálogo de su aparato y
+    /// la carga se hizo sin registrar los que faltan. La pantalla lo usa para decir que basta
+    /// con volver a subir el archivo con esa casilla marcada.
+    /// </summary>
+    int FilasSinMarcadorEnCatalogo)
 {
     public bool TieneErrores => Errores.Count > 0;
 

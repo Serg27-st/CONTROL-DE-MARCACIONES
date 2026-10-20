@@ -82,7 +82,7 @@ else if (!panel.HayPendientes)
             <span class="tarjeta-panel-cifra">
                 @if (cobertura.HayHuecos)
                 {
-                    @cobertura.DiasSinMarcacion
+                    @cobertura.DiasPorRevisar
                 }
                 else
                 {
@@ -93,9 +93,12 @@ else if (!panel.HayPendientes)
             <span class="tarjeta-panel-rotulo">
                 @if (cobertura.HayHuecos)
                 {
+                    @* Se separan las dos causas: un día sin nada puede ser un feriado; un día
+                       con un aparato sin cargar es casi siempre un archivo olvidado. *@
                     <text>
-                        día(s) transcurrido(s) sin ninguna marcación, de
-                        @cobertura.DiasTranscurridos
+                        día(s) por revisar, de @cobertura.DiasTranscurridos transcurrido(s):
+                        @cobertura.DiasSinMarcacion sin ninguna marcación y
+                        @cobertura.DiasIncompletos con algún aparato sin cargar
                     </text>
                 }
                 else
@@ -105,7 +108,14 @@ else if (!panel.HayPendientes)
             </span>
 
             <span class="tarjeta-panel-pie">
-                @cobertura.Marcaciones.ToString("N0", cultura) marcación(es) vigente(s) ·
+                @if (cobertura.AparatosConFaltantes.Count > 0)
+                {
+                    <text>Faltan archivos de @string.Join(", ", cobertura.AparatosConFaltantes) ·</text>
+                }
+                else
+                {
+                    <text>@cobertura.Marcaciones.ToString("N0", cultura) marcación(es) vigente(s) ·</text>
+                }
                 @(cobertura.HayHuecos ? "Revisar qué días faltan" : "Ver el calendario")
             </span>
         </a>
@@ -162,6 +172,31 @@ else if (!panel.HayPendientes)
 
             <span class="tarjeta-panel-pie">
                 @e.Tardanzas tardanza(s) · @Horas(e.MinutosExtra) h de sobretiempo
+            </span>
+        </a>
+    }
+
+    @* ----------------------------------------------------------- Incidencias ---- *@
+    @*
+        Va después de las excepciones y antes de las solicitudes porque responde otra
+        pregunta: las excepciones son días que el sistema sí resolvió —y alguien debe
+        revisar—, y esto son días que NO pudo resolver. Ninguno de ellos es una falta
+        todavía, y cerrar el mes sin mirarlos es cerrarlo a medias.
+    *@
+    @if (Model.GestionaTareo && panel.Tareo is { } inc && !inc.Calculo.SinCalcular)
+    {
+        <a class="tarjeta-panel @(inc.PendientesDeValidar > 0 ? "atencion" : "")"
+           asp-controller="Incidencias" asp-action="Index"
+           asp-route-periodoId="@panel.Periodo!.Id">
+            <span class="tarjeta-panel-titulo">Incidencias sin resolver</span>
+
+            <span class="tarjeta-panel-cifra">@inc.PendientesDeValidar.ToString("N0", cultura)</span>
+            <span class="tarjeta-panel-rotulo">día(s) que el sistema no pudo decidir</span>
+
+            <span class="tarjeta-panel-pie">
+                @(inc.PendientesDeValidar > 0
+                    ? "No cuentan como falta hasta que alguien los resuelva"
+                    : "Nada esperando decisión")
             </span>
         </a>
     }

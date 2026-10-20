@@ -110,12 +110,52 @@
                     sino si llegó tarde.
                 </small>
             </div>
+
+            <div class="campo">
+                <label asp-for="Datos.MinutosGraciaSalida">Gracia de salida (minutos)</label>
+                <input asp-for="Datos.MinutosGraciaSalida" type="number" min="0" max="30" />
+                <span class="error-campo" asp-validation-for="Datos.MinutosGraciaSalida"></span>
+                <small class="texto-suave">
+                    Minutos <strong>después</strong> del fin en que salir todavía no cuenta como
+                    sobretiempo: la cola frente al lector. En 0, todo minuto posterior al fin es
+                    sobretiempo. Pasada la gracia se cuenta todo desde el fin del turno.
+                </small>
+            </div>
         </div>
 
         <p class="nota-pie">
             Llegar antes del inicio <strong>no genera hora extra automáticamente</strong>.
             La jornada se computa desde la hora del turno: el sobretiempo es voluntario y
-            requiere autorización (D.S. 007-2002-TR, art. 9).
+            requiere autorización (D.S. 007-2002-TR, art. 9). La gracia de salida es su
+            simétrico al final del turno, y debe ser corta: el mismo artículo considera
+            autorizado el sobretiempo que se acredita aunque nadie lo haya ordenado. Después
+            de cambiarla, recalcule los periodos abiertos.
+        </p>
+    </div>
+
+    @* El horario del turno tiene vigencia por fecha: cambiarlo no reescribe los meses
+       anteriores. Esta fecha es la frontera entre el horario que regía y el nuevo, y sirve
+       para anotar el cambio el día en que ocurrió cuando se registra tarde. *@
+    <div class="tarjeta">
+        <h2>Desde cuándo rige este horario</h2>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.RigeDesde">Rige desde</label>
+                <input asp-for="Datos.RigeDesde" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.RigeDesde"></span>
+                <small class="texto-suave">
+                    Opcional. Vacío: <strong>desde hoy</strong>. Los días anteriores se siguen
+                    calculando con el horario que regía entonces, así que recalcular un mes
+                    pasado no lo mueve. Si el horario estaba mal <strong>desde el principio</strong>,
+                    ponga una fecha igual o anterior al inicio de la vigencia actual y se
+                    corrige en sitio, sin partir la historia.
+                </small>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            No se admite una fecha que alcance días de un <strong>periodo cerrado</strong>:
+            al siguiente recálculo cambiaría un mes ya pagado.
         </p>
     </div>
 

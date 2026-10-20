@@ -42,7 +42,7 @@ public static partial class InicializadorSeguridad
         if (string.IsNullOrWhiteSpace(correo) || string.IsNullOrWhiteSpace(clave))
         {
             RegistrarFaltanCredenciales(logger);
-            return;
+            throw new CredencialesBootstrapFaltantesException();
         }
 
         // COORDINADOR, no ADMINISTRADOR: desde el rediseño de roles, ADMINISTRADOR gestiona

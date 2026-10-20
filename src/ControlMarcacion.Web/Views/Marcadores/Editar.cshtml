@@ -26,6 +26,15 @@
         </div>
     }
 
+    @if (!Model.HayEquipos)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No hay ningún equipo registrado.</strong> Un código de marcador pertenece
+            a un aparato, así que primero hay que dar de alta el equipo ZKTeco en
+            <a asp-controller="Equipos" asp-action="Editar">Equipos marcadores</a>.
+        </div>
+    }
+
     <div class="tarjeta">
         <div class="rejilla">
             <div class="campo">
@@ -39,12 +48,25 @@
             </div>
 
             <div class="campo">
-                <label asp-for="Datos.PlantaId">Planta</label>
-                <select asp-for="Datos.PlantaId" class="select-buscable"
-                        asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
+                <label asp-for="Datos.EquipoId">Equipo</label>
+                <select asp-for="Datos.EquipoId" class="select-buscable"
+                        disabled="@Model.EstaEnUso"
+                        asp-items="@(Model.Equipos.Select(e => new SelectListItem(
+                            $"{e.Planta} · {e.Nombre}", e.Id.ToString())))">
                     <option value="">Seleccione…</option>
                 </select>
-                <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
+                <span class="error-campo" asp-validation-for="Datos.EquipoId"></span>
+                <small class="texto-suave">
+                    El aparato que emite este código. La <strong>planta se hereda del
+                    equipo</strong>: no se captura aquí para que no puedan quedar en
+                    desacuerdo.
+                </small>
+
+                @if (Model.EstaEnUso)
+                {
+                    @* Un select deshabilitado no se envía. *@
+                    <input type="hidden" asp-for="Datos.EquipoId" />
+                }
             </div>
 
             <div class="campo">
@@ -64,15 +86,18 @@
         {
             <div class="aviso aviso-error" role="status">
                 Este marcador tiene <strong>@Model.AsignacionesTotales asignación(es)</strong>
-                registradas, así que su código ya no se puede cambiar: las asignaciones lo
-                referencian por su texto y renombrarlo las dejaría apuntando a un código que
-                no existe. Si el código está mal, dé de baja este marcador y cree uno nuevo.
+                registradas, así que ni su código ni su equipo se pueden cambiar. Las
+                asignaciones se resuelven por <strong>(equipo, código, fecha)</strong>:
+                tocar cualquiera de los dos dejaría esas marcaciones sin dueño —irían al
+                reporte de «IDs sin trabajador»— y, si en el equipo de destino ese código ya
+                es de alguien, se atribuirían a la persona equivocada. Si el dato está mal,
+                dé de baja este marcador y cree uno nuevo.
             </div>
         }
     </div>
 
     <div class="acciones">
-        <button type="submit" class="boton boton-primario">Guardar</button>
+        <button type="submit" class="boton boton-primario" disabled="@(!Model.HayEquipos)">Guardar</button>
         <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
     </div>
 </form>

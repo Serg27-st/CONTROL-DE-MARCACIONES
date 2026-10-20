@@ -80,7 +80,13 @@ else
                         {
                             <tr>
                                 <td class="celda-trabajador"><strong>@f.Trabajador</strong></td>
-                                <td><code>@(f.IdMarcador ?? "—")</code></td>
+                                <td>
+                                    <code>@(f.IdMarcador ?? "—")</code>
+                                    @if (f.Equipo is not null)
+                                    {
+                                        <br /><small class="texto-suave">@f.Equipo</small>
+                                    }
+                                </td>
                                 <td>@f.Planta</td>
                                 <td>@(f.Centro ?? "—")</td>
                                 <td>@(f.CentroCosto ?? "—")</td>
