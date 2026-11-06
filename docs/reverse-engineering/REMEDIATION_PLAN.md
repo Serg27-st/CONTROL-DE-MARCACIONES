@@ -70,7 +70,7 @@ Mientras la preparación está incompleta, todas las rutas funcionales responden
 | P1-07 | Importación principal no atómica | DEUDA TÉCNICA · **RESUELTA** (R-P1-07) | dos `SaveChanges` y aprendizaje de serie sin transacción común | transacción SQLite tras parsing/dedupe; commit único y rollback con propagación | IMP-AT-01..07 verdes | RESUELTO |
 | P1-08 | Ausencia/licencia pagada completa acredita 480 | REQUISITO VIGENTE · **CERRADO** (R-P1-08) | `Aplicar` usa `MinutosJornadaOrdinaria`; DIU/NOC conservan 480 aunque el intervalo sea 622 | Sin cambio productivo; contratos y documentación reconciliados | AUS-PAG-01..05 verdes | RESUELTO |
 | P2-02 | Aprobación parcial | BUG/GAP | servicio permite omisiones | todo-o-nada o estado parcial | choque/periodo cerrado | P2 |
-| P2-03 | Borrado físico | DATOS/DISEÑO | La auditoría ya permite invalidar vigencia; el borrado sigue violando la invariante de evidencia | anulación lógica/versionada para el flujo funcional, sin urgencia para P1-04 | preservación funcional e historia | P2 |
+| P2-03 | Borrado físico | DATOS/DISEÑO · **RESUELTO (P2-AUS-008)** | La anulación conserva `Justificacion` como `Cancelada`, con resolución, versión y guarda de periodo | Mantener contratos; no reconstruir historia perdida sin fuente | AUS008-01..06 | RESUELTO |
 | P2-04 | Fórmula nocturna/refrigerio | REQUIERE NEGOCIO | políticas divergentes | decisión formal antes de código | matriz nocturna | P2 |
 | P3-01 | Drift, hardcodes y logging | DOCUMENTACIÓN/DEUDA | inventario Fase 5 | centralizar dueños y métricas | fronteras/configuración | P3 |
 
@@ -101,7 +101,7 @@ Mientras la preparación está incompleta, todas las rutas funcionales responden
 | ID | Acción | Código | Datos/operación |
 |---|---|---|---|
 | P2-02 | Aprobación parcial de solicitudes | Hacer aprobación todo-o-nada o estado explícito `AprobadaParcial` | Inventariar solicitudes aprobadas con días sin justificación |
-| P2-03 | Borrado físico de justificaciones | Sustituir por anulación lógica/versionada o evento de invalidación | No recrear evidencia sin fuente; conservar auditoría existente |
+| P2-03 | **RESUELTO (P2-AUS-008)** — borrado físico de justificaciones | `AnularAsync` conserva filas como `Cancelada`, registra resolución, incrementa versión y afirma periodos; la bandeja prioriza la vigente | Base controlada sin filas afectadas; no recrear evidencia histórica sin fuente |
 | P2-05 | Refrigerio/nocturnidad | Resolver con negocio descuento, tramo y jornadas cortas antes de tocar fórmula | Sin reparación hasta decisión formal |
 | P2-06 | Tasas por empresa/fecha | Aplicar `EmpresaId`, unicidad y política temporal determinista | Auditar tasas cargadas por SQL directo |
 
@@ -136,6 +136,39 @@ Mientras la preparación está incompleta, todas las rutas funcionales responden
 - Código: cambios pequeños por hallazgo, despliegues independientes y bandera para motor nuevo.
 - Datos: respaldo, script idempotente, tabla de correspondencia `fila_origen → fila_sobreviviente`, conteos y validación de FK.
 - Periodos cerrados: nunca recalcular ni sobrescribir sin autorización de negocio y evidencia de reliquidación.
+
+## R-QA-CAT-001 — cierre 2026-10-28
+
+**RESUELTO.** El alta genérica de puesto, planta, área, sección y tipo de documento devolvía
+la clave antes de que SQLite la generara. `GuardarAsync` conserva el único `SaveChangesAsync`
+y ahora obtiene la clave desde la entidad seguida después del guardado. Empresa, centro y
+centro de costo no son altas admitidas por este servicio y se clasificaron `NO APLICA`.
+
+Criterio de salida cumplido: `QACAT-001..006` con 9/9 ejecuciones SQLite, regresión dirigida
+112/112, suite completa 1,037/1,037 y build Release 0 errores/0 warnings. Sin migración,
+producción, OP-03, commit ni reejecución del piloto Hotel Equo. Detalle: `R_QA_CAT001.md`.
+
+# CAT-DYN-001 (2026-10-28)
+
+**COMPLETADO.** La carga masiva crea o reutiliza controladamente unidades técnicas `Planta`,
+equipos, marcadores, asignaciones y puestos tras previsualización confirmada. Se cerraron los
+riesgos de catálogos huérfanos mediante savepoint por fila, previsualización obsoleta mediante
+huella conjunta y acceso implícito mediante validación del alcance sin altas `UsuarioPlanta`.
+No requiere migración ni remediación de datos existentes.
+
+Evidencia: 30/30 contratos CAT-DYN, 80/80 regresión dirigida, 1,067/1,067 suite completa y
+build Release 0 errores/0 advertencias. Producción y OP-03 permanecen intactos.
+
+# CAT-DYN-003 (2026-10-29)
+
+**COMPLETADO EN CÓDIGO Y PRUEBAS.** La brecha entre trabajador importado y trabajador listo
+para tareo queda observable mediante un diagnóstico histórico de solo lectura. Se distinguen
+LISTO, INCOMPLETO y CONFLICTO con motivos y acciones; la seguridad por unidad se aplica al
+resultado y a los filtros visibles. La integración posterior a carga y previa a recálculo es
+informativa y no bloqueante.
+
+Evidencia: CATREADY-01..20, 20/20 dirigidas; suite 1,087/1,087; Build Release 0/0. No se
+crearon migraciones ni se tocaron producción, OP-03, despliegue o commit.
 # P1-DESKTOP-INSTALLER (2026-10-12)
 
 **COMPLETADO.** Implementado el empaquetado local temporal y la política automática

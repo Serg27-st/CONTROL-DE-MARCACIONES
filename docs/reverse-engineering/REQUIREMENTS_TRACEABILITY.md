@@ -4,8 +4,9 @@
 > La matriz final vigente es
 > [`REQUIREMENTS_IMPLEMENTATION_GAP_MATRIX.md`](REQUIREMENTS_IMPLEMENTATION_GAP_MATRIX.md).
 > RQ-017 quedó **SUPERADO parcialmente en su economía pendiente** por P0-FER-002/007 el
-> 2026-10-19: FER-001/002/004/007 están implementados y con contratos directos. Permanecen
-> separados el sustitutorio (FER-003) y el día no laborable compensable (FER-005).
+> 2026-10-19: FER-001/002/004/007 están implementados y con contratos directos. FER-003
+> quedó cerrado el 2026-10-20 con dato explícito, flujo y economía. Permanece separado el
+> día no laborable compensable (FER-005).
 
 Fecha de corte: 2026-10-06  
 Autoridad: requisitos explícitos de Fase 6.1 → `ACCEPTANCE_RULES.md` → `BUSINESS_RULES.md` → comportamiento observado.
@@ -20,7 +21,7 @@ Autoridad: requisitos explícitos de Fase 6.1 → `ACCEPTANCE_RULES.md` → `BUS
 | RQ-004 | Rotaciones variables; descanso interno de 1 día; sin repetición rígida | Tipo explícito, `TurnoId` nullable, secuencia finita y delimitación BD-01 en dos pasadas | ROT-DESC-01..09, ROT-MARK-01..06 y ROT-REP-01 verdes | CUMPLE | NINGUNO | Mantener contratos y migración. |
 | RQ-005 | Tardanza minuto a minuto, tolerancia 0 (DIU y NOC) | Calcula desde la entrada teórica sin aplicar `MinutosTolerancia` | TAR-00..04, TAR-NOC y cruce nocturno verdes | CUMPLE | NINGUNO | Mantener contrato; configuración histórica queda como deuda candidata. |
 | RQ-006 | Salida anticipada minuto a minuto, tolerancia 0 (DIU 17:22, NOC 05:22) | Calcula hasta `FinTurno` teórico sin aplicar `MinutosAnticipacionSalida` | SA-00..04, SA-NOC y cruce nocturno verdes | CUMPLE | NINGUNO | Mantener contrato; configuración histórica queda como deuda candidata. |
-| RQ-007 | Marca cruda inmutable; corrección separada con original, corrección, motivo, usuario, fecha, validación y auditoría | Preserva marca, corrección separada, workflow/versionado y bitácora | REG-01..04 pasan con SQLite temporal e interceptor real | CUMPLE | NINGUNO | Mantener contrato; composición con otras justificaciones sigue bajo RQ-011/P2-03. |
+| RQ-007 | Marca cruda inmutable; corrección separada con original, corrección, motivo, usuario, fecha, validación y auditoría | Preserva marca, corrección separada, workflow/versionado y bitácora | REG-01..04 pasan con SQLite temporal e interceptor real | CUMPLE | NINGUNO | Mantener contrato; AUS-008 cerró P2-03 sin alterar la marca original. |
 | RQ-008 | PMV solo decodifica, consulta, cruza, agrupa, exporta y traza; no toca tareo oficial ni maestros | Tablas `prov_*`, lectores compartidos y flujo aislado; no escribe tablas oficiales | Suite PMV cubre aislamiento funcional | CUMPLE | NINGUNO | Mantener frontera y añadir prueba negativa integral. |
 | RQ-009 | Una base remunerativa no se suma dos veces | R-P1-01: nocturnidad aporta solo prima; HE/HE100 aportan base y recargo; ordinarios superpuestos en no laborables trabajados se excluyen | LIQ-01..04 y LIQ-HE-NOC-01 verdes | CUMPLE | NINGUNO | Mantener contrato; fórmula económica nocturna definitiva sigue como decisión separada. |
 | RQ-010 | Un único `PeriodoLaboral` abierto; el cese lo cierra | R-P1-02 carga solo el vínculo abierto en la ruta de escritura; edición no duplica y baja cierra entre contextos distintos | PL-01/02 verdes | CUMPLE EN CÓDIGO | PROBLEMA DE DATOS + CONCURRENCIA ESTRUCTURAL PENDIENTE | `DATA-PERIODOLABORAL`: sanear 85 grupos y después agregar unicidad física del vínculo abierto. |
@@ -30,7 +31,7 @@ Autoridad: requisitos explícitos de Fase 6.1 → `ACCEPTANCE_RULES.md` → `BUS
 | RQ-014 | Importación principal no deja cabecera parcial | R-P1-07 mantiene los `SaveChanges` necesarios dentro de una transacción SQLite iniciada después de parsing/dedupe; incluye serie aprendida y auditoría | IMP-AT-01..07 verdes; el pre-fix dejó 1 cabecera, 2 errores y 1 auditoría huérfanos | CUMPLE | NINGUNO | Mantener contratos; concurrencia general y política de recarga por hash son decisiones separadas. |
 | RQ-015 | Usuario restringido solo opera sus plantas, incluido PMV | PMV aplica `IProveedorAlcancePlantas` antes de listar, importar o consultar; exportación reutiliza la consulta protegida | SEC-01..04 verdes | CUMPLE | NINGUNO | Mantener el aislamiento y la prueba de acceso autorizado. |
 | RQ-016 | Licencia o ausencia pagada completa acredita 480 min efectivos sin almuerzo, independientemente de los 622 min de intervalo DIU/NOC; no genera HE ni nocturnidad por sí sola | `Aplicar` acredita `Turno.MinutosJornadaOrdinaria`; DIU/NOC vigentes conservan 480. `PermisoParcial` usa una rama separada | AUS-PAG-01..05 verdes; recálculo SQLite confirma VAC y LCG | CUMPLE | DOCUMENTACIÓN DESACTUALIZADA, sin defecto productivo | Mantener los contratos y no usar 480 como frontera de jornada trabajada. |
-| RQ-017 | FER-NAC-01..08 + BD02-D01..D09: feriado ordinario trabajado = base efectiva + 100 %; coincidencia con descanso no duplica concepto; 1 de mayo conserva tratamiento especial; clasificación por fecha de inicio; minutos físicos únicos | Descanso+feriado persiste una base física y clasificación de feriado; 1 de mayo queda estructuralmente distinguido y bloquea una valorización incompleta | ROT-FER-01/02 verdes; cobertura heredada FER-NAC se conserva | CUMPLE PARCIAL | Economía adicional del 1 de mayo, sustitutorio y compensable siguen separados | Modelar esos tres gaps solo con decisión/dato aprobados. |
+| RQ-017 | FER-NAC-01..08 + BD02-D01..D09: feriado ordinario trabajado = base efectiva + 100 %; coincidencia con descanso no duplica concepto; 1 de mayo conserva tratamiento especial; clasificación por fecha de inicio; minutos físicos únicos | Descanso+feriado persiste una base física; 1 de mayo conserva sus componentes; el sustitutorio explícito enlaza origen y descanso, conserva minutos y suprime el adicional general | ROT-FER-01/02 y FER003-01..07 verdes | CUMPLE PARCIAL | Día no laborable compensable sigue separado | Modelar FER-005 solo con decisión/dato aprobados. |
 
 ## Resumen de cumplimiento
 
@@ -84,6 +85,29 @@ Autoridad: requisitos explícitos de Fase 6.1 → `ACCEPTANCE_RULES.md` → `BUS
 | VIG-01..05 y VIG-07..09 | Verdes desde R-P1-04; cubren marca, justificación, borrado auditado, versión de turno, feriado, tramo de rotación, recálculo parcial por planta y cambio descriptivo irrelevante. VIG-06 no aplica. |
 | AUS-PAG-01..05 | Verdes desde R-P1-08: VAC/LCG completas persisten 480; DIU/NOC no usan 622; no nacen HE ni nocturnidad; permiso parcial no se aplana a 480. |
 | IMP-AT-01..07 | Verdes desde R-P1-07: rollback total ante fallo técnico; camino positivo, errores funcionales, hash/dedupe, duplicados y contadores protegidos. |
+| CATDYN-01..30 | Verdes desde CAT-DYN-001: unidad/planta, equipo, marcador, asignación, preview/cancelación, rollback por fila, idempotencia, concurrencia local, seguridad, auditoría, historia, compatibilidad y aislamiento de tareo. |
+| CATREADY-01..20 | Verdes desde CAT-DYN-003: readiness histórico por fecha/intervalo, estados LISTO/INCOMPLETO/CONFLICTO, cambios de equipo/turno, cese/reingreso, alcance vacío/restringido, solo lectura y aislamiento de marcas/tareo. |
+
+### Trazabilidad suplementaria CAT-DYN-003
+
+| Requisito | Implementación | Evidencia | Estado |
+|---|---|---|---|
+| Preparación explicable antes de tareo | `IValidadorPreparacionTareo` + `ValidadorPreparacionTareo` | CATREADY-01..20 | CUMPLE |
+| Resolución histórica, sin fallback actual | `PeriodoLaboral`, `AsignacionPlanta`, `AsignacionMarcador`, `AsignacionTurno`, rotación | CATREADY-08..12, 19 | CUMPLE |
+| Seguridad por unidad | `IProveedorAlcancePlantas` en servicio y catálogo de la vista | CATREADY-14/15 | CUMPLE |
+| No alterar motor ni datos | consultas `AsNoTracking`; sin acceso a marcas/tareos | CATREADY-16/18/20 | CUMPLE |
+| Integración no bloqueante | enlaces post-carga y previos al recálculo | Build Web Release | CUMPLE |
+
+### Trazabilidad suplementaria CAT-DYN-004
+
+| Requisito | Implementación | Evidencia | Estado |
+|---|---|---|---|
+| Excel autorizado | `IImportadorProgramacionLaboral` + plantilla `.xlsx` | CATTURNN-01..14 | CUMPLE |
+| Descanso e historia | `ProgramacionCuadrilla`, `TramoRotacion`, `AsignacionTurno` | CATTURNN-11/14/26/29 | CUMPLE |
+| Confirmación segura | huella, revalidación, antiforgery, transacción y periodo versionado | CATTURNN-17..24 | CUMPLE |
+| Seguridad por unidad | `IProveedorAlcancePlantas`; alcance vacío fail-closed | CATTURNN-07/08 | CUMPLE |
+| Preparación para tareo | reevaluación posterior con `IValidadorPreparacionTareo` | CATTURNN-27/28 | CUMPLE |
+| Aislamiento | sin acceso o escritura a marcaciones, tareo ni PMV | CATTURNN-29/30 | CUMPLE |
 
 ## Prioridad resultante
 

@@ -18,7 +18,7 @@
         <strong>Sincronizar</strong> trae los <em>nacionales</em> del año desde una fuente
         pública (Nager.Date, cubre Perú) y agrega solo los que falten — nunca borra ni pisa
         uno ya cargado. El <strong>alta manual</strong> cubre lo que esa fuente no sabe: el
-        aniversario de una planta, un feriado regional, o un nacional decretado que todavía
+        aniversario de una unidad, un feriado regional, o un nacional decretado que todavía
         no publicó.
         <br />
         El cálculo del tareo siempre lee esta tabla; nunca llama a internet al calcular.
@@ -62,7 +62,7 @@
             <br />
             Use <strong>«Sincronizar @Model.Anio»</strong> para traer los nacionales, o
             <a asp-action="Editar" asp-route-anio="@Model.Anio">cárguelos a mano</a>
-            si son locales de una planta.
+            si son locales de una unidad.
         </div>
     }
     else
@@ -74,7 +74,7 @@
             </div>
             <div class="indicador">
                 <span class="indicador-cifra">@Model.DePlanta</span>
-                <span class="indicador-rotulo">De planta activos</span>
+                <span class="indicador-rotulo">De unidad activos</span>
             </div>
             @if (Model.Inactivos > 0)
             {
@@ -86,7 +86,7 @@
         </div>
 
         <partial name="_FiltroTabla"
-                 model='new FiltroTablaVm { IdTabla = "tabla-feriados", IdConteo = "conteo-feriados", Sustantivo = "feriado(s)", Filas = Model.Feriados.Count, Ejemplo = "Descripción o planta…" }' />
+                 model='new FiltroTablaVm { IdTabla = "tabla-feriados", IdConteo = "conteo-feriados", Sustantivo = "feriado(s)", Filas = Model.Feriados.Count, Ejemplo = "Descripción o unidad…" }' />
 
         <div class="tabla-contenedor">
             <table class="tabla" id="tabla-feriados">
@@ -111,7 +111,7 @@
                             <td>
                                 @if (f.EsNacional)
                                 {
-                                    <span class="etiqueta etiqueta-justificada">Todas las plantas</span>
+                                    <span class="etiqueta etiqueta-justificada">Todas las unidades</span>
                                 }
                                 else
                                 {

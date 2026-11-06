@@ -1,0 +1,118 @@
+@model ControlMarcacion.Web.Models.ProgramacionMasivaSeleccionVm
+@{
+    ViewData["Title"] = "Seleccionar trabajadores";
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Paso 2: Seleccionar trabajadores</h1>
+        <p class="texto-suave">
+            @Model.PlantaNombre — turno @Model.TurnoNombre — desde @Model.FechaEfectiva.ToString("dd/MM/yyyy")
+        </p>
+    </div>
+    <a class="boton boton-secundario" asp-action="Index">Cambiar alcance</a>
+</div>
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alerta alerta-error">@error</div>
+}
+
+<div class="tarjeta">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <p>
+            <strong>@Model.Seleccionados.Count</strong> seleccionado(s) de @Model.TotalTrabajadores
+        </p>
+        <div style="display: flex; gap: 0.5rem;">
+            <form method="post" asp-action="SeleccionarTodos" style="display: inline;">
+                <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+                <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+                <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="boton boton-secundario">Seleccionar todos (@Model.TotalTrabajadores)</button>
+            </form>
+            <form method="post" asp-action="LimpiarSeleccion" style="display: inline;">
+                <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+                <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+                <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="boton boton-secundario">Limpiar seleccion</button>
+            </form>
+        </div>
+    </div>
+
+    <form method="post" asp-action="ActualizarSeleccion">
+        <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+        <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+        <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="pagina" value="@Model.Pagina" />
+        <input type="hidden" name="seleccionarTodos" value="false" />
+
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th style="width: 3rem;"></th>
+                    <th>Documento</th>
+                    <th>Apellidos y nombres</th>
+                    <th>Turno actual</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model.Trabajadores)
+                {
+                    var seleccionado = Model.Seleccionados.Contains(t.Id);
+                    <tr>
+                        <td>
+                            @if (seleccionado)
+                            {
+                                <input type="hidden" name="agregar" value="@t.Id" />
+                                <input type="checkbox" checked
+                                       onchange="this.checked ? (this.previousElementSibling.name='agregar') : (this.previousElementSibling.name='quitar')" />
+                            }
+                            else
+                            {
+                                <input type="hidden" name="__skip" value="@t.Id" />
+                                <input type="checkbox"
+                                       onchange="this.checked ? (this.previousElementSibling.name='agregar') : (this.previousElementSibling.name='quitar')" />
+                            }
+                        </td>
+                        <td>@t.Documento</td>
+                        <td>@t.ApellidosNombres</td>
+                        <td>@(t.CuadrillaActual ?? t.TurnoActual ?? "Sin turno")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="acciones-formulario" style="margin-top: 1rem;">
+            <button type="submit" class="boton boton-secundario">Guardar seleccion de esta pagina</button>
+        </div>
+    </form>
+
+    @if (Model.TotalPaginas > 1)
+    {
+        <nav class="paginacion" style="margin-top: 1rem;">
+            @for (var i = 1; i <= Model.TotalPaginas; i++)
+            {
+                <form method="post" asp-action="Seleccion" style="display: inline;">
+                    <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+                    <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+                    <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+                    <input type="hidden" name="pagina" value="@i" />
+                    <button type="submit" class="boton @(i == Model.Pagina ? "boton-primario" : "boton-secundario")"
+                            style="min-width: 2.5rem;">@i</button>
+                </form>
+            }
+        </nav>
+    }
+
+    <div class="acciones-formulario" style="margin-top: 1.5rem;">
+        <form method="post" asp-action="Previsualizar">
+            <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+            <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+            <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+            <button type="submit" class="boton boton-primario"
+                    @(Model.Seleccionados.Count == 0 ? "disabled" : "")>
+                Previsualizar (@Model.Seleccionados.Count)
+            </button>
+        </form>
+    </div>
+</div>

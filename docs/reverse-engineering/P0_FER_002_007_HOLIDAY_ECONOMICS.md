@@ -66,8 +66,8 @@ entrega bases auditables para planilla.
 
 ## Deuda separada que permanece abierta
 
-- `FER-003`: no existe dato persistido ni flujo autorizado de descanso sustitutorio. No se
-  inventó un booleano temporal. La liquidación describe la regla **sin sustitutorio**.
+- `FER-003`: **SUPERADO** el 2026-10-20 por `P1_FER003_DESCANSO_SUSTITUTORIO.md`;
+  existe relación persistida, flujo autorizado y efecto económico sin duplicar minutos.
 - `FER-005`: el día no laborable compensable sigue sin clasificación propia.
 - El sistema no calcula dinero; la remuneración diaria pertenece a planilla y se multiplica
   fuera de este módulo por las bases aquí emitidas.

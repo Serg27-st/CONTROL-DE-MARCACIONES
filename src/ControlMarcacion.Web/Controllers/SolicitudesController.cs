@@ -24,6 +24,70 @@ namespace ControlMarcacion.Web.Controllers;
 public sealed class SolicitudesController(IServicioSolicitudes servicio) : Controller
 {
     [HttpGet]
+    [Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
+    public async Task<IActionResult> CambiosTurno(CancellationToken cancelacion) =>
+        View(await servicio.ListarCambiosTurnoAsync(cancelacion).ConfigureAwait(false));
+
+    [HttpGet]
+    [Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
+    public async Task<IActionResult> CrearCambioTurno(CancellationToken cancelacion) =>
+        View(new CambioTurnoVm
+        {
+            Datos = new GuardarCambioTurnoRequest { FechaEfectiva = DateOnly.FromDateTime(DateTime.Now) },
+            Trabajadores = await servicio.TrabajadoresAsync(cancelacion).ConfigureAwait(false),
+            Turnos = await servicio.TurnosAsync(cancelacion).ConfigureAwait(false)
+        });
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = $"{RolesSistema.Coordinador},{RolesSistema.Administrador}")]
+    public async Task<IActionResult> GuardarCambioTurno(
+        CambioTurnoVm modelo,
+        CancellationToken cancelacion)
+    {
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                await servicio.GuardarCambioTurnoAsync(
+                    modelo.Datos, User.Identity?.Name ?? "sistema", cancelacion).ConfigureAwait(false);
+                TempData["Mensaje"] = "Cambio puntual registrado; espera aprobación de otro coordinador.";
+                return RedirectToAction(nameof(CambiosTurno));
+            }
+            catch (ReglaNegocioException excepcion) { ModelState.AddModelError(string.Empty, excepcion.Message); }
+            catch (PeriodoCerradoException excepcion) { ModelState.AddModelError(string.Empty, excepcion.Message); }
+            catch (RecursoNoEncontradoException) { return NotFound(); }
+        }
+
+        modelo.Trabajadores = await servicio.TrabajadoresAsync(cancelacion).ConfigureAwait(false);
+        modelo.Turnos = await servicio.TurnosAsync(cancelacion).ConfigureAwait(false);
+        return View("CrearCambioTurno", modelo);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = RolesSistema.Coordinador)]
+    public async Task<IActionResult> ResolverCambioTurno(
+        long id,
+        bool aprueba,
+        string? motivo,
+        CancellationToken cancelacion)
+    {
+        try
+        {
+            await servicio.ResolverCambioTurnoAsync(
+                id, aprueba, motivo, User.Identity?.Name ?? "sistema", cancelacion).ConfigureAwait(false);
+            TempData["Mensaje"] = aprueba
+                ? "Cambio aprobado, historial actualizado y jornada recalculada."
+                : "Cambio de turno rechazado.";
+        }
+        catch (ReglaNegocioException excepcion) { TempData["Error"] = excepcion.Message; }
+        catch (PeriodoCerradoException excepcion) { TempData["Error"] = excepcion.Message; }
+        catch (RecursoNoEncontradoException) { return NotFound(); }
+        return RedirectToAction(nameof(CambiosTurno));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Index(
         long? trabajadorId,
         EstadoSolicitud? estado,
@@ -316,8 +380,8 @@ public sealed class SolicitudesController(IServicioSolicitudes servicio) : Contr
                 await servicio.AnularAsync(modelo.Id, modelo.Motivo, usuario, cancelacion).ConfigureAwait(false);
 
                 TempData["Mensaje"] =
-                    "Solicitud anulada. Sus justificaciones se retiraron; recalcule el periodo " +
-                    "para que el tareo deje de reflejarlas.";
+                    "Solicitud anulada. Sus justificaciones quedaron canceladas y se conservan " +
+                    "como evidencia; recalcule el periodo para que el tareo deje de reflejarlas.";
 
                 return RedirectToAction(nameof(Index));
             }

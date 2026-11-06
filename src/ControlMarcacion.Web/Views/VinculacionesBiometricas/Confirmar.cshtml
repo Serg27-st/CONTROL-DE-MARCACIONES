@@ -1,0 +1,25 @@
+@model RevisarVinculacionesBiometricasVm
+@{
+    ViewData["Title"] = "Confirmar vinculaciones";
+}
+
+<h1>Confirmación final</h1>
+<div class="aviso aviso-alerta">
+    Se intentarán confirmar <strong>@Model.Decisiones.Length</strong> vinculaciones.
+    El servidor volverá a validar identidad, equipo, unidad, vigencias, versión y solapamientos.
+    Ninguna asignación existente será cerrada o reemplazada automáticamente.
+</div>
+
+<form method="post" asp-action="Confirmar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="ConciliacionId" />
+    <input type="hidden" asp-for="Version" />
+    @foreach (var decision in Model.Decisiones)
+    {
+        <input type="hidden" name="Decisiones" value="@decision" />
+    }
+    <div class="acciones-formulario">
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+        <button class="boton boton-primario" type="submit">Confirmar vinculaciones</button>
+    </div>
+</form>

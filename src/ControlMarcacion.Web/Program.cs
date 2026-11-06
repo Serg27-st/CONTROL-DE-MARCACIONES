@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using ControlMarcacion.Application.Comun;
+using ControlMarcacion.Application.Marcaciones;
 using ControlMarcacion.Infrastructure;
 using ControlMarcacion.Infrastructure.Persistencia;
 using ControlMarcacion.Infrastructure.Seguridad;
@@ -67,6 +68,7 @@ builder.Services.AddControllersWithViews(opciones =>
     // abierto por defecto, y olvidar un [Authorize] es un error silencioso.
     opciones.Filters.Add(new AuthorizeFilter());
 });
+builder.Services.AddMemoryCache();
 
 // Fuera de desarrollo la base vive en C:\ProgramData\ControlMarcacion\data, y no:
 //
@@ -110,10 +112,12 @@ builder.Services.AgregarInfraestructura(cadenaConexion, builder.Configuration);
 // para poder arrancar sin una capa web delante.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IProveedorUsuarioActual, ProveedorUsuarioActualHttp>();
+builder.Services.AddScoped<IContextoAutorizacionVinculacionBiometrica, ContextoAutorizacionVinculacionBiometricaHttp>();
 
-// Aislamiento por planta del ADMINISTRADOR: lee su rol y sus plantas de la sesión. Sustituye
-// al respaldo «sin restricción» que deja puesto la infraestructura. Va aquí, en Web, por la
-// misma razón que el proveedor de usuario: es la única capa que conoce HttpContext.
+// Aislamiento por planta de usuarios operativos: lee su rol y sus plantas de la sesión.
+// ADMINISTRADOR siempre queda acotado; COORDINADOR queda acotado cuando tiene asignaciones
+// explícitas. Sustituye al respaldo «sin restricción» que deja la infraestructura. Va aquí,
+// en Web, porque es la única capa que conoce HttpContext.
 builder.Services.AddScoped<IProveedorAlcancePlantas, ProveedorAlcancePlantasHttp>();
 
 // ASP.NET Core Identity con los cuatro roles del sistema. Se registra en Web y no en
@@ -215,45 +219,45 @@ if (administrarHostingLocal)
     {
         using (instanciaComprobacion)
         {
-        // El mutex, no el archivo, decide que existe otra instancia. El descriptor se valida
-        // además con PID y liveness antes de abrir el navegador.
-        var registrada = InstanciaLocalWindows.Leer(rutaEstadoInstancia);
-        if (registrada is not null && InstanciaLocalWindows.ProcesoExiste(registrada))
-        {
-            var urlRegistrada = HostingLocalWindows.CrearUrl(registrada.Puerto);
-            using var clienteExistente = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-            var estadoExistente = await HostingLocalWindows
-                .EsperarEstadoAsync(
-                    clienteExistente,
-                    urlRegistrada,
-                    TimeSpan.FromSeconds(15),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            // El mutex, no el archivo, decide que existe otra instancia. El descriptor se valida
+            // además con PID y liveness antes de abrir el navegador.
+            var registrada = InstanciaLocalWindows.Leer(rutaEstadoInstancia);
+            if (registrada is not null && InstanciaLocalWindows.ProcesoExiste(registrada))
+            {
+                var urlRegistrada = HostingLocalWindows.CrearUrl(registrada.Puerto);
+                using var clienteExistente = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var estadoExistente = await HostingLocalWindows
+                    .EsperarEstadoAsync(
+                        clienteExistente,
+                        urlRegistrada,
+                        TimeSpan.FromSeconds(15),
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
 
-            if (estadoExistente.Vivo && estadoExistente.Listo)
-            {
-                if (abrirNavegador)
+                if (estadoExistente.Vivo && estadoExistente.Listo)
                 {
-                    AbrirEnNavegador(urlRegistrada);
+                    if (abrirNavegador)
+                    {
+                        AbrirEnNavegador(urlRegistrada);
+                    }
                 }
-            }
-            else if (estadoExistente.Vivo
-                     && estadoExistente.RequiereConfiguracion)
-            {
-                if (abrirNavegador)
+                else if (estadoExistente.Vivo
+                         && estadoExistente.RequiereConfiguracion)
                 {
-                    AbrirEnNavegador($"{urlRegistrada}/setup");
+                    if (abrirNavegador)
+                    {
+                        AbrirEnNavegador($"{urlRegistrada}/setup");
+                    }
+                }
+                else
+                {
+                    MostrarFalloInicio();
                 }
             }
             else
             {
                 MostrarFalloInicio();
             }
-        }
-        else
-        {
-            MostrarFalloInicio();
-        }
 
             return;
         }

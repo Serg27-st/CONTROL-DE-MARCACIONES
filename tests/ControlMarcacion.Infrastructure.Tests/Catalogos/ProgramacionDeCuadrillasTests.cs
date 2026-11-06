@@ -162,14 +162,14 @@ public sealed class ProgramacionDeCuadrillasTests : IDisposable
     }
 
     [Fact]
-    public async Task Un_turno_no_habilitado_en_la_planta_se_rechaza()
+    public async Task Un_turno_inactivo_se_rechaza()
     {
         var id = await CrearCuadrillaAsync(PlantaDetergentes);
 
         var error = await Should.ThrowAsync<ReglaNegocioException>(() =>
             ProgramarAsync(id, Lunes6, (Diurno, 5), (Sabatino, 1)));
 
-        error.Message.ShouldContain("SAB");
+        error.Message.ShouldContain("dado de baja");
     }
 
     [Fact]

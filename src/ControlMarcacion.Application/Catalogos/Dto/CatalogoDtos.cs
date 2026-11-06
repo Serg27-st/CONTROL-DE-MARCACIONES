@@ -134,10 +134,10 @@ public static class CatalogosDisponibles
 
         new DefinicionCatalogo(
             "plantas",
-            "Plantas",
-            "Nueva planta",
-            "la planta",
-            "Plantas de operación de cada razón social.",
+            "Unidades",
+            "Nueva unidad",
+            "la unidad",
+            "Unidades operativas de cada razón social.",
             "empresas",
             "Empresa"),
 
@@ -146,9 +146,9 @@ public static class CatalogosDisponibles
             "Áreas",
             "Nueva área",
             "el área",
-            "Áreas dentro de cada planta.",
+            "Áreas dentro de cada unidad.",
             "plantas",
-            "Planta"),
+            "Unidad"),
 
         new DefinicionCatalogo(
             "secciones",

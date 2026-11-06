@@ -1,0 +1,93 @@
+@model ListaDescansosSustitutoriosVm
+@{
+    ViewData["Title"] = "Descansos sustitutorios";
+}
+
+<div class="titulo-pagina">
+    <h1>Descansos sustitutorios</h1>
+    <a class="boton boton-primario" asp-action="Crear">Otorgar descanso</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Cada fila enlaza un feriado efectivamente trabajado con el día completo concedido
+        en sustitución. Los minutos del feriado permanecen físicos; mientras el vínculo está
+        vigente, su liquidación no genera el adicional general por trabajo sin sustitución.
+    </p>
+
+    @if (Model.Elementos.Count == 0)
+    {
+        <div class="sin-resultados">No hay descansos sustitutorios registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>Feriado trabajado</th>
+                        <th>Trabajo físico</th>
+                        <th>Descanso otorgado</th>
+                        <th>Estado</th>
+                        <th>Registro / aprobación</th>
+                        <th>Anulación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in Model.Elementos)
+                    {
+                        <tr>
+                            <td>@d.Trabajador</td>
+                            <td>@d.FechaFeriadoOrigen.ToString("dd/MM/yyyy")</td>
+                            <td>@d.MinutosTrabajadosFeriado min</td>
+                            <td>@d.FechaDescanso.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (d.Estado == EstadoDescansoSustitutorio.Otorgado)
+                                {
+                                    <span class="etiqueta etiqueta-justificada">Otorgado</span>
+                                }
+                                else
+                                {
+                                    <span class="etiqueta etiqueta-sin-horario">Anulado</span>
+                                }
+                            </td>
+                            <td>
+                                @d.RegistradoPor · @d.RegistradoEn.ToString("dd/MM/yyyy HH:mm")
+                                <br /><small class="texto-suave">
+                                    Aprobó: @d.AprobadoPor · @d.AprobadoEn.ToString("dd/MM/yyyy HH:mm")
+                                </small>
+                            </td>
+                            <td>
+                                @if (d.Estado == EstadoDescansoSustitutorio.Otorgado)
+                                {
+                                    <form method="post" asp-action="Anular">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="Id" value="@d.Id" />
+                                        <input type="hidden" name="Version" value="@d.Version" />
+                                        <input type="text" name="Motivo" required minlength="5" maxlength="500"
+                                               placeholder="Motivo de anulación" />
+                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                data-confirmar="¿Anular este descanso sustitutorio?">
+                                            Anular
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span title="@d.MotivoAnulacion">
+                                        @d.AnuladoPor · @d.AnuladoEn?.ToString("dd/MM/yyyy HH:mm")
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

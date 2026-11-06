@@ -55,8 +55,9 @@ public sealed class CargaMasivaPadronesDePlantaTests : IDisposable
                 repositorio, new ConsultaTrabajadores(contexto, alcance), catalogos, alcance,
                 new ServicioMarcadores(contexto), new ServicioPeriodos(contexto)),
             repositorio,
-            catalogos,
-            new ServicioMarcadores(contexto));
+            new ServicioMarcadores(contexto),
+            new ServicioCatalogos(contexto),
+            new ServicioEquipos(contexto));
     }
 
     public void Dispose()

@@ -73,7 +73,7 @@ public sealed class GraciaDeSalidaEnTurnosTests : IDisposable
                 MinutosGraciaSalida = 15,
                 MinutosJornadaOrdinaria = actual.MinutosJornadaOrdinaria,
                 DiasAplicables = actual.DiasAplicables,
-                PlantasHabilitadas = actual.PlantasHabilitadasIds,
+                PlantasHabilitadas = actual.PlantasHabilitadasIds.ToList(),
                 Activo = actual.Activo
             },
             "coordinador",
@@ -82,6 +82,6 @@ public sealed class GraciaDeSalidaEnTurnosTests : IDisposable
         var guardado = await servicio.ObtenerAsync(Nocturno, CancellationToken.None);
 
         guardado!.MinutosGraciaSalida.ShouldBe(15);
-        guardado.LimiteGraciaSalida.ShouldBe(new TimeOnly(7, 15));
+        guardado.LimiteGraciaSalida.ShouldBe(new TimeOnly(5, 37));
     }
 }

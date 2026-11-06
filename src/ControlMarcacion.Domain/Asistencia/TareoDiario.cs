@@ -240,5 +240,11 @@ public enum EstadoTareo
     /// planilla eso se cobra.
     /// </para>
     /// </remarks>
-    PendienteValidacion = 10
+    PendienteValidacion = 10,
+
+    /// <summary>
+    /// Día completo no trabajado otorgado como sustitución de un feriado ya trabajado.
+    /// Mantiene cero minutos físicos y no genera incidencias de asistencia.
+    /// </summary>
+    DescansoSustitutorio = 11
 }

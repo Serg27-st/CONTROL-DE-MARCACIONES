@@ -106,11 +106,10 @@ public sealed class FlujoDeRegularizacionTests : IDisposable
         // Turno 07:00–19:00, entrada verificada 06:58 (se computa desde la hora del turno)
         // y salida real 19:03: 723 minutos.
         resuelto.Estado.ShouldBe(EstadoTareo.Puntual);
-        // R-P0-03.1: la salida 19:03 queda 3 min tras el fin del turno sembrado (19:00), por
-        // debajo del umbral de 15, así que no se computa. El DIU sembrado sigue en 07:00–19:00
-        // hasta su reconfiguración operativa: el ordinario llega a su fin teórico.
-        resuelto.MinutosTrabajados.ShouldBe(720);
-        resuelto.MinutosOrdinarios.ShouldBe(720);
+        // Turno DIU 07:00–17:22. Entrada regularizada 06:58 (se computa desde 07:00) y
+        // salida real 19:03: 723 min trabajados, 622 ordinarios y 101 de extra 25 %.
+        resuelto.MinutosTrabajados.ShouldBe(723);
+        resuelto.MinutosOrdinarios.ShouldBe(622);
         resuelto.RequiereValidacion.ShouldBeFalse();
 
         // Y la marcación original intacta: el día conserva la salida del equipo y ninguna
@@ -166,6 +165,48 @@ public sealed class FlujoDeRegularizacionTests : IDisposable
         var incidencia = pendientes.Elementos.ShouldHaveSingleItem();
         incidencia.TipoIncidencia.ShouldBe(TipoIncidencia.SalidaNoRegistrada);
         incidencia.JustificacionId.ShouldBe(justificacionId);
+        incidencia.EstadoJustificacion.ShouldBe(EstadoJustificacion.Aprobada);
+    }
+
+    [Fact]
+    public async Task AUS008_05_la_bandeja_prefiere_la_justificacion_vigente_sobre_la_cancelada()
+    {
+        var trabajadorId = await CrearTrabajadorAsync("55555805");
+        await MarcarAsync(trabajadorId, new DateTime(2026, 7, 1, 7, 0, 0));
+        await RecalcularYLeerAsync(trabajadorId);
+
+        var canceladaId = await justificaciones.RegularizarAsync(
+            Peticion(
+                trabajadorId,
+                entrada: new DateTime(2026, 7, 1, 7, 0, 0),
+                tipoIncidencia: TipoIncidencia.SalidaNoRegistrada),
+            "admin",
+            apruebaDirectamente: false,
+            CancellationToken.None);
+        await justificaciones.CancelarAsync(canceladaId, "admin", CancellationToken.None);
+
+        var vigenteId = await justificaciones.RegularizarAsync(
+            Peticion(
+                trabajadorId,
+                entrada: new DateTime(2026, 7, 1, 7, 0, 0),
+                tipoIncidencia: TipoIncidencia.SalidaNoRegistrada),
+            "coordinador",
+            apruebaDirectamente: true,
+            CancellationToken.None);
+
+        await RecalcularYLeerAsync(trabajadorId);
+
+        var bandeja = await calculo.ListarIncidenciasAsync(
+            new FiltroIncidencias
+            {
+                PeriodoId = PeriodoJulio2026,
+                TrabajadorId = trabajadorId,
+                SoloPendientes = true
+            },
+            CancellationToken.None);
+
+        var incidencia = bandeja.Elementos.ShouldHaveSingleItem();
+        incidencia.JustificacionId.ShouldBe(vigenteId);
         incidencia.EstadoJustificacion.ShouldBe(EstadoJustificacion.Aprobada);
     }
 

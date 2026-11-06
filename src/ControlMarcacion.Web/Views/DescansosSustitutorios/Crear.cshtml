@@ -1,0 +1,68 @@
+@model CrearDescansoSustitutorioVm
+@{
+    ViewData["Title"] = "Otorgar descanso sustitutorio";
+}
+
+<div class="titulo-pagina">
+    <h1>Otorgar descanso sustitutorio</h1>
+    <a class="boton boton-secundario" asp-action="Index">Volver al listado</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo-compacto">
+        Relacione un feriado ya calculado y efectivamente trabajado con un día posterior de
+        descanso completo. No se infiere desde ausencias ni modifica las marcaciones.
+    </p>
+</div>
+
+<form method="post" asp-action="Guardar">
+    @Html.AntiForgeryToken()
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="aviso aviso-error" role="alert">
+            <strong>No se pudo otorgar. Revise lo siguiente:</strong>
+            <ul>
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="tarjeta">
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TrabajadorId">Trabajador</label>
+                <select asp-for="Datos.TrabajadorId" class="select-buscable"
+                        asp-items="@(new SelectList(Model.Trabajadores, "Id", "Nombre"))">
+                    <option value="">Seleccione…</option>
+                </select>
+                <span class="error-campo" asp-validation-for="Datos.TrabajadorId"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaFeriadoOrigen">Feriado trabajado</label>
+                <input asp-for="Datos.FechaFeriadoOrigen" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaFeriadoOrigen"></span>
+            </div>
+
+            <div class="campo">
+                <label asp-for="Datos.FechaDescanso">Fecha del descanso completo</label>
+                <input asp-for="Datos.FechaDescanso" type="date" />
+                <span class="error-campo" asp-validation-for="Datos.FechaDescanso"></span>
+            </div>
+        </div>
+
+        <p class="nota-pie">
+            Solo se admite jornada completa, una sustitución vigente por feriado y dentro
+            del mismo vínculo laboral continuo. Ambos periodos de tareo deben estar abiertos.
+        </p>
+    </div>
+
+    <div class="acciones">
+        <button type="submit" class="boton boton-primario">Otorgar descanso</button>
+        <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+    </div>
+</form>

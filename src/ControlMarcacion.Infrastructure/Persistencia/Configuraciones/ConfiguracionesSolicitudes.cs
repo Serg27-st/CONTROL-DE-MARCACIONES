@@ -37,7 +37,6 @@ public class SolicitudAusenciaConfiguracion : IEntityTypeConfiguration<Solicitud
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
-
 public class JustificacionConfiguracion : IEntityTypeConfiguration<Justificacion>
 {
     public void Configure(EntityTypeBuilder<Justificacion> builder)
@@ -93,3 +92,26 @@ public class JustificacionConfiguracion : IEntityTypeConfiguration<Justificacion
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
+public sealed class SolicitudCambioTurnoConfiguracion : IEntityTypeConfiguration<SolicitudCambioTurno>
+{
+    public void Configure(EntityTypeBuilder<SolicitudCambioTurno> builder)
+    {
+        builder.ToTable("SolicitudCambioTurno");
+        builder.HasKey(s => s.Id);
+        builder.Property(s => s.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(s => s.Motivo).HasMaxLength(500).IsRequired();
+        builder.Property(s => s.SolicitadoPorUsuario).HasMaxLength(60).IsRequired();
+        builder.Property(s => s.ResueltoPorUsuario).HasMaxLength(60);
+        builder.Property(s => s.MotivoResolucion).HasMaxLength(500);
+        builder.Property(s => s.Version).IsConcurrencyToken();
+        builder.HasIndex(s => new { s.TrabajadorId, s.FechaEfectiva })
+            .IsUnique()
+            .HasFilter("estado IN ('Pendiente', 'Aprobada')");
+        builder.HasIndex(s => s.Estado);
+        builder.HasOne(s => s.TurnoSolicitado)
+            .WithMany()
+            .HasForeignKey(s => s.TurnoSolicitadoId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+

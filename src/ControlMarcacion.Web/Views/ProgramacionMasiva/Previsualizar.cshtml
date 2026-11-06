@@ -1,0 +1,93 @@
+@model ControlMarcacion.Web.Models.ProgramacionMasivaPrevisualizarVm
+@using ControlMarcacion.Application.Programacion.Dto
+@{
+    ViewData["Title"] = "Previsualizar cambios";
+
+    static string ClaseEstado(EstadoCambio estado) => estado switch
+    {
+        EstadoCambio.Cambio => "etiqueta-puntual",
+        EstadoCambio.SinCambio => "etiqueta-excepcion",
+        EstadoCambio.Advertencia => "etiqueta-incompleto",
+        _ => ""
+    };
+
+    static string TextoEstado(EstadoCambio estado) => estado switch
+    {
+        EstadoCambio.Cambio => "Cambio",
+        EstadoCambio.SinCambio => "Sin cambio",
+        EstadoCambio.Advertencia => "Advertencia",
+        _ => ""
+    };
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Paso 3: Previsualizar</h1>
+        <p class="texto-suave">
+            @Model.PlantaNombre — turno @Model.TurnoNombre — desde @Model.FechaEfectiva.ToString("dd/MM/yyyy")
+        </p>
+    </div>
+</div>
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alerta alerta-error">@error</div>
+}
+
+@if (Model.Previsualizacion is { } prev)
+{
+    <div class="tarjeta">
+        <div class="rejilla-resumen" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+            <div><strong>@prev.TotalSeleccionados</strong> seleccionados</div>
+            <div><span class="etiqueta-puntual">@prev.Cambios cambio(s)</span></div>
+            <div><span class="etiqueta-excepcion">@prev.SinCambio sin cambio</span></div>
+            @if (prev.Advertencias > 0)
+            {
+                <div><span class="etiqueta-incompleto">@prev.Advertencias advertencia(s)</span></div>
+            }
+        </div>
+
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Documento</th>
+                    <th>Apellidos y nombres</th>
+                    <th>Turno actual</th>
+                    <th>Turno nuevo</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Observacion</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in prev.Filas)
+                {
+                    <tr>
+                        <td>@f.Documento</td>
+                        <td>@f.ApellidosNombres</td>
+                        <td>@(f.CuadrillaActual ?? f.TurnoActual ?? "—")</td>
+                        <td>@f.TurnoNuevo</td>
+                        <td>@f.FechaEfectiva.ToString("dd/MM/yyyy")</td>
+                        <td><span class="@ClaseEstado(f.Estado)">@TextoEstado(f.Estado)</span></td>
+                        <td>@(f.Observacion ?? "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="acciones-formulario" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+            <form method="post" asp-action="Confirmar">
+                <input type="hidden" name="plantaId" value="@Model.PlantaId" />
+                <input type="hidden" name="turnoId" value="@Model.TurnoId" />
+                <input type="hidden" name="fechaEfectiva" value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" />
+                <input type="hidden" name="hash" value="@prev.Hash" />
+                <button type="submit" class="boton boton-primario"
+                        @(prev.Cambios == 0 ? "disabled" : "")>
+                    Confirmar @prev.Cambios cambio(s)
+                </button>
+            </form>
+
+            <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+        </div>
+    </div>
+}

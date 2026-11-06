@@ -40,7 +40,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         string[] columnas =
         [
-            "Trabajador", "ID marcador · equipo", "Empresa", "Planta", "Centro", "Centro de costo", "Puesto",
+            "Trabajador", "ID marcador · equipo", "Empresa", "Unidad", "Centro", "Centro de costo", "Puesto",
             "Días puntual", "Días tardanza", "Días falta", "Días ausencia justificada",
             "Días incompleto", "Días no laborable trabajado",
             "Horas ordinarias", "Horas extra 25%", "Horas extra 35%", "Horas nocturnas",
@@ -115,9 +115,7 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
             var col = 1;
             hoja.Cell(fila, col++).Value = Sanear(e.Trabajador);
             hoja.Cell(fila, col++).Value = Sanear(MarcadorConEquipo(e.IdMarcador, e.Equipo));
-            hoja.Cell(fila, col++).Value = e.Fecha.ToDateTime(TimeOnly.MinValue);
-            hoja.Cell(fila, col).Style.DateFormat.Format = "dd/MM/yyyy";
-            col++;
+            EscribirFecha(hoja, fila, col++, e.Fecha);
             hoja.Cell(fila, col++).Value = Sanear(e.Turno ?? "—");
 
             if (e.EntradaReal is { } entrada)
@@ -176,6 +174,18 @@ internal sealed class ExportadorReportesExcel : IExportadorReportesExcel
 
         hoja.SheetView.FreezeRows(FilaEncabezadoDatos);
         hoja.Columns().AdjustToContents();
+    }
+
+    /// <summary>
+    /// Escribe una fecha en la misma columna que recibe el formato. Mantener ambas
+    /// operaciones juntas evita que un incremento intermedio desplace todas las columnas
+    /// posteriores del reporte.
+    /// </summary>
+    private static void EscribirFecha(IXLWorksheet hoja, int fila, int columna, DateOnly fecha)
+    {
+        var celda = hoja.Cell(fila, columna);
+        celda.Value = fecha.ToDateTime(TimeOnly.MinValue);
+        celda.Style.DateFormat.Format = "dd/MM/yyyy";
     }
 
     // ------------------------------------------------------------------

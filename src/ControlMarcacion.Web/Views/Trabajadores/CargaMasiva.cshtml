@@ -29,15 +29,16 @@
         <br />
         Opcionales: <code>telefono</code>, <code>direccion</code>, <code>correo</code>,
         <code>tiene_hijos</code>, <code>centro_costo</code>, <code>id_marcador</code>,
-        <code>turno</code> y <code>sueldo_basico</code>.
+        <code>turno</code>, <code>sueldo_basico</code>, <code>codigo_unidad</code>,
+        <code>equipo</code>, <code>codigo_equipo</code>, <code>nombre_equipo</code> y
+        <code>serie_equipo</code>.
     </p>
 
     <p style="color: var(--color-texto-suave); margin-bottom: 0;">
-        <strong>Unidad</strong> es el nombre que usa GCA para lo que el sistema llama
-        <strong>planta</strong>: son lo mismo.
-        El <code>id_marcador</code>, si se indica, debe existir en el
-        <a asp-controller="Marcadores" asp-action="Index">catálogo de marcadores</a> y ser de
-        la planta del trabajador.
+        Si una unidad no existe, indique también <code>codigo_unidad</code>. Si el equipo
+        tampoco existe, indique <code>codigo_equipo</code> y <code>nombre_equipo</code>;
+        la serie es opcional. El análisis mostrará qué elementos ya existen y cuáles se
+        crearán antes de pedir confirmación.
     </p>
 
     <div class="acciones">
@@ -69,18 +70,15 @@
         </div>
 
         <div class="acciones">
-            <button type="submit" name="soloValidar" value="true" class="boton boton-secundario">
-                Validar sin guardar
-            </button>
-            <button type="submit" name="soloValidar" value="false" class="boton boton-primario">
-                Cargar trabajadores
+            <button type="submit" class="boton boton-primario">
+                Analizar plantilla
             </button>
         </div>
 
         <p class="nota-pie">
-            <strong>Validar sin guardar</strong> procesa el archivo completo y muestra el
-            mismo reporte, pero deshace todo al final. Conviene usarlo primero: detecta
-            incluso los documentos repetidos dentro del propio archivo.
+            <strong>Analizar plantilla</strong> procesa el archivo completo sin guardar y
+            muestra los puestos existentes, los nuevos propuestos y cualquier ambigüedad.
+            La importación solo se ejecuta después de una confirmación explícita.
             <br />
             Al cargar, las filas válidas se registran aunque otras fallen. Las rechazadas se
             listan con su número de fila y el motivo.
@@ -104,7 +102,7 @@
 @if (resultado is not null)
 {
     <div class="tarjeta">
-        <h2>Resultado</h2>
+        <h2>@(resultado.SoloValidacion ? "Resultado de análisis de plantilla" : "Resultado de importación")</h2>
 
         @if (resultado.SoloValidacion)
         {
@@ -119,6 +117,85 @@
                 {
                     <text>Todas pasarían sin problema.</text>
                 }
+            </div>
+        }
+
+        <div class="aviso aviso-atencion" role="status">
+            <strong>Dependencias conciliadas:</strong>
+            @resultado.Conciliacion.Unidades.Count unidad(es),
+            @resultado.Conciliacion.Equipos.Count equipo(s) y
+            @resultado.Conciliacion.Marcadores.Count marcador(es).
+            Nuevos propuestos: @resultado.Conciliacion.UnidadesNuevas unidad(es),
+            @resultado.Conciliacion.EquiposNuevos equipo(s) y
+            @resultado.Conciliacion.MarcadoresNuevos marcador(es).
+        </div>
+
+        @if (resultado.Conciliacion.Unidades.Count > 0 || resultado.Conciliacion.Equipos.Count > 0)
+        {
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                        <tr><th>Tipo</th><th>Código / referencia</th><th>Nombre</th><th>Contexto</th><th>Estado</th><th>Filas</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var unidad in resultado.Conciliacion.Unidades)
+                        {
+                            <tr><td>Unidad</td><td>@unidad.Clave</td><td>@unidad.Nombre</td><td>@unidad.Contexto</td><td>@unidad.Estado</td><td>@unidad.FilasAfectadas</td></tr>
+                        }
+                        @foreach (var equipo in resultado.Conciliacion.Equipos)
+                        {
+                            <tr><td>Equipo</td><td>@equipo.Clave</td><td>@equipo.Nombre</td><td>@equipo.Contexto</td><td>@equipo.Estado</td><td>@equipo.FilasAfectadas</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (resultado.Conciliacion.TieneBloqueos)
+        {
+            <div class="aviso aviso-error" role="alert">
+                Hay dependencias ambiguas, inválidas o con datos incompletos. Corrija la
+                plantilla y vuelva a analizarla; no se habilitará la confirmación.
+            </div>
+        }
+
+        <div class="aviso aviso-atencion" role="status">
+            <strong>@resultado.Puestos.Diferentes puesto(s) diferente(s)</strong> detectados:
+            @resultado.Puestos.Existentes.Count existente(s),
+            @resultado.Puestos.NuevosPropuestos.Count nuevo(s) propuesto(s) y
+            @resultado.Puestos.Ambiguos.Count ambiguo(s).
+            Afectan a @resultado.Puestos.TrabajadoresAfectados fila(s).
+        </div>
+
+        @if (resultado.Puestos.NuevosPropuestos.Count > 0)
+        {
+            <div class="aviso aviso-atencion" role="status">
+                <strong>Nuevos puestos propuestos:</strong>
+                <ul class="nota-compacta">
+                    @foreach (var puesto in resultado.Puestos.NuevosPropuestos)
+                    {
+                        <li>
+                            <strong>@puesto.Nombre</strong> — @puesto.Empresa
+                            (@puesto.TrabajadoresAfectados trabajador(es))
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (resultado.Puestos.Ambiguos.Count > 0)
+        {
+            <div class="aviso aviso-error" role="alert">
+                <strong>No se puede confirmar mientras haya puestos ambiguos.</strong>
+                <ul class="nota-compacta">
+                    @foreach (var puesto in resultado.Puestos.Ambiguos)
+                    {
+                        <li>
+                            <strong>@puesto.Valor</strong> — @puesto.Empresa:
+                            @string.Join(", ", puesto.Candidatos)
+                        </li>
+                    }
+                </ul>
             </div>
         }
         else
@@ -185,6 +262,36 @@
             <p class="nota-pie">
                 El número de fila es el que muestra Excel: la fila 1 es el encabezado.
             </p>
+        }
+
+        @if (resultado.SoloValidacion)
+        {
+            <div class="acciones">
+                <form method="post" asp-action="CancelarCargaMasiva">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="token" value="@Model.TokenConfirmacion" />
+                    <button type="submit" class="boton boton-secundario">Cancelar</button>
+                </form>
+
+                @if (Model.PuedeConfirmar)
+                {
+                    <form method="post" asp-action="ConfirmarCargaMasiva">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="token" value="@Model.TokenConfirmacion" />
+                        <button type="submit" class="boton boton-primario">
+                            Confirmar importación
+                        </button>
+                    </form>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="acciones">
+                <a class="boton boton-secundario" asp-controller="PreparacionTareo" asp-action="Index">
+                    Revisar preparación para tareo
+                </a>
+            </div>
         }
     </div>
 }

@@ -67,7 +67,7 @@
                         <dd>@detalle.Empresa</dd>
                     </div>
                     <div>
-                        <dt>Planta</dt>
+                        <dt>Unidad</dt>
                         <dd>@detalle.Planta</dd>
                     </div>
                     <div>
@@ -79,7 +79,7 @@
                         <dd>@(detalle.CentroCosto ?? "—")</dd>
                     </div>
                     <div>
-                        <dt>Unidad (planta)</dt>
+                        <dt>Unidad</dt>
                         <dd>@detalle.Planta</dd>
                     </div>
                     <div>
@@ -235,7 +235,7 @@
                         </div>
 
                         <div class="campo">
-                            <label asp-for="Datos.PlantaId">Unidad (planta)</label>
+                            <label asp-for="Datos.PlantaId">Unidad</label>
                             <select asp-for="Datos.PlantaId" id="PanelPlantaId" class="select-buscable"
                                     asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
                                 <option value="">Seleccione…</option>

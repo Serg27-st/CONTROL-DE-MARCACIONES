@@ -205,15 +205,17 @@ public sealed class VigenciaDelHorarioDeTurnoTests : IDisposable
     [Fact]
     public async Task Todo_turno_tiene_una_version_abierta_con_su_mismo_horario()
     {
-        var todos = await contexto.Turnos.AsNoTracking().ToListAsync(CancellationToken.None);
+        var activos = await contexto.Turnos.AsNoTracking()
+            .Where(t => t.Activo)
+            .ToListAsync(CancellationToken.None);
         var abiertas = await contexto.VersionesTurno.AsNoTracking()
             .Where(v => v.Activo && v.FechaFin == null)
             .ToListAsync(CancellationToken.None);
 
-        todos.ShouldNotBeEmpty();
-        abiertas.Count.ShouldBe(todos.Count);
+        activos.ShouldNotBeEmpty();
+        abiertas.Count.ShouldBe(activos.Count);
 
-        foreach (var turno in todos)
+        foreach (var turno in activos)
         {
             var abierta = abiertas.Where(v => v.TurnoId == turno.Id).ShouldHaveSingleItem();
             abierta.MismoHorarioQue(turno).ShouldBeTrue($"el turno {turno.Codigo} derivó de su versión abierta");

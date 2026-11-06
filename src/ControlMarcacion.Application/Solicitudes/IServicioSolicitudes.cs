@@ -28,7 +28,8 @@ public interface IServicioSolicitudes
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Aprueba la solicitud y genera una justificación por cada día cubierto.
+    /// Aprueba la solicitud y genera una justificación por cada día cubierto, en una sola
+    /// operación atómica. Si cualquier día no puede justificarse, no aprueba ni genera filas.
     /// </summary>
     Task<ResultadoAprobacion> AprobarAsync(
         long id,
@@ -73,9 +74,9 @@ public interface IServicioSolicitudes
     /// Anula una solicitud aprobada y retira las justificaciones que había generado.
     /// </summary>
     /// <remarks>
-    /// Las solicitudes no se borran: se anulan con motivo. Las justificaciones que generó
-    /// sí se retiran, porque dejarlas seguiría justificando una ausencia que ya no tiene
-    /// respaldo.
+    /// Las solicitudes no se borran: se anulan con motivo. Sus justificaciones tampoco se
+    /// borran: pasan a canceladas para dejar de afectar el tareo sin perder la evidencia de
+    /// qué días estuvieron justificados, quién los anuló y por qué.
     /// </remarks>
     Task AnularAsync(
         long id,
@@ -88,6 +89,23 @@ public interface IServicioSolicitudes
 
     /// <summary>Tipos de ausencia activos, con su código y sus topes de días.</summary>
     Task<IReadOnlyList<TipoAusenciaOpcionDto>> TiposAusenciaAsync(CancellationToken cancelacion = default);
+
+    Task<IReadOnlyList<SolicitudCambioTurnoDto>> ListarCambiosTurnoAsync(
+        CancellationToken cancelacion = default);
+
+    Task<long> GuardarCambioTurnoAsync(
+        GuardarCambioTurnoRequest solicitud,
+        string usuario,
+        CancellationToken cancelacion = default);
+
+    Task ResolverCambioTurnoAsync(
+        long id,
+        bool aprueba,
+        string? motivo,
+        string usuario,
+        CancellationToken cancelacion = default);
+
+    Task<IReadOnlyList<OpcionDto>> TurnosAsync(CancellationToken cancelacion = default);
 
     /// <summary>
     /// Periodos vacacionales seleccionables, del <c>2020-2021</c> al que abre el año en curso.

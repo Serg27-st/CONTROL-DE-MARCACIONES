@@ -118,7 +118,11 @@ public sealed record GuardarTurnoRequest
     /// <summary>
     /// Plantas donde el turno está habilitado. Vacío significa todas.
     /// </summary>
-    public IReadOnlyList<long> PlantasHabilitadas { get; init; } = [];
+    // Debe ser una colección concreta: el model binder de MVC no rellena de forma fiable
+    // una interfaz IReadOnlyList<T> cuando el formulario envía varias casillas con el
+    // mismo nombre. Con List<T> se conserva el contrato de solo reemplazo del record y el
+    // POST recibe exactamente las plantas marcadas.
+    public List<long> PlantasHabilitadas { get; init; } = [];
 
     public bool Activo { get; init; } = true;
 }

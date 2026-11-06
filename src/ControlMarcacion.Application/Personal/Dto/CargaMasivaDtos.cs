@@ -19,6 +19,101 @@ public sealed record ErrorCargaMasiva(int Fila, string Referencia, string Motivo
 /// </remarks>
 public sealed record MarcadorRegistradoEnCarga(int Fila, string Codigo, string Equipo);
 
+/// <summary>Un puesto reconocido o propuesto por el análisis de la plantilla.</summary>
+public sealed record PuestoCargaMasiva(
+    long EmpresaId,
+    string Empresa,
+    string Nombre,
+    int TrabajadoresAfectados,
+    long? PuestoId = null);
+
+/// <summary>
+/// Valor que coincide con más de una fila activa del mismo alcance y, por tanto, no se
+/// puede asignar sin una corrección explícita del catálogo o de la plantilla.
+/// </summary>
+public sealed record PuestoAmbiguoCargaMasiva(
+    long EmpresaId,
+    string Empresa,
+    string Valor,
+    int TrabajadoresAfectados,
+    IReadOnlyList<string> Candidatos);
+
+/// <summary>Conciliación de puestos calculada sin alterar el catálogo.</summary>
+public sealed record ResumenPuestosCargaMasiva(
+    IReadOnlyList<PuestoCargaMasiva> Existentes,
+    IReadOnlyList<PuestoCargaMasiva> NuevosPropuestos,
+    IReadOnlyList<PuestoAmbiguoCargaMasiva> Ambiguos,
+    string Huella)
+{
+    public int Diferentes => Existentes.Count + NuevosPropuestos.Count + Ambiguos.Count;
+
+    public int TrabajadoresAfectados => Existentes.Sum(p => p.TrabajadoresAfectados)
+        + NuevosPropuestos.Sum(p => p.TrabajadoresAfectados)
+        + Ambiguos.Sum(p => p.TrabajadoresAfectados);
+}
+
+/// <summary>Resultado de conciliar una dependencia declarada por la plantilla.</summary>
+public enum EstadoConciliacionCargaMasiva
+{
+    Existente,
+    NuevoPropuesto,
+    Ambiguo,
+    Invalido,
+    NoAplica,
+    PendienteDatos
+}
+
+/// <summary>Unidad, equipo o marcador reconocido durante la previsualización.</summary>
+public sealed record EntidadConciliadaCargaMasiva(
+    string Clave,
+    string Nombre,
+    string? Contexto,
+    EstadoConciliacionCargaMasiva Estado,
+    int FilasAfectadas,
+    long? Id = null,
+    string? Motivo = null);
+
+/// <summary>Acción propuesta para una fila, sin exponer datos sensibles innecesarios.</summary>
+public sealed record DetalleFilaCargaMasiva(
+    int Fila,
+    string Referencia,
+    string Empresa,
+    string Unidad,
+    string? Puesto,
+    string? Equipo,
+    string? CodigoMarcador,
+    DateOnly? VigenteDesde,
+    EstadoConciliacionCargaMasiva Estado,
+    string Accion,
+    string? Motivo = null);
+
+/// <summary>Previsualización de las dependencias organizativas y biométricas del lote.</summary>
+public sealed record ResumenConciliacionCargaMasiva(
+    IReadOnlyList<EntidadConciliadaCargaMasiva> Unidades,
+    IReadOnlyList<EntidadConciliadaCargaMasiva> Equipos,
+    IReadOnlyList<EntidadConciliadaCargaMasiva> Marcadores,
+    IReadOnlyList<DetalleFilaCargaMasiva> Filas,
+    string Huella)
+{
+    public bool TieneBloqueos => Unidades.Concat(Equipos).Concat(Marcadores)
+        .Any(e => e.Estado is EstadoConciliacionCargaMasiva.Ambiguo
+            or EstadoConciliacionCargaMasiva.Invalido
+            or EstadoConciliacionCargaMasiva.PendienteDatos);
+
+    public int UnidadesNuevas => Unidades.Count(e => e.Estado == EstadoConciliacionCargaMasiva.NuevoPropuesto);
+
+    public int EquiposNuevos => Equipos.Count(e => e.Estado == EstadoConciliacionCargaMasiva.NuevoPropuesto);
+
+    public int MarcadoresNuevos => Marcadores.Count(e => e.Estado == EstadoConciliacionCargaMasiva.NuevoPropuesto);
+}
+
+/// <summary>Catálogo creado efectivamente por una fila confirmada.</summary>
+public sealed record CatalogoCreadoEnCarga(
+    int Fila,
+    long Id,
+    string Codigo,
+    string Nombre);
+
 /// <summary>
 /// Resultado de procesar el archivo.
 /// </summary>
@@ -41,9 +136,15 @@ public sealed record ResultadoCargaMasiva(
     /// la carga se hizo sin registrar los que faltan. La pantalla lo usa para decir que basta
     /// con volver a subir el archivo con esa casilla marcada.
     /// </summary>
-    int FilasSinMarcadorEnCatalogo)
+    int FilasSinMarcadorEnCatalogo,
+    ResumenPuestosCargaMasiva Puestos,
+    ResumenConciliacionCargaMasiva Conciliacion,
+    IReadOnlyList<CatalogoCreadoEnCarga> UnidadesCreadas,
+    IReadOnlyList<CatalogoCreadoEnCarga> EquiposCreados)
 {
     public bool TieneErrores => Errores.Count > 0;
 
     public int Rechazados => Errores.Count;
+
+    public string HuellaConfirmacion => Conciliacion.Huella;
 }

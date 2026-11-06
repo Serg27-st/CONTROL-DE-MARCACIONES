@@ -115,7 +115,7 @@ internal sealed class ServicioCuadrillas(MarcacionDbContext contexto) : IServici
 
         if (!plantaExiste)
         {
-            throw new ReglaNegocioException("La planta indicada no existe o está inactiva.");
+            throw new ReglaNegocioException("La unidad indicada no existe o está inactiva.");
         }
 
         var repetido = await contexto.Cuadrillas
@@ -124,7 +124,7 @@ internal sealed class ServicioCuadrillas(MarcacionDbContext contexto) : IServici
 
         if (repetido)
         {
-            throw new ReglaNegocioException($"Ya existe una cuadrilla con el código '{codigo}' en esa planta.");
+            throw new ReglaNegocioException($"Ya existe una cuadrilla con el código '{codigo}' en esa unidad.");
         }
 
         Cuadrilla cuadrilla;
@@ -147,8 +147,8 @@ internal sealed class ServicioCuadrillas(MarcacionDbContext contexto) : IServici
                 if (tuvoIntegrantes)
                 {
                     throw new ReglaNegocioException(
-                        "No se puede cambiar de planta una cuadrilla que ya tuvo integrantes. Cree " +
-                        "una cuadrilla nueva en la otra planta.");
+                        "No se puede cambiar de unidad una cuadrilla que ya tuvo integrantes. Cree " +
+                        "una cuadrilla nueva en la otra unidad.");
                 }
             }
 
@@ -276,7 +276,7 @@ internal sealed class ServicioCuadrillas(MarcacionDbContext contexto) : IServici
                 && turno.PlantasHabilitadas.All(tp => tp.PlantaId != cuadrilla.PlantaId))
             {
                 throw new ReglaNegocioException(
-                    $"El turno {turno.Codigo} no está habilitado en la planta de la cuadrilla.");
+                    $"El turno {turno.Codigo} no está habilitado en la unidad de la cuadrilla.");
             }
         }
 

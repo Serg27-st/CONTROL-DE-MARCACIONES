@@ -138,25 +138,36 @@
        para anotar el cambio el día en que ocurrió cuando se registra tarde. *@
     <div class="tarjeta">
         <h2>Desde cuándo rige este horario</h2>
-        <div class="rejilla">
-            <div class="campo">
-                <label asp-for="Datos.RigeDesde">Rige desde</label>
-                <input asp-for="Datos.RigeDesde" type="date" />
-                <span class="error-campo" asp-validation-for="Datos.RigeDesde"></span>
-                <small class="texto-suave">
-                    Opcional. Vacío: <strong>desde hoy</strong>. Los días anteriores se siguen
-                    calculando con el horario que regía entonces, así que recalcular un mes
-                    pasado no lo mueve. Si el horario estaba mal <strong>desde el principio</strong>,
-                    ponga una fecha igual o anterior al inicio de la vigencia actual y se
-                    corrige en sitio, sin partir la historia.
-                </small>
+        @if (Model.EsNuevo)
+        {
+            <p class="subtitulo">
+                Un turno nuevo se abre con vigencia histórica desde el origen para que pueda
+                asignarse también a jornadas retroactivas. La fecha se solicita únicamente al
+                modificar posteriormente su horario.
+            </p>
+        }
+        else
+        {
+            <div class="rejilla">
+                <div class="campo">
+                    <label asp-for="Datos.RigeDesde">Rige desde</label>
+                    <input asp-for="Datos.RigeDesde" type="date" />
+                    <span class="error-campo" asp-validation-for="Datos.RigeDesde"></span>
+                    <small class="texto-suave">
+                        Opcional. Vacío: <strong>desde hoy</strong>. Los días anteriores se siguen
+                        calculando con el horario que regía entonces, así que recalcular un mes
+                        pasado no lo mueve. Si el horario estaba mal <strong>desde el principio</strong>,
+                        ponga una fecha igual o anterior al inicio de la vigencia actual y se
+                        corrige en sitio, sin partir la historia.
+                    </small>
+                </div>
             </div>
-        </div>
 
-        <p class="nota-pie">
-            No se admite una fecha que alcance días de un <strong>periodo cerrado</strong>:
-            al siguiente recálculo cambiaría un mes ya pagado.
-        </p>
+            <p class="nota-pie">
+                No se admite una fecha que alcance días de un <strong>periodo cerrado</strong>:
+                al siguiente recálculo cambiaría un mes ya pagado.
+            </p>
+        }
     </div>
 
     <div class="tarjeta">
@@ -209,10 +220,10 @@
     </div>
 
     <div class="tarjeta">
-        <h2>Plantas habilitadas</h2>
+        <h2>Unidades habilitadas</h2>
         <p class="subtitulo">
-            Si no marcas ninguna, el turno aplica a <strong>todas</strong> las plantas.
-            Marcar plantas concretas es lo que hace que el turno especial de sábado exista
+            Si no marcas ninguna, el turno aplica a <strong>todas</strong> las unidades.
+            Marcar unidades concretas es lo que hace que el turno especial de sábado exista
             solo donde corresponde.
         </p>
         <div class="rejilla">

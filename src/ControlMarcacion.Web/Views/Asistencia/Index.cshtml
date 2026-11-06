@@ -1,5 +1,6 @@
 @model TareoVm
 @using System.Globalization
+@using ControlMarcacion.Application.Asistencia
 @using ControlMarcacion.Domain.Asistencia
 @{
     ViewData["Title"] = "Tareo";
@@ -21,6 +22,7 @@
         EstadoTareo.AusenciaJustificada => "etiqueta-justificada",
         EstadoTareo.Incompleto => "etiqueta-incompleto",
         EstadoTareo.PendienteValidacion => "etiqueta-incompleto",
+        EstadoTareo.DescansoSustitutorio => "etiqueta-justificada",
         _ => "etiqueta-sin-horario"
     };
 
@@ -36,11 +38,12 @@
         EstadoTareo.Feriado => "Feriado",
         EstadoTareo.SinVinculo => "Sin vínculo",
         EstadoTareo.PendienteValidacion => "Pendiente de validar",
+        EstadoTareo.DescansoSustitutorio => "Descanso sustitutorio",
         _ => estado.ToString()
     };
 
     // Orden fijo, de lo que exige atención a lo que no. Los estados se muestran SIEMPRE
-    // los diez, con cero incluido: una tabla cuyas columnas aparecen y desaparecen según
+    // todos, con cero incluido: una tabla cuyas columnas aparecen y desaparecen según
     // los datos obliga a releer las cabeceras en cada carga, y un cero es información
     // —"ninguna falta"— que la ausencia de la pastilla no transmite.
     var ordenEstados = new[]
@@ -53,6 +56,7 @@
         EstadoTareo.Puntual,
         EstadoTareo.Descanso,
         EstadoTareo.Feriado,
+        EstadoTareo.DescansoSustitutorio,
         EstadoTareo.SinHorario,
         EstadoTareo.SinVinculo
     };
@@ -86,14 +90,20 @@
 
     @if (Model.PeriodoSeleccionado is { EstaAbierto: true } abierto)
     {
-        <form method="post" asp-action="Recalcular" class="en-linea">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="periodoId" value="@abierto.Id" />
-            <button type="submit" class="boton boton-primario"
-                    data-confirmar="¿Recalcular el tareo de @abierto.Codigo? Se rehará el cálculo de todos los días del periodo. El resultado es idéntico si nada cambió: el recálculo es idempotente.">
-                Recalcular @abierto.Codigo
-            </button>
-        </form>
+        <div class="en-linea">
+            <a class="boton boton-secundario" asp-controller="PreparacionTareo" asp-action="Index"
+               asp-route-periodoId="@abierto.Id" asp-route-operacion="@((int)OperacionPreparacionTareo.Recalculo)">
+                Ver preparación
+            </a>
+            <form method="post" asp-action="Recalcular" class="en-linea">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="periodoId" value="@abierto.Id" />
+                <button type="submit" class="boton boton-primario"
+                        data-confirmar="¿Recalcular el tareo de @abierto.Codigo? Se rehará el cálculo de todos los días del periodo. El resultado es idéntico si nada cambió: el recálculo es idempotente.">
+                    Recalcular @abierto.Codigo
+                </button>
+            </form>
+        </div>
     }
 </div>
 
@@ -538,6 +548,13 @@
                                     @if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.DescansoSemanal)
                                     {
                                         <span class="etiqueta etiqueta-justificada">Descanso +100%</span>
+                                    }
+                                    else if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado
+                                             && t.TieneDescansoSustitutorio)
+                                    {
+                                        <span class="etiqueta etiqueta-justificada">
+                                            Feriado sustituido → @t.FechaDescansoSustitutorio?.ToString("dd/MM")
+                                        </span>
                                     }
                                     else if (t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado)
                                     {

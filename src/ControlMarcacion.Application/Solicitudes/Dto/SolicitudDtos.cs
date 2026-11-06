@@ -245,8 +245,10 @@ public sealed record FiltroSolicitudes
 /// </summary>
 /// <remarks>
 /// Aprobar no es solo cambiar un estado: genera una justificación por cada día cubierto.
-/// Los días que caen en un periodo cerrado no se pueden justificar y se informan aparte,
-/// en vez de fallar entera la aprobación o —peor— saltárselos en silencio.
+/// La operación es atómica: un resultado exitoso nunca contiene omisiones. Las colecciones
+/// se conservan temporalmente en el contrato para no romper consumidores compilados; un
+/// periodo cerrado, un día sin periodo o un choque provocan una excepción de negocio antes
+/// de persistir cualquier cambio.
 /// </remarks>
 public sealed record ResultadoAprobacion(
     long SolicitudId,
@@ -258,3 +260,35 @@ public sealed record ResultadoAprobacion(
     public bool HuboOmisiones =>
         DiasEnPeriodoCerrado.Count > 0 || DiasSinPeriodo.Count > 0 || DiasConJustificacionExistente.Count > 0;
 }
+
+public sealed record GuardarCambioTurnoRequest
+{
+    [Required(ErrorMessage = "Seleccione el trabajador.")]
+    public long TrabajadorId { get; init; }
+
+    [Required(ErrorMessage = "La fecha efectiva es obligatoria.")]
+    public DateOnly FechaEfectiva { get; init; }
+
+    [Required(ErrorMessage = "Seleccione el turno solicitado.")]
+    public long TurnoId { get; init; }
+
+    [Required(ErrorMessage = "El motivo es obligatorio.")]
+    [StringLength(500, MinimumLength = 5)]
+    public string Motivo { get; init; } = string.Empty;
+}
+
+public sealed record SolicitudCambioTurnoDto(
+    long Id,
+    long TrabajadorId,
+    string Trabajador,
+    DateOnly FechaEfectiva,
+    long TurnoSolicitadoId,
+    string TurnoSolicitado,
+    string TurnoAnterior,
+    string Motivo,
+    EstadoSolicitud Estado,
+    string SolicitadoPorUsuario,
+    DateTime SolicitadoEn,
+    string? ResueltoPorUsuario,
+    DateTime? ResueltoEn,
+    string? MotivoResolucion);

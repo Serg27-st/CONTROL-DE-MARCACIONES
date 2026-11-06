@@ -1,0 +1,147 @@
+@model PreparacionTareoVm
+@using ControlMarcacion.Application.Asistencia
+@{
+    ViewData["Title"] = "Preparación para tareo";
+
+    static string Clase(EstadoPreparacionTareo estado) => estado switch
+    {
+        EstadoPreparacionTareo.Listo => "etiqueta-puntual",
+        EstadoPreparacionTareo.Incompleto => "etiqueta-incompleto",
+        EstadoPreparacionTareo.Conflicto => "etiqueta-falta",
+        _ => ""
+    };
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Preparación para tareo</h1>
+        <p class="texto-suave">
+            Diagnóstico de configuración. Un trabajador listo todavía puede tener faltas,
+            tardanzas o incidencias; esta pantalla no aprueba planilla ni modifica datos.
+        </p>
+    </div>
+    <a class="boton boton-secundario" asp-controller="Asistencia" asp-action="Index"
+       asp-route-periodoId="@Model.PeriodoId">Volver al tareo</a>
+</div>
+
+<div class="tarjeta tarjeta-filtros">
+    <h2>Filtros</h2>
+    <form method="get" asp-action="Index" class="barra-filtros">
+        <div class="campo campo-filtro-ancho">
+            <label for="periodoId">Periodo</label>
+            <select id="periodoId" name="periodoId" class="select-buscable">
+                @foreach (var periodo in Model.Periodos)
+                {
+                    <option value="@periodo.Id" selected="@(periodo.Id == Model.PeriodoId)">
+                        @periodo.Codigo — @periodo.FechaInicio.ToString("dd/MM/yyyy") al @periodo.FechaFin.ToString("dd/MM/yyyy")
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="campo campo-filtro-ancho">
+            <label for="plantaId">Unidad</label>
+            <select id="plantaId" name="plantaId" class="select-buscable">
+                <option value="">Todas las autorizadas</option>
+                @foreach (var planta in Model.Plantas)
+                {
+                    <option value="@planta.Id" selected="@(planta.Id == Model.PlantaId)">@planta.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="campo">
+            <label for="estado">Estado</label>
+            <select id="estado" name="estado">
+                <option value="">Todos</option>
+                @foreach (var valor in Enum.GetValues<EstadoPreparacionTareo>())
+                {
+                    <option value="@((int)valor)" selected="@(valor == Model.Estado)">@valor.ToString().ToUpperInvariant()</option>
+                }
+            </select>
+        </div>
+        <div class="campo campo-filtro-ancho">
+            <label for="operacion">Operación</label>
+            <select id="operacion" name="operacion">
+                @foreach (var valor in Enum.GetValues<OperacionPreparacionTareo>())
+                {
+                    <option value="@((int)valor)" selected="@(valor == Model.Operacion)">@valor</option>
+                }
+            </select>
+        </div>
+        <div class="barra-filtros-acciones">
+            <button type="submit" class="boton boton-primario">Evaluar</button>
+        </div>
+    </form>
+</div>
+
+@if (Model.Periodos.Count == 0)
+{
+    <div class="tarjeta"><div class="sin-resultados">No hay periodos disponibles.</div></div>
+    return;
+}
+
+<div class="resumen-tareo">
+    <div class="tarjeta"><strong>@Model.Listos</strong><br />LISTO</div>
+    <div class="tarjeta"><strong>@Model.Incompletos</strong><br />INCOMPLETO</div>
+    <div class="tarjeta"><strong>@Model.Conflictos</strong><br />CONFLICTO</div>
+</div>
+
+<div class="tarjeta">
+    @if (Model.Resultados.Count == 0)
+    {
+        <div class="sin-resultados">No hay trabajadores autorizados que coincidan con los filtros.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>Unidad</th>
+                        <th>Periodo</th>
+                        <th>Estado</th>
+                        <th>Días</th>
+                        <th>Problemas y acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var resultado in Model.Resultados)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@resultado.Trabajador</strong><br />
+                                <span class="texto-suave">@resultado.Documento</span>
+                            </td>
+                            <td>@string.Join(", ", resultado.Dias.Select(d => d.Planta).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct())</td>
+                            <td>@(Model.Periodo?.Codigo ?? "—")</td>
+                            <td><span class="etiqueta @Clase(resultado.Estado)">@resultado.Estado.ToString().ToUpperInvariant()</span></td>
+                            <td>
+                                @resultado.DiasListos listo(s)<br />
+                                @resultado.DiasIncompletos incompleto(s)<br />
+                                @resultado.DiasConConflicto conflicto(s)
+                            </td>
+                            <td>
+                                @if (resultado.Incidencias.Count == 0)
+                                {
+                                    <span>Configuración completa para el intervalo.</span>
+                                }
+                                else
+                                {
+                                    <ul class="nota-compacta">
+                                        @foreach (var incidencia in resultado.Incidencias)
+                                        {
+                                            <li>
+                                                <strong>@incidencia.Codigo:</strong> @incidencia.Explicacion
+                                                <br /><span class="texto-suave">Acción: @incidencia.AccionRecomendada</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

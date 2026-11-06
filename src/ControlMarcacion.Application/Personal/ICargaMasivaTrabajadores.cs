@@ -18,6 +18,31 @@ namespace ControlMarcacion.Application.Personal;
 public interface ICargaMasivaTrabajadores
 {
     /// <summary>
+    /// Analiza el archivo y ejecuta las mismas validaciones de la carga dentro de una
+    /// transacción revertida. No deja trabajadores, marcadores, puestos ni auditoría.
+    /// </summary>
+    Task<ResultadoCargaMasiva> PrevisualizarAsync(
+        Stream contenido,
+        string nombreArchivo,
+        string usuario,
+        bool actualizarExistentes = false,
+        bool registrarMarcadores = true,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Confirma una previsualización. La huella obliga a volver a conciliar el catálogo
+    /// dentro de la transacción y rechaza una vista previa que haya quedado obsoleta.
+    /// </summary>
+    Task<ResultadoCargaMasiva> ConfirmarAsync(
+        Stream contenido,
+        string nombreArchivo,
+        string usuario,
+        string huellaPuestosEsperada,
+        bool actualizarExistentes = false,
+        bool registrarMarcadores = true,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
     /// Lee el archivo, valida fila por fila y registra las válidas.
     /// </summary>
     /// <param name="soloValidar">

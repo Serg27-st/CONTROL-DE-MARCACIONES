@@ -76,5 +76,11 @@ public enum TipoIncidencia
     SinCoberturaDeCarga = 5,
 
     /// <summary>Las marcas residuales de un descanso no fijan un intervalo inequívoco.</summary>
-    DelimitacionDescansoAmbigua = 6
+    DelimitacionDescansoAmbigua = 6,
+
+    /// <summary>
+    /// Aparecieron marcaciones en un día otorgado como descanso sustitutorio. El motor no
+    /// decide por sí solo si se perdió la sustitución ni cómo valorizar ese segundo trabajo.
+    /// </summary>
+    TrabajoEnDescansoSustitutorio = 7
 }

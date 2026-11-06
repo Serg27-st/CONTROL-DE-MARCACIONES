@@ -164,16 +164,16 @@ public sealed class PagoDeJustificacionesAlRecalcularTests : IDisposable
     {
         var trabajadorId = await CrearTrabajadorAsync("44444404");
 
-        // Turno diurno 07:00–19:00: entra puntual y se va a las 17:00, dos horas antes.
+        // Turno diurno 07:00–17:22: entra puntual y se va a las 15:00, salida anticipada.
         await CrearMarcacionesAsync(trabajadorId,
             new DateTime(2026, 7, 1, 7, 0, 0),
-            new DateTime(2026, 7, 1, 17, 0, 0));
+            new DateTime(2026, 7, 1, 15, 0, 0));
 
         var sinPermiso = await RecalcularYLeerAsync(trabajadorId);
-        sinPermiso.MinutosSalidaAnticipada.ShouldBe(120);
+        sinPermiso.MinutosSalidaAnticipada.ShouldBe(142);
 
         var solicitudId = await CrearSolicitudPorHorasAsync(
-            trabajadorId, new TimeOnly(17, 0), new TimeOnly(19, 0));
+            trabajadorId, new TimeOnly(15, 0), new TimeOnly(17, 22));
 
         await JustificarAsync(
             trabajadorId, TipoJustificacion.PermisoParcial, TipoPermisoPorHoras, solicitudId);
@@ -182,10 +182,9 @@ public sealed class PagoDeJustificacionesAlRecalcularTests : IDisposable
 
         conPermiso.MinutosSalidaAnticipada.ShouldBe(0);
         conPermiso.MinutosTardanza.ShouldBe(0);
-        conPermiso.MinutosOrdinarios.ShouldBe(600);
-        conPermiso.MinutosOrdinarios.ShouldNotBe(480);
+        conPermiso.MinutosOrdinarios.ShouldBe(480);
         conPermiso.Observacion.ShouldNotBeNull();
-        conPermiso.Observacion.ShouldContain("PERMISO PARCIAL de 17:00 a 19:00");
+        conPermiso.Observacion.ShouldContain("PERMISO PARCIAL de 15:00 a 17:22");
     }
 
     // ------------------------------------------------------------------

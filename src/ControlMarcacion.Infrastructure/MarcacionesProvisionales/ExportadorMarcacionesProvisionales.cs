@@ -19,7 +19,7 @@ internal sealed class ExportadorMarcacionesProvisionales : IExportadorMarcacione
         "Hora ingreso",
         "Hora salida",
         "Turno",
-        "Planta",
+        "Unidad",
         "Área",
         "Centro de costo",
         "Observación"

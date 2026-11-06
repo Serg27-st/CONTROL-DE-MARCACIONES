@@ -1,0 +1,67 @@
+@model ControlMarcacion.Web.Models.ProgramacionMasivaResultadoVm
+@{
+    ViewData["Title"] = "Resultado de la programación";
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Paso 4: Resultado</h1>
+        <p class="texto-suave">
+            @Model.PlantaNombre — turno @Model.TurnoNombre — desde @Model.FechaEfectiva.ToString("dd/MM/yyyy")
+        </p>
+    </div>
+</div>
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alerta alerta-error">@error</div>
+}
+
+@if (Model.Resultado is { } res)
+{
+    <div class="tarjeta">
+        <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem;">
+            <div><strong>@res.Procesados</strong> procesados</div>
+            <div>@res.SinCambio sin cambio</div>
+            @if (res.Errores > 0)
+            {
+                <div><span class="etiqueta-incompleto">@res.Errores error(es)</span></div>
+            }
+        </div>
+
+        @if (res.Errores == 0)
+        {
+            <div class="alerta alerta-exito">
+                Todos los cambios se aplicaron correctamente.
+            </div>
+        }
+        else
+        {
+            <div class="alerta alerta-error" style="margin-bottom: 1rem;">
+                La operación se revirtió por completo. Ningún cambio se aplicó.
+            </div>
+
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Apellidos y nombres</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in res.Detalle)
+                    {
+                        <tr>
+                            <td>@e.ApellidosNombres</td>
+                            <td>@e.Motivo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="acciones-formulario" style="margin-top: 1.5rem;">
+            <a class="boton boton-primario" asp-action="Index">Nueva programación</a>
+        </div>
+    </div>
+}

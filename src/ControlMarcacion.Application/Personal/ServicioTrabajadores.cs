@@ -144,7 +144,7 @@ public sealed class ServicioTrabajadores(
                 if (laboral.PlantaId is not { } plantaHistorica)
                 {
                     throw new ReglaNegocioException(
-                        $"no tenía una planta laboral definida el {desde:dd/MM/yyyy}.");
+                        $"no tenía una unidad laboral definida el {desde:dd/MM/yyyy}.");
                 }
 
                 await GarantizarAccesoTrabajadorAsync(plantaHistorica, id, cancelacion).ConfigureAwait(false);
@@ -204,7 +204,7 @@ public sealed class ServicioTrabajadores(
         {
             throw new ReglaNegocioException(
                 $"La cuadrilla {cuadrilla.Nombre} es de {cuadrilla.Planta}: solo pueden integrarla " +
-                "trabajadores de esa planta.");
+                "trabajadores de esa unidad.");
         }
     }
 
@@ -450,13 +450,13 @@ public sealed class ServicioTrabajadores(
         if (empresaDePlanta is null)
         {
             throw new ReglaNegocioException(
-                "La planta indicada no existe o está dada de baja en el catálogo.");
+                "La unidad indicada no existe o está dada de baja en el catálogo.");
         }
 
         if (empresaDePlanta != solicitud.EmpresaId)
         {
             throw new ReglaNegocioException(
-                "La planta indicada no pertenece a la empresa seleccionada.");
+                "La unidad indicada no pertenece a la empresa seleccionada.");
         }
 
         trabajador.Reingresar(
@@ -493,7 +493,7 @@ public sealed class ServicioTrabajadores(
         if (!await alcance.PuedeVerPlantaAsync(plantaId, cancelacion).ConfigureAwait(false))
         {
             throw new ReglaNegocioException(
-                "No puede registrar ni asignar un trabajador a una planta que no gestiona.");
+                "No puede registrar ni asignar un trabajador a una unidad que no gestiona.");
         }
     }
 
@@ -724,7 +724,7 @@ public sealed class ServicioTrabajadores(
                         ? $"El identificador de marcador '{idMarcador}' no está registrado en el equipo " +
                           "indicado. Regístrelo en Catálogos → Marcadores."
                         : $"El identificador de marcador '{idMarcador}' no está registrado en el equipo " +
-                          "indicado; en esta planta existe en " +
+                          "indicado; en esta unidad existe en " +
                           $"{string.Join(", ", candidatos.Select(c => c.Equipo))}. Regístrelo en el " +
                           "equipo correcto o corrija el equipo de la fila.");
             }
@@ -746,7 +746,7 @@ public sealed class ServicioTrabajadores(
         if (candidatos.Count > 1)
         {
             throw new ReglaNegocioException(
-                $"En esta planta hay {candidatos.Count} marcadores con el código '{idMarcador}' " +
+                $"En esta unidad hay {candidatos.Count} marcadores con el código '{idMarcador}' " +
                 $"({string.Join(", ", candidatos.Select(c => c.Equipo))}). Indique de cuál de " +
                 "ellos es el trabajador: el código por sí solo identifica a personas distintas " +
                 "en cada equipo.");
@@ -756,7 +756,7 @@ public sealed class ServicioTrabajadores(
         {
             throw new ReglaNegocioException(
                 $"El identificador de marcador '{idMarcador}' no existe en el catálogo de esta " +
-                "planta. Regístrelo primero en Catálogos → Marcadores, indicando a qué equipo " +
+                "unidad. Regístrelo primero en Catálogos → Marcadores, indicando a qué equipo " +
                 "pertenece.");
         }
 

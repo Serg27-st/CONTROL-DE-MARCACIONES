@@ -1,6 +1,6 @@
 # Estado actual del proyecto
 
-> Punto de entrada compacto para nuevas sesiones. Fecha de consolidación: 2026-10-15.
+> Punto de entrada compacto para nuevas sesiones. Fecha de consolidación: 2026-10-23.
 
 Fases 1–6.1 completadas. Comprensión consolidada aproximada: 96 %.
 
@@ -299,7 +299,8 @@ La composición con otras justificaciones permanece dentro de incidencias/aproba
 ## 13. P2/P3 relevante
 
 La autorización PMV está cubierta en servicios con SQLite; una prueba de controlador extremo a extremo sigue como deuda no bloqueante.
-Persisten preguntas sobre refrigerio/nocturnidad, tasas por empresa y aprobación parcial.
+AUS-007 cerró la aprobación parcial: una solicitud se aprueba para todos sus días o permanece
+pendiente sin filas nuevas. Persisten preguntas sobre refrigerio/nocturnidad y tasas por empresa.
 Constantes de dominio están dispersas.
 `MinutosTolerancia` y `MinutosAnticipacionSalida` siguen en BD/UI/versionado, pero ya no afectan planilla; son configuración obsoleta candidata a limpieza futura.
 La observabilidad operativa es limitada.
@@ -512,13 +513,13 @@ Fecha: 2026-10-16. **CERRADO DOCUMENTALMENTE.**
 
 `REQUIREMENTS_IMPLEMENTATION_GAP_MATRIX.md` mapea las 86 reglas operativas vigentes/no
 determinadas del catálogo final y separa 9 históricas/superadas. El corte original fue de 68
-implementadas sin gap y 18 con acción concreta. Tras los cierres de SEG-006 y
-P0-FER-002/007 del 2026-10-19, el estado vigente es 73 sin gap y 13 con acción: 1 bug,
-4 gaps funcionales, 1 deuda de modelo, 3 de test, 0 riesgos de seguridad, 2 riesgos de datos
-y 2 no determinados. Prioridad vigente: 1 P0, 3 P1 y 9 P2.
+implementadas sin gap y 18 con acción concreta. Tras los cierres posteriores, incluidos
+P2-AUS-006/007/008, P2-PMV-004 y P2-AUD-001 del 2026-10-23, el estado vigente es 79 sin gap y 7 con
+acción: 0 bugs, 3 gaps funcionales, 1 deuda de modelo, 0 de test, 0 riesgos de seguridad,
+1 riesgo de datos y 2 no determinados. Prioridad vigente: 1 P0, 2 P1 y 4 P2.
 
-`REQUIREMENTS_TRACEABILITY.md` se conserva como corte histórico de Fase 6.1. Código, tests,
-migraciones, producción y OP-03 permanecen intactos.
+`REQUIREMENTS_TRACEABILITY.md` se conserva como corte histórico de Fase 6.1. Baseline vigente:
+build Release 0 errores/0 warnings y 994/994 tests verdes. Producción y OP-03 permanecen intactos.
 
 Validación de esta fase: build Release 0 errores/0 warnings. La única ejecución de la suite
 quedó en `INCIDENCIA_RUNNER`: `vstest.console` no conectó con `testhost` tras 120 segundos;
@@ -564,6 +565,201 @@ Validación: build Release 0 errores/0 advertencias; regresión dirigida 15/15; 
 958/958, 0 fallos y 0 omitidos. Sin migración ni cambio de esquema. Producción intacta, OP-03
 no ejecutado y sin commit.
 
-Deuda separada: FER-003 (dato/flujo de descanso sustitutorio) y FER-005 (día no laborable
-compensable). Evidencia: `P0_FER_002_007_HOLIDAY_ECONOMICS.md`.
+FER-003 quedó cerrado el 2026-10-20 mediante `DescansoSustitutorio`: relación explícita entre
+feriado trabajado y día completo posterior, alta/anulación auditada, unicidad y concurrencia,
+cero minutos sin incidencias en el día concedido y supresión del adicional general sin borrar
+minutos físicos. Migración aditiva `20261020143105_DescansoSustitutorioFeriado`, no aplicada a
+producción. Baseline: 975/975 verdes, build 0 errores/0 warnings. Evidencia:
+`P1_FER003_DESCANSO_SUSTITUTORIO.md`.
+
+Deuda separada: FER-005 (día no laborable compensable).
+
+## 29. P1-FER-001 — REVALIDACIÓN DE FERIADO NO TRABAJADO
+
+Fecha: 2026-10-22. **CERRADO / SIN GAP VIGENTE.**
+
+El contexto de entrada clasificaba FER-001 como `GAP_FUNCIONAL/P1`, pero esa fotografía quedó
+superada por P0-FER-002/007. La fuente autoritativa, la matriz vigente, el motor, la liquidación
+y el contrato SQLite directo coinciden: el feriado nacional no trabajado conserva un derecho
+ordinario separado y genera cero minutos físicos, HE100 y concepto de trabajo en feriado.
+
+No se modificaron código productivo, tests ni migraciones y no se añadieron contratos
+duplicados. Regresión dirigida: 15/15 verdes. Build Release: 0 errores/0 warnings. Suite
+completa: 975/975 verdes, 0 fallos y 0 omitidos. Evidencia completa: `P1_FER001.md`.
+
+## 30. P1-FER-004 — CIERRE DE DEUDA DE TEST
+
+Fecha: 2026-10-22. **CERRADO.**
+
+FER-004 ya estaba implementado mediante clasificación por fecha de inicio de jornada, pero
+las pruebas de dominio recibían `EsFeriado` ya resuelto y no demostraban la frontera completa
+catálogo→servicio→tareo. Se agregaron `FER004-01` y `FER004-02` sobre SQLite real: normal
+19:00→feriado 05:22 conserva el día normal; feriado 19:00→D+1 05:22 conserva `Feriado`.
+
+Código productivo y migraciones: sin cambios. Regresión dirigida: 7/7 verdes. Build Release:
+0 errores/0 warnings. Suite completa: 977/977 verdes, 0 fallos y 0 omitidos. Evidencia:
+`P1_FER004_TEST_DEBT.md`.
+
+## 31. P2-AUS-007 — APROBACIÓN ATÓMICA DE AUSENCIAS
+
+Fecha: 2026-10-23. **CERRADO.**
+
+Se reprodujo sobre SQLite real que una solicitud de tres días con choque en el día intermedio
+creaba las otras dos justificaciones y quedaba `Aprobada`. `AUS007-01` falló antes del arreglo
+porque el servicio no lanzó la excepción de negocio esperada.
+
+`ServicioSolicitudes.AprobarAsync` ahora prevalida todo el rango antes de agregar filas. Periodo
+cerrado, día sin periodo o justificación preexistente conservan la cabecera `Pendiente` y generan
+cero filas nuevas. En el camino válido, cabecera y detalle se guardan juntos; el índice único
+protege carreras de justificación y cada periodo abierto afirma su versión frente a cierres
+concurrentes.
+
+Contratos `AUS007-01..03`: 3/3 verdes. Regresión inmediata: 123/123. Suite completa: 980/980,
+0 fallos y 0 omitidos. Build Release: 0 errores/0 warnings. Sin migración, datos productivos,
+OP-03 ni commit. Evidencia completa: `P2_AUS007_BUG.md`.
+
+## 32. P2-AUS-008 — PRESERVACIÓN DE EVIDENCIA AL ANULAR
+
+Fecha: 2026-10-23. **CERRADO.**
+
+Se reprodujo sobre SQLite real que `ServicioSolicitudes.AnularAsync` eliminaba físicamente las
+justificaciones derivadas. Tres de cuatro contratos iniciales fallaron por ausencia de las filas.
+
+La anulación ahora conserva cada `Justificacion` como `Cancelada`, registra actor, fecha y motivo,
+incrementa `Version` y afirma concurrentemente todos los periodos afectados. Cabecera, detalle y
+guardas se confirman en un único guardado. El índice parcial y la aprobación ignoran historia
+terminal, y la bandeja prioriza una justificación vigente cuando convive con una cancelada.
+
+La base canónica del workspace se auditó mediante copia completa `.db/.db-wal/.db-shm`: integridad
+`ok`, FK 0, 0 solicitudes y 0 justificaciones; no hubo filas que sanear ni datos fuente modificados.
+No se infirió evidencia perdida ni se auditó producción.
+
+Contratos `AUS008-01..06`: 6/6 verdes. Suite Infrastructure: 520/520. Suite completa: 986/986,
+0 fallos y 0 omitidos. Build Release: 0 errores/0 warnings. Sin migración, saneamiento, producción,
+OP-03 ni commit. Evidencia completa: `P2_AUS008_DATA_RISK.md`.
+
+## 33. P2-AUS-006 — CIERRE DE DEUDA DE TEST DE SOLAPAMIENTOS
+
+Fecha: 2026-10-23. **CERRADO.**
+
+La ruta productiva ya aplicaba la regla vigente: para el mismo trabajador, una solicitud
+`Pendiente` o `Aprobada` reserva inclusivamente su rango; `Rechazada` y `Anulada` lo liberan.
+La deuda era exclusivamente la ausencia de un contrato integrado contra SQLite que demostrara
+esa matriz de estados y la frontera temporal.
+
+Se agregaron `AUS006-01/02` en `SolapamientoSolicitudesTests`: cuatro casos prueban los estados
+y un quinto demuestra que compartir el día extremo se rechaza mientras el día siguiente se
+admite. No hubo cambios en código productivo ni migraciones.
+
+Contratos AUS-006: 5/5 casos verdes. Regresión dirigida de solicitudes, ausencias y
+justificaciones: 127/127. Suite completa: 991/991, 0 fallos y 0 omitidos. Build Release:
+0 errores/0 warnings. Producción intacta; OP-03 y commit no ejecutados. Evidencia completa:
+`P2_AUS006_TEST_DEBT.md`.
+
+## 34. P2-PMV-004 — CIERRE DE DEUDA DE TEST DEL MÓDULO PROVISIONAL
+
+Fecha: 2026-10-23. **CERRADO.**
+
+La implementación ya mantenía PMV fuera del motor oficial: el importador escribe únicamente
+`prov_importacion`, `prov_marcacion` y `prov_error_importacion`; la consulta produce DTOs en
+memoria y el exportador genera las 13 columnas provisionales sin conceptos de planilla. Faltaba
+un único contrato negativo que atravesara las tres operaciones y observara ambos modelos.
+
+`PMV004-01` ejecuta importación, consulta y exportación reales sobre SQLite. Verifica las filas
+`prov_*`, ausencia de cambios en importación oficial, errores oficiales, `MarcacionCruda`,
+`TareoDiario` y `PeriodoLaboral`, y ausencia de tardanza, salida anticipada, HE, nocturnidad,
+incidencias, feriados o pago en la salida.
+
+Contrato PMV-004: 1/1 verde. Regresión PMV completa: 42/42. Suite completa: 992/992,
+0 fallos y 0 omitidos. Build Release: 0 errores/0 warnings. Sin cambios productivos ni
+migraciones; producción intacta, OP-03 y commit no ejecutados. Evidencia completa:
+`P2_PMV004_TEST_DEBT.md`.
+
+## 35. P2-AUD-001 — CIERRE DE DEUDA DE TEST TRANSVERSAL DE AUDITORÍA
+
+Fecha: 2026-10-23. **CERRADO.**
+
+La infraestructura existente ya auditaba por interceptor todas las entidades no excluidas y
+registraba el recálculo de tareo mediante el evento agregado 4200. Faltaba un contrato SQLite
+que demostrara conjuntamente la inclusión de una operación sensible, la exclusión del dato
+derivado y la persistencia de actor, identidad, operación, timestamp y cambios.
+
+`AUD001-01` usa otorgamiento y anulación de descanso sustitutorio para verificar inserción,
+baja lógica, estado anterior/nuevo y motivo exacto. `AUD001-02` confirma que el recálculo crea
+tareo sin filas de auditoría `tareo_diario` y emite un único log agregado. La atomicidad negativa
+se traza al contrato existente `IMP_AT_01`, que prueba que un fallo no deja auditoría falsa.
+
+Contratos AUD-001: 2/2 verdes. Regresión dirigida total: 4/4. Suite completa: 994/994,
+0 fallos y 0 omitidos. Build Release: 0 errores/0 warnings. Sin cambios productivos ni
+migraciones; producción intacta, OP-03 y commit no ejecutados. Evidencia completa:
+`P2_AUD001_TEST_DEBT.md`.
+
+## 36. R-QA-CAT-001 — ID DE ALTA DE CATÁLOGOS
+
+Fecha: 2026-10-28. **CERRADO.**
+
+`QA-E2E-002` reprodujo que una planta se persistía con clave SQLite válida, pero
+`ServicioCatalogos.GuardarAsync` devolvía `0`. Los auxiliares copiaban `Entidad.Id` antes del
+único `SaveChangesAsync`; la clave se materializaba después en la entidad seguida, no en el
+`long` ya capturado.
+
+Los auxiliares de puesto, planta, área, sección y tipo de documento ahora devuelven la entidad.
+El servicio conserva un solo guardado y retorna `entidad.Id` únicamente después de persistir.
+No hay consulta por nombre/código, guardado adicional, migración ni cambio transaccional.
+
+Contratos `QACAT-001..006`: 9/9 ejecuciones SQLite verdes. Regresión dirigida: 112/112.
+Suite completa: 1,037/1,037, 0 fallos y 0 omitidos. Build Release: 0 errores/0 warnings.
+Producción intacta; OP-03 y commit no ejecutados. Evidencia: `R_QA_CAT001.md`.
+
+## 37. CAT-DYN-001 — IMPORTACIÓN INTELIGENTE DE UNIDADES, EQUIPOS Y MARCADORES
+
+Fecha: 2026-10-28. **COMPLETADO.**
+
+La entidad técnica `Planta`, la tabla `planta`, `PlantaId`, `UsuarioPlanta` y la historia
+laboral se preservan. La interfaz visible utiliza `Unidad/Unidades`. La plantilla reconoce
+`Unidad`, conserva `Planta` como alias y rechaza contradicciones entre ambas.
+
+La carga concilia `Empresa → Unidad → Equipo → Marcador → Trabajador → Asignación`, propone
+altas solo con datos suficientes y muestra estados existentes, nuevos, ambiguos, inválidos,
+no aplicables o pendientes. La previsualización revierte su transacción y la confirmación
+revalida una huella conjunta. Cada fila dispone de savepoint anterior a cualquier alta, por
+lo que una fila rechazada no deja unidad, equipo, marcador ni puesto huérfano. No se amplían
+alcances `UsuarioPlanta`.
+
+Contratos `CATDYN-01..30`: 30/30 verdes sobre SQLite. Regresión dirigida de carga masiva:
+80/80. Suite completa: 1,067/1,067, 0 fallos y 0 omitidos. Build Release: 0 errores y
+0 advertencias. Sin migraciones; producción intacta; OP-03 y commit no ejecutados.
+Evidencia: `CAT_DYN_001.md`.
+
+## 38. CAT-DYN-003 — PREPARACIÓN AUTOMÁTICA PARA TAREO
+
+Fecha: 2026-10-29. **COMPLETADO EN CÓDIGO Y PRUEBAS.**
+
+Se incorporó `IValidadorPreparacionTareo` como diagnóstico histórico, explicable y de solo
+lectura. Distingue `LISTO`, `INCOMPLETO` y `CONFLICTO` por fecha e intervalo con precedencia de
+conflicto, y valida vínculo, empresa, unidad, equipo, catálogo/asignación de marcador, turno,
+descanso, periodo, consistencia histórica y alcance efectivo por unidad.
+
+La pantalla reutilizable está disponible desde Personal, después de una carga masiva confirmada
+y antes del recálculo de tareo. No lee marcas ni tareos, no escribe, no autorrepara, no bloquea
+globalmente y no altera el motor económico. El catálogo de unidades y los trabajadores
+mostrados respetan `IProveedorAlcancePlantas`.
+
+Contratos `CATREADY-01..20`: 20/20 verdes sobre SQLite real. Suite completa: 1,087/1,087,
+0 fallos y 0 omitidos. Build Release: 0 errores/0 advertencias. Sin migraciones; producción
+intacta; OP-03, despliegue y commit no ejecutados. Evidencia: `CAT_DYN_003.md`.
+
+## 39. CAT-DYN-004 — IMPORTACIÓN DE TURNOS Y DESCANSOS
+
+Fecha: 2026-11-02. **IMPLEMENTADO Y VALIDADO EN PRUEBAS DIRIGIDAS.**
+
+Importador Excel con previsualización de solo lectura, expansión de intervalos, resolución
+histórica, conciliación de turnos, descansos explícitos, periodo cerrado, token revalidado,
+transacción, idempotencia, autorización por unidad y reevaluación CATREADY.
+
+Reutiliza `AsignacionTurno`, `Cuadrilla`, `ProgramacionCuadrilla` y `TramoRotacion`; no crea
+otra autoridad ni migración. No lee ni modifica marcaciones, tareo o PMV. Contratos
+`CATTURNN-01..30` y una secuencia integral con cinco trabajadores: 11/11 verdes. Suite completa:
+1.113/1.113, 0 fallos y 0 omitidos. Build Release: 0 errores/0 advertencias. Evidencia:
+`CAT_DYN_004.md`.
 

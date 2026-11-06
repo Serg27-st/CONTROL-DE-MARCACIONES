@@ -121,6 +121,11 @@ Estado: 116 reglas reconciliadas; `ACCEPTANCE_RULES.md` prevalece para comportam
 | RN-072 | Límites de ausencias cuentan días inclusivos; pendientes y aprobadas consumen cupo; vacaciones separan periodo y subtipo. | CÓDIGO+TEST | Sí | `tipo_ausencia` + solicitudes | TESTEADA | Alto |
 | RN-073 | Anular solicitud aprobada elimina sus justificaciones solo si todos sus periodos siguen abiertos. | CÓDIGO | No | servicio solicitudes | PARCIAL | Alto: borrado físico de evidencia derivada |
 
+Actualización 2026-10-23: el comportamiento observado RN-073 quedó **SUPERADO** por AUS-008.
+La anulación conserva las filas en estado `Cancelada`, con actor, fecha, motivo y versión; los
+periodos siguen siendo una guarda obligatoria. Evidencia: `P2_AUS008_DATA_RISK.md` y
+`AUS008-01..06`.
+
 ## F. Reintegros, reportes y Excel
 
 | ID | Regla implementada u observada | Evidencia | Config. | Fuente de verdad | Cobertura | Riesgo |

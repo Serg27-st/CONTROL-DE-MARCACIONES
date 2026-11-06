@@ -1,0 +1,34 @@
+@model ResultadoVinculacionBiometricaVm
+@{
+    ViewData["Title"] = "Resultado de vinculación";
+}
+
+<div class="titulo-pagina">
+    <h1>Resultado del lote</h1>
+    <div>
+        <a class="boton boton-secundario" asp-action="Index">Nueva conciliación</a>
+        <a class="boton boton-primario" asp-controller="MarcacionesProvisionales" asp-action="Index">Consultar PMV</a>
+    </div>
+</div>
+
+<div class="aviso @(Model.NoCreadas == 0 ? "aviso-exito" : "aviso-alerta")">
+    @Model.Creadas creada(s) · @Model.SinCambios sin cambios · @Model.NoCreadas no creada(s).
+    Los resultados son independientes: un rechazo no revierte las vinculaciones válidas del lote.
+</div>
+
+<div class="tabla-contenedor">
+    <table class="tabla">
+        <thead><tr><th>Decisión</th><th>Resultado</th><th>Asignación</th><th>Detalle</th></tr></thead>
+        <tbody>
+        @foreach (var fila in Model.Resultados)
+        {
+            <tr>
+                <td>@fila.DecisionId</td>
+                <td>@fila.Resultado</td>
+                <td>@(fila.AsignacionMarcadorId?.ToString() ?? "—")</td>
+                <td>@(fila.Motivo ?? "Operación completada.")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

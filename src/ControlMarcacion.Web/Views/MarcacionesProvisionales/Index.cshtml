@@ -10,6 +10,12 @@
     Carga y consulta provisional de marcaciones. Este módulo no calcula horas extras,
     tardanzas ni tareo — solo muestra las marcaciones crudas cruzadas con el padrón.
 </p>
+@if (User.IsInRole(RolesSistema.Coordinador))
+{
+    <p>
+        <a class="boton boton-secundario" asp-controller="VinculacionesBiometricas" asp-action="Index">Vincular usuarios de user.u</a>
+    </p>
+}
 
 @* ─── Carga de archivo ─── *@
 <section class="seccion">
@@ -125,7 +131,7 @@
                             <th>Ingreso</th>
                             <th>Salida</th>
                             <th>Turno</th>
-                            <th>Planta</th>
+                            <th>Unidad</th>
                             <th>Observación</th>
                         </tr>
                     </thead>

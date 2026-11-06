@@ -1,9 +1,10 @@
 # P1-REQUIREMENTS-TRACEABILITY-FINAL
 
-Fecha de corte original: 2026-10-16. Actualización operacional: 2026-10-19.
+Fecha de corte original: 2026-10-16. Actualización operacional: 2026-10-23.
 Matriz autoritativa requisito → implementación → gap → acción.
-Fuente funcional: `BUSINESS_RULES_FINAL.md`. Baseline autoritativa: 948/948. Esta fase no
-modifica código, tests, migraciones, datos ni producción.
+Fuente funcional: `BUSINESS_RULES_FINAL.md`. Baseline autoritativa: 994/994. Las actualizaciones
+P2-AUS-006/007/008, P2-PMV-004 y P2-AUD-001 modificaron contratos e implementación según cada
+frente, sin migración ni datos fuente; producción permanece intacta.
 
 ## Convenciones
 
@@ -63,8 +64,8 @@ modifica código, tests, migraciones, datos ni producción.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | RQ-FER-001 | FER-001 | Feriado no trabajado | Conserva remuneración ordinaria; no genera HE. | VIGENTE | Derecho diario explícito, separado de minutos; cero trabajo y cero HE100. | `SobretasaDtos.cs`; `ServicioCalculoTareo.cs` | `FER_001_feriado_no_trabajado...` | NINGUNO | — | NINGUNA | Mantener contrato y separación día/minutos. | IMPLEMENTADO |
 | RQ-FER-002 | FER-002 | Feriado trabajado | Sin sustitutorio: ordinario + base + 100 %; parcial por minutos. | VIGENTE | Derecho ordinario separado; base y recargo desglosados sobre N minutos físicos únicos. | `SobretasaDtos.cs`; `ServicioCalculoTareo.cs` | `FER_002_dia_completo...`; `FER_002_trabajo_parcial...` | NINGUNO | — | NINGUNA | Mantener contratos; sustitutorio permanece en FER-003. | IMPLEMENTADO |
-| RQ-FER-003 | FER-003 | Sustitutorio | Con descanso sustitutorio no corresponde adicional de trabajo+100 %. | VIGENTE | No hay dato, persistencia ni flujo. | NO EXISTE | NO EXISTE | GAP_FUNCIONAL | Requiere entidad/campo, autorización y efecto económico. | P1 | Diseñar persistencia, Application/UI y liquidación del sustitutorio. | NO_IMPLEMENTADO |
-| RQ-FER-004 | FER-004 | Cruce feriado | Cruce hacia feriado conserva inicio; iniciado en feriado mantiene clasificación. | VIGENTE | La jornada usa fecha de inicio y conserva la clasificación hasta D+1. | `CalculoTareo.cs` | `FER_NAC_05...`; `FER_NAC_06...` | NINGUNO | — | NINGUNA | Mantener contratos directos. | IMPLEMENTADO |
+| RQ-FER-003 | FER-003 | Sustitutorio | Con descanso sustitutorio no corresponde adicional de trabajo+100 %. | VIGENTE | Relación explícita origen↔descanso, alta/anulación auditada, día completo a cero minutos y exclusión económica sin borrar minutos físicos. | `DescansoSustitutorio.cs`; `ServicioDescansosSustitutorios.cs`; `ServicioCalculoTareo.cs`; `DescansosSustitutoriosController.cs` | `DescansoSustitutorioAcceptanceTests`; `DescansoSustitutorioPersistenceTests`; `DescansosSustitutoriosControllerTests` | NINGUNO | — | NINGUNA | Mantener contratos; no inferir historia ni implementar parcialidad sin regla aprobada. | IMPLEMENTADO |
+| RQ-FER-004 | FER-004 | Cruce feriado | Cruce hacia feriado conserva inicio; iniciado en feriado mantiene clasificación. | VIGENTE | La jornada usa fecha de inicio y conserva la clasificación hasta D+1. | `CalculoTareo.cs`; `ServicioCalculoTareo.cs` | `FER004_01...`; `FER004_02...` | NINGUNO | — | NINGUNA | Mantener contratos SQLite de ambas fronteras. | IMPLEMENTADO |
 | RQ-FER-005 | FER-005 | Día no laborable | Feriado nacional ≠ día no laborable compensable. | VIGENTE | No existe clasificación propia. | NO EXISTE | NO EXISTE | GAP_FUNCIONAL | Requiere catálogo, persistencia y tratamiento separado. | P1 | Modelar tipo de día, carga/calendario y reglas de compensación. | NO_IMPLEMENTADO |
 | RQ-FER-006 | FER-006 | Coincidencia | Feriado ordinario+descanso usa una base y prevalece feriado. | VIGENTE | Coincidencia explícita. | `TareoDiario.cs`; `CalculoTareo.cs` | `DescansoProgramadoAcceptanceTests.cs`; `RotacionTurnosTests.cs` | NINGUNO | — | NINGUNA | Mantener ROT-FER-01. | IMPLEMENTADO |
 | RQ-FER-007 | FER-007 | 1 de mayo | Coincidencia conserva base única y tratamiento económico especial. | VIGENTE | Dos derechos diarios separados; con trabajo agrega base + recargo 100 % sobre N minutos únicos. | `CalculoTareo.cs`; `SobretasaDtos.cs`; `ServicioCalculoTareo.cs` | `FER_007_1_de_mayo_trabajado...`; `FER_007_1_de_mayo_no_trabajado...` | NINGUNO | — | NINGUNA | Mantener contratos y no convertir derechos diarios en minutos. | IMPLEMENTADO |
@@ -78,9 +79,9 @@ modifica código, tests, migraciones, datos ni producción.
 | RQ-AUS-003 | AUS-003 | Permiso parcial | Usa duración/solape real; no 480 indiscriminado. | VIGENTE | Rama parcial. | `CalculoTareo.cs` | `PermisoParcialTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
 | RQ-AUS-004 | AUS-004 | Permiso horas | Un día; fin posterior a inicio. | VIGENTE | Validadores de solicitud. | `SolicitudAusencia.cs`; `ValidadorLimitesSolicitud.cs` | `ValidadorLimitesSolicitudTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
 | RQ-AUS-005 | AUS-005 | Sustento | Se exige al aprobar; detalle clínico solo subsidiado. | VIGENTE | Servicio + validador. | `ServicioSolicitudes.cs`; `ValidadorDetalleClinico.cs` | `SustentoYAprobacionTests.cs`; `ValidadorDetalleClinicoTests.cs` | NINGUNO | — | NINGUNA | Mantener contratos. | IMPLEMENTADO |
-| RQ-AUS-006 | AUS-006 | Límites/solape | Pendiente/aprobada consume límites inclusivos y no debe solaparse. | VIGENTE | Validación existe; cobertura integral de solape no localizada. | `ServicioSolicitudes.cs`; `ValidadorLimitesSolicitud.cs` | `ValidadorLimitesSolicitudTests.cs` (parcial) | DEUDA_TEST | Falta contrato integrado de solape en persistencia. | P2 | Crear prueba SQLite de solicitudes solapadas por estados, sin cambiar regla. | PARCIAL |
-| RQ-AUS-007 | AUS-007 | Aprobación | Aprobación debe ser atómica para todos sus días. | VIGENTE | Puede aprobar cabecera con días omitidos. | `ServicioSolicitudes.cs/AprobarAsync` | NO EXISTE directo | BUG | Estado aprobado puede ocultar ejecución parcial. | P2 | Definir todo-o-nada o estado parcial y protegerlo con transacción/contrato. | PARCIAL |
-| RQ-AUS-008 | AUS-008 | Evidencia | Anular debe preservar evidencia derivada. | VIGENTE | Puede borrar físicamente justificaciones. | `ServicioSolicitudes.cs` | NO EXISTE directo | RIESGO_DATOS | Se pierde evidencia funcional intermedia. | P2 | Sustituir borrado por anulación lógica/versionada con auditoría. | PARCIAL |
+| RQ-AUS-006 | AUS-006 | Límites/solape | Pendiente/aprobada consume límites inclusivos y reserva el rango; rechazada/anulada lo libera. El cruce de extremos también es solape. | VIGENTE | Consulta SQLite por trabajador, estados no terminales y rango inclusivo; límites inclusivos en validador. | `ServicioSolicitudes.cs/GuardarAsync/ValidarLimitesAsync`; `ValidadorLimitesSolicitud.cs` | `ValidadorLimitesSolicitudTests.cs`; `SolapamientoSolicitudesTests.cs` (`AUS006-01/02`) | NINGUNO | — | NINGUNA | Mantener matriz de estados y frontera inclusiva. | IMPLEMENTADO |
+| RQ-AUS-007 | AUS-007 | Aprobación | Aprobación debe ser atómica para todos sus días. | VIGENTE | Prevalida todo el rango; cualquier impedimento conserva cabecera pendiente y cero filas nuevas. El éxito guarda cabecera+detalle en un `SaveChanges`, afirma versiones de periodo y conserva el índice único ante carreras. | `ServicioSolicitudes.cs/AprobarAsync`; `GuardiaDePeriodo.cs` | `AprobacionAtomicaSolicitudesTests.cs` (`AUS007-01..03`) | NINGUNO | — | NINGUNA | Mantener prevalidación, guardas de periodo y contratos SQLite. | IMPLEMENTADO |
+| RQ-AUS-008 | AUS-008 | Evidencia | Anular debe preservar evidencia derivada. | VIGENTE | Cancela y versiona cada justificación con actor/fecha/motivo; cabecera, detalle y guardas de periodo se confirman juntos. | `ServicioSolicitudes.cs`; `ServicioCalculoTareo.cs`; `GuardiaDePeriodo.cs` | `AUS008-01..06` | NINGUNO | — | NINGUNA | Mantener cancelación lógica, guarda concurrente, rechazo de historia incompleta y prioridad de fila vigente. | IMPLEMENTADO |
 | RQ-AUS-009 | AUS-009 | Regularización | Conserva original/corrección/motivo/actores/fechas/validación; parcial mantiene incidencia. | VIGENTE | Flujo separado, versionado y auditado. | `Justificacion.cs`; `ServicioJustificaciones.cs` | `RegularizacionDeMarcacionTests.cs`; `FlujoDeRegularizacionTests.cs` | NINGUNO | — | NINGUNA | Mantener REG-01..04. | IMPLEMENTADO |
 
 ### Marcaciones, atribución e importación
@@ -120,7 +121,7 @@ modifica código, tests, migraciones, datos ni producción.
 | RQ-PMV-001 | PMV-001 | Frontera | PMV solo escribe `prov_*`; no toca sistema oficial. | VIGENTE | Servicios/tablas separados. | `ServicioImportacionProvisional.cs`; entidades `MarcacionesProvisionales` | `ImportacionProvisionalTests.cs` | NINGUNO | — | NINGUNA | Mantener aislamiento. | IMPLEMENTADO |
 | RQ-PMV-002 | PMV-002 | Importación | Lectores compartidos, transacción y dedupe equipo+ID+instante. | VIGENTE | Importador provisional. | `ServicioImportacionProvisional.cs` | `ImportacionProvisionalTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
 | RQ-PMV-003 | PMV-003 | Atribución | Dinámica por equipo+ID+vigencia; sin dueño se conserva. | VIGENTE | Consulta provisional. | `ServicioConsultaMarcacionProvisional.cs` | `ConsultaMarcacionProvisionalTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
-| RQ-PMV-004 | PMV-004 | Límite funcional | PMV no calcula conceptos oficiales. | VIGENTE | DTO/exportación carecen de cálculo oficial. | `ServicioConsultaMarcacionProvisional.cs`; `ExportadorMarcacionesProvisionales.cs` | NO EXISTE negativo integral | DEUDA_TEST | Falta prueba única que demuestre cero escrituras/cálculos oficiales. | P2 | Crear contrato negativo integral PMV→tablas oficiales. | IMPLEMENTADO |
+| RQ-PMV-004 | PMV-004 | Límite funcional | PMV no calcula conceptos oficiales ni escribe el modelo oficial. | VIGENTE | Importación solo persiste `prov_*`; consulta genera DTO en memoria y exportación conserva 13 columnas sin conceptos de planilla. | `ServicioImportacionProvisional.cs`; `ServicioConsultaMarcacionProvisional.cs`; `ExportadorMarcacionesProvisionales.cs` | `ImportacionProvisionalTests.PMV004-01` | NINGUNO | — | NINGUNA | Mantener contrato negativo integral PMV→modelo oficial. | IMPLEMENTADO |
 | RQ-PMV-005 | PMV-005 | Historia | Planta mostrada viene de AsignacionPlanta histórica. | VIGENTE | Contexto laboral en consulta. | `ServicioConsultaMarcacionProvisional.cs`; `ConsultaContextoLaboral.cs` | `PeriodoLaboralFase3EBCuadrillasTests.cs` | NINGUNO | — | NINGUNA | Mantener PL3EB. | IMPLEMENTADO |
 | RQ-PMV-006 | PMV-006 | Seguridad | Alcance por planta en catálogo, historial, importar, consultar y exportar. | VIGENTE | Proveedor de alcance en servicios. | `AlcancePlantasSistema.cs`; servicios PMV | `AislamientoPmvAcceptanceTests.cs` | NINGUNO | — | NINGUNA | Mantener SEC-01..04. | IMPLEMENTADO |
 | RQ-PMV-007 | PMV-007 | Rango | 1–30 normal; 31–40 advierte; 41+ consulta sí/exportación no. | VIGENTE | Controlador/consulta/exportador. | `MarcacionesProvisionalesController.cs`; exportador PMV | pruebas consulta/exportador PMV | NINGUNO | — | NINGUNA | Mantener límites. | IMPLEMENTADO |
@@ -148,7 +149,7 @@ modifica código, tests, migraciones, datos ni producción.
 | RQ-SEG-004 | SEG-004 | Readiness | Starting/Failed bloquea funcionalidad; recuperación externa rehabilita. | VIGENTE | Estado/middleware. | `EstadoPreparacionAplicacion.cs`; `Program.cs` | `StartupHealthTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
 | RQ-SEG-005 | SEG-005 | Instalación local | Loopback, instancia única y ProgramData persistente. | VIGENTE | Hosting/installer local. | `HostingLocalWindows.cs`; `InstanciaLocalWindows.cs` | ciclo UAC; `FirstRunTests.cs` | NINGUNO | — | NINGUNA | Mantener runbook de instalación. | IMPLEMENTADO |
 | RQ-SEG-006 | SEG-006 | Credencial expuesta | Credencial comprometida debe rotarse/inutilizarse antes de producción. | VIGENTE | Sustituto creado por flujo Web; cuenta anterior inactiva, bloqueo indefinido y sello rotado. | `UsuariosController.cs`; `ServicioUsuarios.cs` | `P0_SEG006_CREDENTIAL_ROTATION.md`: login nuevo, revocación y prueba antigua fallida | NINGUNO | Exposición histórica contenida; la credencial ya no autentica la instancia activa conocida. | NINGUNA | Mantener cuarentena y no reutilizar snapshots/ZIP históricos. | RESUELTO |
-| RQ-AUD-001 | AUD-001 | Auditoría | Escrituras sensibles auditan actor/fecha/operación; tareo derivado deja log agregado. | VIGENTE | Interceptor + logging de recálculo. | `InterceptorAuditoria.cs`; `ServicioCalculoTareo.cs` | NO EXISTE integral | DEUDA_TEST | Cobertura indirecta; falta contrato transversal de inclusión/exclusión. | P2 | Crear prueba SQLite del interceptor y log agregado para operaciones representativas. | PARCIAL |
+| RQ-AUD-001 | AUD-001 | Auditoría | Escrituras sensibles auditan actor/fecha/operación; tareo derivado deja log agregado. | VIGENTE | Interceptor + logging de recálculo. | `InterceptorAuditoria.cs`; `ServicioCalculoTareo.cs` | `AuditoriaTransversalTests.cs` (`AUD001-01/02`); `IMP_AT_01` | NINGUNO | Contrato SQLite transversal de inclusión, baja lógica, exclusión y log agregado; rollback ya cubierto. | NINGUNA | Mantener contratos transversales y atomicidad. | IMPLEMENTADO |
 | RQ-AUD-002 | AUD-002 | Auditoría/frescura | Cambios/borrados relevantes invalidan vigencia. | VIGENTE | Auditoría alimenta evaluador. | `InterceptorAuditoria.cs`; `ServicioReportes.cs` | `VigenciaTareoAcceptanceTests.cs` | NINGUNO | — | NINGUNA | Mantener contrato. | IMPLEMENTADO |
 
 ## HISTORICOS_Y_SUPERADOS
@@ -174,14 +175,8 @@ Se consideran sin contrato directo del requisito objetivo:
 | ID | Motivo |
 |---|---|
 | ROT-007 | No existe implementación ni test de hoja HE como programación horaria. |
-| FER-003 | No existe dato/flujo de descanso sustitutorio. |
-| FER-004 | Solo existe cobertura indirecta de fecha de inicio, no frontera de feriado. |
 | FER-005 | No existe clasificación de día no laborable compensable. |
-| AUS-007 | No existe contrato de atomicidad/estado parcial de aprobación. |
-| AUS-008 | No existe contrato de preservación ante anulación. |
-| PMV-004 | No existe prueba negativa integral sobre todas las tablas oficiales. |
 | REP-008 | No existe política objetivo ni contrato de tasas por empresa/fecha. |
-| AUD-001 | No existe contrato transversal de interceptor + log agregado. |
 
 NOC-004 y REP-004 tienen pruebas parciales o de conducta actual; no se cuentan como “sin
 test”, pero sus gaps permanecen. FER-001/002/004/007 quedaron cerrados por P0-FER-002/007.
@@ -190,17 +185,17 @@ test”, pero sus gaps permanecen. FER-001/002/004/007 quedaron cerrados por P0-
 
 | GapTipo | Cantidad | IDs |
 |---|---:|---|
-| BUG | 1 | AUS-007 |
-| GAP_FUNCIONAL | 4 | ROT-007, FER-003, FER-005, REP-004 |
+| BUG | 0 | — |
+| GAP_FUNCIONAL | 3 | ROT-007, FER-005, REP-004 |
 | DEUDA_TECNICA | 0 | — |
 | DEUDA_MODELO | 1 | PER-008 |
 | DEUDA_UX | 0 | — |
-| DEUDA_TEST | 3 | AUS-006, PMV-004, AUD-001 |
+| DEUDA_TEST | 0 | — |
 | RIESGO_SEGURIDAD | 0 | — |
-| RIESGO_DATOS | 2 | ASIS-001, AUS-008 |
+| RIESGO_DATOS | 1 | ASIS-001 |
 | NO_DETERMINADO | 2 | NOC-004, REP-008 |
 
-Implementados sin gap: **73**. Reglas vigentes/no determinadas con gap: **13**. Total
+Implementados sin gap: **79**. Reglas vigentes/no determinadas con gap: **7**. Total
 principal: **86**.
 
 ## GAPS_POR_PRIORIDAD
@@ -208,18 +203,16 @@ principal: **86**.
 | Prioridad | IDs |
 |---|---|
 | P0 | ASIS-001 |
-| P1 | FER-003, FER-005, REP-004 |
-| P2 | NOC-004, ROT-007, AUS-006, AUS-007, AUS-008, PER-008, PMV-004, REP-008, AUD-001 |
+| P1 | FER-005, REP-004 |
+| P2 | NOC-004, ROT-007, PER-008, REP-008 |
 | P3 | — |
 
 ## ACCIONES_PRIORIZADAS
 
 1. Ejecutar OP-01 con versión DIU/NOC fechada y recálculo controlado (`ASIS-001`).
-2. Modelar descanso sustitutorio y su flujo de autorización (`FER-003`).
-3. Modelar día no laborable compensable por separado (`FER-005`).
-4. Resolver P1-06 campo por campo con snapshot o vigencia (`REP-004`).
-5. Definir política económica de nocturnidad y tasas por empresa/fecha (`NOC-004`, `REP-008`).
-6. Cerrar atomicidad/preservación de solicitudes y sus pruebas (`AUS-006..008`).
+2. Modelar día no laborable compensable por separado (`FER-005`).
+3. Resolver P1-06 campo por campo con snapshot o vigencia (`REP-004`).
+4. Definir política económica de nocturnidad y tasas por empresa/fecha (`NOC-004`, `REP-008`).
 
 ## Validación de integridad
 
@@ -237,3 +230,25 @@ principal: **86**.
 - Suite completa: 958/958 verdes, 0 fallos y 0 omitidos.
 - La incidencia histórica de conexión entre `vstest.console` y `testhost` quedó superada al
   ejecutar el runner fuera del sandbox de IPC; no fue un fallo funcional.
+- P1-FER-001, 2026-10-22: se revalidó RQ-FER-001 ante un contexto de entrada desactualizado.
+  La fila conserva `GapTipo=NINGUNO`, severidad `NINGUNA` y estado `IMPLEMENTADO`; no se
+  requirió cambio productivo ni contrato adicional.
+- P1-FER-004, 2026-10-22: `FER004-01/02` validan sobre SQLite la frontera completa
+  catálogo→servicio→tareo. Regresión dirigida 7/7; suite 977/977; build 0/0. Se retiró
+  FER-004 de `REQUISITOS_SIN_TEST` sin cambiar lógica productiva.
+- P2-AUS-007, 2026-10-23: reproducción roja previa confirmada; aprobación todo-o-nada con
+  prevalidación, guardado único, índice único y guardas de periodo. `AUS007-01..03` 3/3,
+  regresión inmediata 123/123, suite 980/980 y build 0 errores/0 advertencias.
+- P2-AUS-008, 2026-10-23: tres fallos rojos confirmaron el borrado físico; cancelación lógica,
+  resolución versionada y guardas de periodo cerraron el riesgo. `AUS008-01..06` 6/6,
+  Infrastructure 520/520, suite 986/986 y build 0 errores/0 advertencias.
+- P2-AUS-006, 2026-10-23: la implementación existente quedó confirmada sin cambio productivo.
+  `AUS006-01/02` cubren sobre SQLite los cuatro estados y la frontera inclusiva; regresión
+  dirigida 127/127, suite 991/991 y build 0 errores/0 advertencias.
+- P2-PMV-004, 2026-10-23: `PMV004-01` recorre importación, consulta y exportación sobre SQLite;
+  confirma escrituras exclusivas en `prov_*`, cero cambios en importación/marcación/tareo/vínculo
+  oficiales y ausencia de conceptos de liquidación. Regresión PMV 42/42, suite 992/992 y build 0/0.
+- P2-AUD-001, 2026-10-23: `AUD001-01/02` validan sobre SQLite la fila física de una escritura
+  sensible, actor, identidad, baja lógica, motivo y cambios; el tareo derivado queda excluido por
+  fila y emite un único log agregado 4200. `IMP_AT_01` conserva la evidencia de rollback.
+  Regresión dirigida 4/4, suite 994/994 y build 0/0; sin cambio productivo ni migración.

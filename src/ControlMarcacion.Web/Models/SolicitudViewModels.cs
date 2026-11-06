@@ -112,3 +112,16 @@ public sealed class RegistrarSustentoVm
     [StringLength(400)]
     public string? RutaDocumentoSustento { get; set; }
 }
+
+public sealed class CambioTurnoVm
+{
+    public GuardarCambioTurnoRequest Datos { get; set; } = new();
+
+    [BindNever]
+    [ValidateNever]
+    public IReadOnlyList<OpcionDto> Trabajadores { get; set; } = [];
+
+    [BindNever]
+    [ValidateNever]
+    public IReadOnlyList<OpcionDto> Turnos { get; set; } = [];
+}

@@ -1,0 +1,66 @@
+@model PrevisualizacionVinculacionBiometricaVm
+@{
+    ViewData["Title"] = "Previsualizar vinculaciones";
+}
+
+<div class="titulo-pagina">
+    <h1>Previsualización del lote</h1>
+    <a class="boton boton-secundario" asp-action="Index">Cancelar</a>
+</div>
+
+<div class="aviso aviso-info">
+    <strong>@Model.Equipo</strong> · @Model.Planta<br />
+    @Model.TotalUsuarios usuario(s) · @Model.TamanoBytes.ToString("N0") bytes · @Model.Formato<br />
+    SHA-256: <code>@Model.HuellaSha256</code> · propuesta válida hasta @Model.ExpiraEn.ToString("dd/MM/yyyy HH:mm:ss")
+</div>
+
+<div class="rejilla">
+    <div class="tarjeta"><strong>@Model.Confirmables</strong><br />Confirmables</div>
+    <div class="tarjeta"><strong>@Model.YaVinculados</strong><br />Ya vinculados</div>
+    <div class="tarjeta"><strong>@Model.RevisionManual</strong><br />Revisión manual</div>
+    <div class="tarjeta"><strong>@Model.Conflictos</strong><br />Conflictos</div>
+</div>
+
+<form method="post" asp-action="Revisar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="ConciliacionId" value="@Model.ConciliacionId" />
+    <input type="hidden" name="Version" value="@Model.Version" />
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr><th>Elegir</th><th>#</th><th>Trabajador</th><th>DNI</th><th>PIN</th><th>Fecha</th><th>Vigencia</th><th>Estado</th><th>Diagnóstico</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var fila in Model.Filas)
+            {
+                <tr>
+                    <td>
+                        @if (fila.EsConfirmable)
+                        {
+                            <input type="checkbox" name="Decisiones" value="@fila.DecisionId" aria-label="Seleccionar registro @fila.IndiceRegistro" />
+                        }
+                        else
+                        {
+                            <span aria-label="No seleccionable">—</span>
+                        }
+                    </td>
+                    <td>@fila.IndiceRegistro</td>
+                    <td>@fila.Trabajador</td>
+                    <td><code>@fila.Documento</code></td>
+                    <td><code>@fila.Pin</code></td>
+                    <td>@fila.FechaInicio.ToString("dd/MM/yyyy")@(fila.FechaFin is { } fin ? $"–{fin:dd/MM/yyyy}" : "")</td>
+                    <td>@fila.NaturalezaVigencia</td>
+                    <td><span class="etiqueta @(fila.EsConfirmable ? "etiqueta-puntual" : "etiqueta-incompleto")">@fila.Resultado</span></td>
+                    <td>
+                        @if (!string.IsNullOrWhiteSpace(fila.Motivo)) { <div>@fila.Motivo</div> }
+                        @if (fila.Diagnosticos.Count > 0) { <small>@string.Join(" · ", fila.Diagnosticos)</small> }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="acciones-formulario">
+        <button class="boton boton-primario" type="submit" disabled="@(Model.Confirmables == 0)">Revisar selección</button>
+    </div>
+</form>

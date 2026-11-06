@@ -141,8 +141,8 @@ public sealed record GuardarEquipoRequest
     [StringLength(60, ErrorMessage = "La serie no puede superar los 60 caracteres.")]
     public string? Serie { get; init; }
 
-    [Required(ErrorMessage = "Seleccione la planta donde está instalado el equipo.")]
-    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la planta donde está instalado el equipo.")]
+    [Required(ErrorMessage = "Seleccione la unidad donde está instalado el equipo.")]
+    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la unidad donde está instalado el equipo.")]
     public long PlantaId { get; init; }
 
     [StringLength(150, ErrorMessage = "La descripción no puede superar los 150 caracteres.")]

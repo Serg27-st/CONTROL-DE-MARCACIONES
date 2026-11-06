@@ -128,8 +128,8 @@ internal sealed class ServicioUsuarios(
         if (esAdministrador && plantaIds.Count == 0)
         {
             throw new ReglaNegocioException(
-                "Un administrador gestiona el tareo de plantas concretas: seleccione al menos " +
-                "una planta. Sin plantas asignadas no vería a ningún trabajador.");
+                "Un administrador gestiona el tareo de unidades concretas: seleccione al menos " +
+                "una unidad. Sin unidades asignadas no vería a ningún trabajador.");
         }
 
         if (plantaIds.Count > 0)
@@ -144,7 +144,7 @@ internal sealed class ServicioUsuarios(
             if (existentes.Count != plantaIds.Count)
             {
                 throw new ReglaNegocioException(
-                    "Una de las plantas seleccionadas no existe o está inactiva.");
+                    "Una de las unidades seleccionadas no existe o está inactiva.");
             }
         }
 

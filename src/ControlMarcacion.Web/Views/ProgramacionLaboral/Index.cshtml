@@ -1,0 +1,88 @@
+@model ImportarProgramacionVm
+@using ControlMarcacion.Application.Programacion.Dto
+@{
+    ViewData["Title"] = "Importar turnos y descansos";
+}
+
+<div class="cabecera-pagina">
+    <div>
+        <p class="eyebrow">Programación laboral</p>
+        <h1>Importar turnos y descansos</h1>
+        <p>Analice el Excel antes de confirmar. La programación se atribuye al día de inicio y nunca se infiere desde marcaciones.</p>
+    </div>
+    <div class="acciones">
+        <a class="boton boton-secundario" asp-action="Plantilla">Descargar plantilla</a>
+        <a class="boton boton-secundario" asp-controller="PreparacionTareo" asp-action="Index">Preparación para tareo</a>
+        <a class="boton boton-secundario" asp-controller="Auditoria" asp-action="Index">Historial de auditoría</a>
+    </div>
+</div>
+
+<section class="tarjeta">
+    <h2>Archivo Excel</h2>
+    <form asp-action="Previsualizar" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div class="campo">
+            <label for="archivo">Programación autorizada (.xlsx)</label>
+            <input id="archivo" name="archivo" type="file" accept=".xlsx" required />
+        </div>
+        <button class="boton" type="submit">Previsualizar</button>
+    </form>
+</section>
+
+@if (Model.Previsualizacion is { } resultado)
+{
+    <section class="tarjeta">
+        <h2>Resumen de la previsualización</h2>
+        <div class="resumen-grid">
+            <div><strong>@resultado.FilasLeidas</strong><span>filas</span></div>
+            <div><strong>@resultado.FechasExpandidas</strong><span>fechas</span></div>
+            <div><strong>@resultado.TrabajadoresIdentificados</strong><span>trabajadores</span></div>
+            <div><strong>@resultado.Descansos</strong><span>descansos</span></div>
+            <div><strong>@resultado.Nocturnos</strong><span>nocturnos</span></div>
+            <div><strong>@resultado.Conflictos</strong><span>conflictos</span></div>
+        </div>
+    </section>
+
+    <section class="tarjeta tabla-contenedor">
+        <h2>Calendario por trabajador y fecha</h2>
+        <table>
+            <thead><tr><th>Fila</th><th>Documento</th><th>Trabajador</th><th>Unidad</th><th>Fecha</th><th>Tipo</th><th>Turno</th><th>Estado</th><th>Acción / motivo</th></tr></thead>
+            <tbody>
+            @foreach (var fila in resultado.Filas.OrderBy(f => f.Trabajador).ThenBy(f => f.Fecha))
+            {
+                <tr>
+                    <td>@fila.Fila</td><td>@fila.Documento</td><td>@fila.Trabajador</td><td>@fila.Unidad</td>
+                    <td>@fila.Fecha?.ToString("dd/MM/yyyy")</td><td>@fila.TipoDia</td>
+                    <td>@(fila.CodigoTurno ?? "—") @if (fila.Nocturno) { <small>(nocturno)</small> }</td>
+                    <td><span class="estado">@fila.Estado</span></td><td>@(fila.Motivo ?? fila.Accion)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </section>
+
+    <div class="acciones">
+        @if (Model.PuedeConfirmar)
+        {
+            <form asp-action="Confirmar" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="token" value="@Model.TokenConfirmacion" />
+                <button class="boton" type="submit">Confirmar programación</button>
+            </form>
+        }
+        <form asp-action="Cancelar" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="token" value="@Model.TokenConfirmacion" />
+            <button class="boton boton-secundario" type="submit">Cancelar</button>
+        </form>
+    </div>
+}
+
+@if (Model.Confirmacion is { } confirmacion)
+{
+    <section class="tarjeta">
+        <h2>Importación confirmada</h2>
+        <p><strong>@confirmacion.TrabajadoresProgramados</strong> trabajador(es), <strong>@confirmacion.FechasProgramadas</strong> fecha(s), <strong>@confirmacion.DescansosProgramados</strong> descanso(s) y <strong>@confirmacion.TurnosCreados</strong> turno(s) nuevo(s).</p>
+        <p>@confirmacion.RegistrosIdempotentes fecha(s) ya coincidían y no se duplicaron.</p>
+    </section>
+}

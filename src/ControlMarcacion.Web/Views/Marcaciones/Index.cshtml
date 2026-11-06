@@ -184,16 +184,16 @@
         <input type="hidden" name="mes" value="@cobertura.Mes" />
 
         @*
-            Planta y marcador, obligatorios y ANTES del archivo: el archivo no dice de qué
-            aparato salió, y en una planta con dos marcadores el mismo código identifica a
+            Unidad y marcador, obligatorios y ANTES del archivo: el archivo no dice de qué
+            aparato salió, y en una unidad con dos marcadores el mismo código identifica a
             dos personas distintas. Elegir mal atribuye el mes a la gente equivocada, así
             que el orden visual es deliberado — se declara el origen y después se suelta el
             archivo.
 
-            Se elige el MARCADOR y la planta se rellena sola, de solo lectura. Antes era al
-            revés —planta primero, filtrando marcadores—, y eso pedía un dato que el sistema
-            ya conoce: la planta es del aparato, no del archivo. Con dos campos que decidir,
-            el operador podía elegir una planta que no era la de su marcador y descubrirlo
+            Se elige el MARCADOR y la unidad se rellena sola, de solo lectura. Antes era al
+            revés —unidad primero, filtrando marcadores—, y eso pedía un dato que el sistema
+            ya conoce: la unidad es del aparato, no del archivo. Con dos campos que decidir,
+            el operador podía elegir una unidad que no era la de su marcador y descubrirlo
             solo al ver el error; ahora esa combinación no se puede ni construir.
 
             El nombre de la planta viaja en `data-planta` de cada opción: son un puñado de
@@ -221,7 +221,7 @@
             </div>
 
             <div class="campo">
-                <label for="plantaNombre">Planta</label>
+                <label for="plantaNombre">Unidad</label>
                 <input type="text" id="plantaNombre" value="" readonly
                        placeholder="— La define el marcador —" />
 
@@ -441,7 +441,7 @@
                 <strong>@huecos día(s) de @NombreMes(cobertura.Mes) ya transcurrido(s) no tienen
                 ninguna marcación cargada.</strong>
                 <p class="nota-compacta">
-                    Puede ser correcto —un feriado, una planta parada— o puede faltar un
+                    Puede ser correcto —un feriado, una unidad parada— o puede faltar un
                     archivo. El tareo los calculará como falta si nadie los justifica.
                 </p>
             </div>

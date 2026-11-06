@@ -17,12 +17,16 @@ internal enum Columna
     TieneHijos,
     Empresa,
     Unidad,
+    CodigoUnidad,
     TipoPlanilla,
     Puesto,
     FechaIngreso,
     CentroCosto,
     IdMarcador,
     Equipo,
+    CodigoEquipo,
+    NombreEquipo,
+    SerieEquipo,
     Turno,
     SueldoBasico,
 
@@ -107,6 +111,7 @@ internal sealed class MapaColumnas
         [Columna.Empresa] = ["empresa", "razon_social", "ruc", "razon social"],
         // "Unidad" es el nombre que usa GCA para lo que el sistema llama Planta.
         [Columna.Unidad] = ["unidad", "planta", "unidad_planta", "unidad (planta)"],
+        [Columna.CodigoUnidad] = ["codigo_unidad", "unidad_codigo", "codigo_planta", "planta_codigo"],
         [Columna.TipoPlanilla] = ["tipo_planilla", "planilla", "tipo de planilla"],
         // Cuando el archivo trae código Y nombre del puesto —como la exportación de GCA—
         // gana el código, porque en el archivo aparece en una columna anterior y quien
@@ -119,6 +124,9 @@ internal sealed class MapaColumnas
         // El APARATO del que sale ese id, no el id en sí. Solo hace falta cuando la
         // planta tiene más de un equipo; con uno solo el sistema lo resuelve.
         [Columna.Equipo] = ["equipo", "equipo_marcador", "aparato", "reloj", "dispositivo"],
+        [Columna.CodigoEquipo] = ["codigo_equipo", "equipo_codigo", "codigo_aparato"],
+        [Columna.NombreEquipo] = ["nombre_equipo", "equipo_nombre", "nombre_aparato"],
+        [Columna.SerieEquipo] = ["serie_equipo", "equipo_serie", "serie_aparato", "numero_serie"],
         [Columna.Turno] = ["turno"],
         [Columna.SueldoBasico] = ["sueldo_basico", "sueldo", "basico", "sueldo basico"],
         [Columna.Situacion] = ["situacion", "situacion_trabajador", "estado", "estado_trabajador"],
@@ -151,8 +159,13 @@ internal sealed class MapaColumnas
         [.. Enum.GetValues<Columna>().Select(c => Alias[c][0])];
 
     private readonly Dictionary<Columna, int> _posiciones;
+    private readonly IReadOnlyList<int> _posicionesUnidad;
 
-    private MapaColumnas(Dictionary<Columna, int> posiciones) => _posiciones = posiciones;
+    private MapaColumnas(Dictionary<Columna, int> posiciones, IReadOnlyList<int> posicionesUnidad)
+    {
+        _posiciones = posiciones;
+        _posicionesUnidad = posicionesUnidad;
+    }
 
     public static string Nombre(Columna columna) => Alias[columna][0];
 
@@ -161,6 +174,7 @@ internal sealed class MapaColumnas
         ArgumentNullException.ThrowIfNull(encabezado);
 
         var posiciones = new Dictionary<Columna, int>();
+        var posicionesUnidad = new List<int>();
 
         for (var i = 0; i < encabezado.Length; i++)
         {
@@ -168,7 +182,7 @@ internal sealed class MapaColumnas
 
             foreach (var (columna, alias) in Alias)
             {
-                if (posiciones.ContainsKey(columna))
+                if (posiciones.ContainsKey(columna) && columna != Columna.Unidad)
                 {
                     continue;
                 }
@@ -178,7 +192,16 @@ internal sealed class MapaColumnas
                         titulo,
                         StringComparison.Ordinal)))
                 {
-                    posiciones[columna] = i;
+                    if (columna == Columna.Unidad)
+                    {
+                        posicionesUnidad.Add(i);
+                        posiciones.TryAdd(columna, i);
+                    }
+                    else
+                    {
+                        posiciones[columna] = i;
+                    }
+
                     break;
                 }
             }
@@ -194,7 +217,7 @@ internal sealed class MapaColumnas
                 ". Descargue la plantilla de ejemplo para ver el encabezado esperado.");
         }
 
-        return new MapaColumnas(posiciones);
+        return new MapaColumnas(posiciones, posicionesUnidad);
     }
 
     /// <summary>
@@ -212,6 +235,24 @@ internal sealed class MapaColumnas
     public string? Valor(string[] fila, Columna columna)
     {
         ArgumentNullException.ThrowIfNull(fila);
+
+        if (columna == Columna.Unidad && _posicionesUnidad.Count > 1)
+        {
+            var valores = _posicionesUnidad
+                .Where(indice => indice < fila.Length)
+                .Select(indice => fila[indice].Trim())
+                .Where(valor => !string.IsNullOrEmpty(valor))
+                .ToList();
+
+            if (valores.Select(CargaMasivaTrabajadores.NormalizarCatalogo).Distinct(StringComparer.Ordinal).Count() > 1)
+            {
+                throw new ReglaNegocioException(
+                    "Las columnas 'Unidad' y 'Planta' contienen valores distintos en la misma fila. " +
+                    "Corrija la plantilla; el sistema no elegirá una de forma arbitraria.");
+            }
+
+            return valores.FirstOrDefault();
+        }
 
         if (!_posiciones.TryGetValue(columna, out var indice) || indice >= fila.Length)
         {

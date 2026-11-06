@@ -7,6 +7,11 @@
 <div class="titulo-pagina">
     <h1>Mantenimiento de personal</h1>
     <div>
+        @if (User.IsInRole(RolesSistema.Coordinador))
+        {
+            <a class="boton boton-secundario" asp-controller="VinculacionesBiometricas" asp-action="Index">Vinculación biométrica</a>
+        }
+        <a class="boton boton-secundario" asp-controller="PreparacionTareo" asp-action="Index">Preparación para tareo</a>
         <a class="boton boton-secundario" asp-action="CargaMasiva">Carga masiva</a>
         <a class="boton boton-primario" asp-action="Crear">Nuevo trabajador</a>
     </div>
@@ -26,7 +31,7 @@
             </div>
 
             <div class="campo">
-                <label for="PlantaId">Planta</label>
+                <label for="PlantaId">Unidad</label>
                 <select id="PlantaId" name="PlantaId" class="select-buscable">
                     <option value="">Todas</option>
                     @foreach (var planta in Model.Plantas)
@@ -94,7 +99,7 @@
                 <div class="campo">
                     <label for="CentroId">Centro</label>
                     <select id="CentroId" name="CentroId" class="select-buscable">
-                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una planta" : "Todos")</option>
+                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una unidad" : "Todos")</option>
                         @foreach (var centro in Model.Centros)
                         {
                             <option value="@centro.Id" selected="@(Model.Filtro.CentroId == centro.Id)">@centro.Nombre</option>
@@ -116,7 +121,7 @@
                 <div class="campo">
                     <label for="AreaId">Área</label>
                     <select id="AreaId" name="AreaId" class="select-buscable">
-                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una planta" : "Todas")</option>
+                        <option value="">@(Model.Filtro.PlantaId is null ? "Elija una unidad" : "Todas")</option>
                         @foreach (var area in Model.Areas)
                         {
                             <option value="@area.Id" selected="@(Model.Filtro.AreaId == area.Id)">@area.Nombre</option>
@@ -217,7 +222,7 @@
                         <th>ID marcador</th>
                         <th>Aparato</th>
                         <th>Empresa</th>
-                        <th>Planta</th>
+                        <th>Unidad</th>
                         <th>Centro</th>
                         <th>Centro de costo</th>
                         <th>Puesto</th>

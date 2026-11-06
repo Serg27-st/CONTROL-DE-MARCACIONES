@@ -72,7 +72,7 @@ public sealed record GuardarCuadrillaRequest
     [StringLength(80, MinimumLength = 2, ErrorMessage = "El nombre debe tener entre 2 y 80 caracteres.")]
     public string Nombre { get; init; } = string.Empty;
 
-    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la planta.")]
+    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la unidad.")]
     public long PlantaId { get; init; }
 
     public bool Activo { get; init; } = true;

@@ -43,7 +43,7 @@
             <div class="campo">
                 <label asp-for="Datos.Descripcion">Descripción <span class="obligatorio">*</span></label>
                 <input asp-for="Datos.Descripcion" type="text" maxlength="150" autocomplete="off"
-                       placeholder="Aniversario de la planta, Día de la Independencia…" />
+                       placeholder="Aniversario de la unidad, Día de la Independencia…" />
                 <span class="error-campo" asp-validation-for="Datos.Descripcion"></span>
                 <small class="nota-limite">
                     Es lo que explicará, meses después, por qué ese día se pagó con sobretasa.
@@ -53,7 +53,7 @@
             <div class="campo">
                 <label asp-for="Datos.PlantaId">Alcance</label>
                 <select asp-for="Datos.PlantaId" class="select-buscable">
-                    <option value="">Todas las plantas (nacional)</option>
+                    <option value="">Todas las unidades (nacional)</option>
                     @foreach (var planta in Model.Plantas)
                     {
                         <option value="@planta.Id" selected="@(Model.Datos.PlantaId == planta.Id)">
@@ -63,7 +63,7 @@
                 </select>
                 <small class="nota-limite">
                     <strong>Nacional</strong> es lo que trae la sincronización: no se trabaja
-                    en ninguna planta. <strong>Solo una planta</strong> es para lo que ninguna
+                    en ninguna unidad. <strong>Solo una unidad</strong> es para lo que ninguna
                     fuente pública sabe — un aniversario, un feriado regional.
                 </small>
             </div>

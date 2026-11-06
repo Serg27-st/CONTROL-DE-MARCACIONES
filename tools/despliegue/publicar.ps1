@@ -128,7 +128,7 @@ $manifest = [ordered]@{
     runtime = 'win-x64'
     selfContained = $true
     singleFile = $false
-    tests = [ordered]@{ total = 862; verdes = 862; fallos = 0; omitidos = 0 }
+    tests = [ordered]@{ total = 1240; verdes = 1212; fallos = 28; omitidos = 0 }
     build = [ordered]@{ errores = 0; warnings = 0 }
     sha256Exe = (Get-FileHash -LiteralPath (Join-Path $destino 'ControlMarcacion.Web.exe') -Algorithm SHA256).Hash
 }

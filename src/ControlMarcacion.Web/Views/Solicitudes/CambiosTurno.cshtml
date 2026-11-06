@@ -1,0 +1,73 @@
+@model IReadOnlyList<SolicitudCambioTurnoDto>
+@{
+    ViewData["Title"] = "Cambios puntuales de turno";
+}
+
+<div class="titulo-pagina">
+    <h1>Cambios puntuales de turno</h1>
+    <a class="boton boton-primario" asp-action="CrearCambioTurno">Nueva solicitud</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        Cada cambio conserva solicitante, aprobador, motivo y fecha. Al aprobar se crea una
+        excepción de un día en la historia de turnos y se recalcula solo esa jornada.
+    </p>
+    @if (Model.Count == 0)
+    {
+        <div class="sin-resultados">No hay cambios puntuales registrados.</div>
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead><tr><th>Trabajador</th><th>Fecha</th><th>Cambio</th><th>Motivo</th><th>Estado</th><th>Historia</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr>
+                        <td>@s.Trabajador</td>
+                        <td>@s.FechaEfectiva.ToString("dd/MM/yyyy")</td>
+                        <td>@s.TurnoAnterior → @s.TurnoSolicitado</td>
+                        <td>@s.Motivo</td>
+                        <td>@s.Estado</td>
+                        <td>
+                            @s.SolicitadoPorUsuario · @s.SolicitadoEn.ToString("dd/MM/yyyy HH:mm")
+                            @if (s.ResueltoPorUsuario is not null)
+                            {
+                                <br /><small>@s.ResueltoPorUsuario · @s.ResueltoEn?.ToString("dd/MM/yyyy HH:mm")</small>
+                            }
+                        </td>
+                        <td>
+                            @if (s.Estado == EstadoSolicitud.Pendiente
+                                && User.IsInRole(RolesSistema.Coordinador)
+                                && !string.Equals(s.SolicitadoPorUsuario, User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <form method="post" asp-action="ResolverCambioTurno" class="en-linea">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@s.Id" />
+                                    <input type="hidden" name="aprueba" value="true" />
+                                    <button class="boton boton-primario boton-chico" type="submit"
+                                            data-confirmar="¿Aprobar este cambio de un solo día?">Aprobar</button>
+                                </form>
+                                <form method="post" asp-action="ResolverCambioTurno" class="en-linea">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@s.Id" />
+                                    <input type="hidden" name="aprueba" value="false" />
+                                    <input type="text" name="motivo" required minlength="3" maxlength="500"
+                                           placeholder="Motivo del rechazo" aria-label="Motivo del rechazo" />
+                                    <button class="boton boton-secundario boton-chico" type="submit">Rechazar</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/confirmar-accion.js" asp-append-version="true"></script>
+}

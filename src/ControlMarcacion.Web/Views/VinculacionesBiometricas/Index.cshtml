@@ -1,0 +1,72 @@
+@model VinculacionBiometricaIndexVm
+@{
+    ViewData["Title"] = "Vinculación biométrica";
+    var plantas = Model.Equipos
+        .Select(e => new { e.PlantaId, e.Planta })
+        .Distinct()
+        .OrderBy(e => e.Planta)
+        .ToArray();
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Vinculación biométrica</h1>
+        <p class="texto-secundario">Importe un respaldo user.u y revise cada coincidencia antes de crear asignaciones.</p>
+    </div>
+    <a class="boton boton-secundario" asp-controller="Trabajadores" asp-action="Index">Volver a Personal</a>
+</div>
+
+<div class="aviso aviso-info">
+    <strong>Validación operativa:</strong> el sistema compara exactamente <code>Name</code> con el DNI, sin transformar valores.
+    El archivo no acredita fechas históricas y nunca se conserva en el servidor.
+</div>
+
+<section class="tarjeta">
+    <form method="post" asp-action="Previsualizar" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="aviso aviso-error"></div>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="PlantaId">Unidad</label>
+                <select asp-for="PlantaId" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var planta in plantas)
+                    {
+                        <option value="@planta.PlantaId">@planta.Planta</option>
+                    }
+                </select>
+                <span asp-validation-for="PlantaId" class="texto-error"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="EquipoId">Equipo biométrico</label>
+                <select asp-for="EquipoId" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var equipo in Model.Equipos)
+                    {
+                        <option value="@equipo.Id">@equipo.Codigo — @equipo.Nombre (@equipo.Planta)</option>
+                    }
+                </select>
+                <span asp-validation-for="EquipoId" class="texto-error"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Archivo">Respaldo user.u</label>
+                <input asp-for="Archivo" type="file" accept=".u" required />
+                <small>Máximo 5 MB. No se almacena el contenido.</small>
+                <span asp-validation-for="Archivo" class="texto-error"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="FechaInicio">Fecha efectiva</label>
+                <input asp-for="FechaInicio" type="date" required />
+                <span asp-validation-for="FechaInicio" class="texto-error"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="FechaFin">Fecha final (opcional)</label>
+                <input asp-for="FechaFin" type="date" />
+                <span asp-validation-for="FechaFin" class="texto-error"></span>
+            </div>
+        </div>
+        <div class="acciones-formulario">
+            <button class="boton boton-primario" type="submit">Analizar respaldo</button>
+        </div>
+    </form>
+</section>

@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="8dbf7b05-df05-4422-a99e-f6a974a9a3da" name="stafur@PCGCAREM-DF 2026-11-05 11:26:09" runUser="GCA\stafur" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-11-05T11:26:09.0323664-05:00" queuing="2026-11-05T11:26:09.0323669-05:00" start="2026-11-05T11:25:52.1985067-05:00" finish="2026-11-05T11:26:10.9415164-05:00" />
+  <TestSettings name="default" id="5f981074-d184-4c59-9c06-8000acbead3c">
+    <Deployment runDeploymentRoot="stafur_PCGCAREM-DF_2026-11-05_11_26_09" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="c115a2c6-67e4-473b-b661-9a0822ce32d3" testId="feb35121-0122-a589-f766-797bbbb1de6d" testName="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada" computerName="PCGCAREM-DF" duration="00:00:00.6871791" startTime="2026-11-05T11:26:09.0019376-05:00" endTime="2026-11-05T11:26:09.6739013-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c115a2c6-67e4-473b-b661-9a0822ce32d3">
+      <Output>
+        <ErrorInfo>
+          <Message>Shouldly.ShouldAssertException : sinPermiso.MinutosSalidaAnticipada&#xD;
+    should be&#xD;
+120&#xD;
+    but was&#xD;
+22</Message>
+          <StackTrace>   at ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada() in C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\Asistencia\PagoDeJustificacionesAlRecalcularTests.cs:line 173&#xD;
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)&#xD;
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="924160f7-a46f-43f6-aa20-a6870bd6f987" testId="0aaa880a-58d2-5be8-c9d8-19afdb3706ec" testName="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_licencia_sin_goce_no_paga_la_jornada" computerName="PCGCAREM-DF" duration="00:00:00.5832427" startTime="2026-11-05T11:26:09.6980353-05:00" endTime="2026-11-05T11:26:10.2558416-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="924160f7-a46f-43f6-aa20-a6870bd6f987" />
+    <UnitTestResult executionId="541e167b-eda0-421d-a722-3ddfe83b05af" testId="f6f123c9-7369-6fe6-9e58-b6397ff64c26" testName="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Unas_vacaciones_siguen_pagando_la_jornada_ordinaria" computerName="PCGCAREM-DF" duration="00:00:00.2644501" startTime="2026-11-05T11:26:10.2568796-05:00" endTime="2026-11-05T11:26:10.5205220-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="541e167b-eda0-421d-a722-3ddfe83b05af" />
+    <UnitTestResult executionId="454afc47-98b3-4669-b039-bf00a937be35" testId="6d440243-8aa7-d1b1-d03d-8070367bf471" testName="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_licencia_con_goce_completa_persiste_480_minutos" computerName="PCGCAREM-DF" duration="00:00:00.2546683" startTime="2026-11-05T11:26:10.5208422-05:00" endTime="2026-11-05T11:26:10.7754226-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="454afc47-98b3-4669-b039-bf00a937be35" />
+    <UnitTestResult executionId="fd2db3ba-e42c-4c22-8957-5054ab2a3bd1" testId="29119b4a-f703-f471-97d9-fe2e5c02f5b8" testName="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_marca_impar_justificada_no_paga_una_jornada_ordinaria_inventada" computerName="PCGCAREM-DF" duration="00:00:12.8808087" startTime="2026-11-05T11:25:56.0929468-05:00" endTime="2026-11-05T11:26:08.9696549-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fd2db3ba-e42c-4c22-8957-5054ab2a3bd1" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Unas_vacaciones_siguen_pagando_la_jornada_ordinaria" storage="c:\users\stafur\documents\control de marcaciones\tests\controlmarcacion.infrastructure.tests\bin\debug\net10.0\controlmarcacion.infrastructure.tests.dll" id="f6f123c9-7369-6fe6-9e58-b6397ff64c26">
+      <Execution id="541e167b-eda0-421d-a722-3ddfe83b05af" />
+      <TestMethod codeBase="C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\bin\Debug\net10.0\ControlMarcacion.Infrastructure.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests" name="Unas_vacaciones_siguen_pagando_la_jornada_ordinaria" />
+    </UnitTest>
+    <UnitTest name="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada" storage="c:\users\stafur\documents\control de marcaciones\tests\controlmarcacion.infrastructure.tests\bin\debug\net10.0\controlmarcacion.infrastructure.tests.dll" id="feb35121-0122-a589-f766-797bbbb1de6d">
+      <Execution id="c115a2c6-67e4-473b-b661-9a0822ce32d3" />
+      <TestMethod codeBase="C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\bin\Debug\net10.0\ControlMarcacion.Infrastructure.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests" name="Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada" />
+    </UnitTest>
+    <UnitTest name="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_licencia_con_goce_completa_persiste_480_minutos" storage="c:\users\stafur\documents\control de marcaciones\tests\controlmarcacion.infrastructure.tests\bin\debug\net10.0\controlmarcacion.infrastructure.tests.dll" id="6d440243-8aa7-d1b1-d03d-8070367bf471">
+      <Execution id="454afc47-98b3-4669-b039-bf00a937be35" />
+      <TestMethod codeBase="C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\bin\Debug\net10.0\ControlMarcacion.Infrastructure.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests" name="Una_licencia_con_goce_completa_persiste_480_minutos" />
+    </UnitTest>
+    <UnitTest name="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_licencia_sin_goce_no_paga_la_jornada" storage="c:\users\stafur\documents\control de marcaciones\tests\controlmarcacion.infrastructure.tests\bin\debug\net10.0\controlmarcacion.infrastructure.tests.dll" id="0aaa880a-58d2-5be8-c9d8-19afdb3706ec">
+      <Execution id="924160f7-a46f-43f6-aa20-a6870bd6f987" />
+      <TestMethod codeBase="C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\bin\Debug\net10.0\ControlMarcacion.Infrastructure.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests" name="Una_licencia_sin_goce_no_paga_la_jornada" />
+    </UnitTest>
+    <UnitTest name="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Una_marca_impar_justificada_no_paga_una_jornada_ordinaria_inventada" storage="c:\users\stafur\documents\control de marcaciones\tests\controlmarcacion.infrastructure.tests\bin\debug\net10.0\controlmarcacion.infrastructure.tests.dll" id="29119b4a-f703-f471-97d9-fe2e5c02f5b8">
+      <Execution id="fd2db3ba-e42c-4c22-8957-5054ab2a3bd1" />
+      <TestMethod codeBase="C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\bin\Debug\net10.0\ControlMarcacion.Infrastructure.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests" name="Una_marca_impar_justificada_no_paga_una_jornada_ordinaria_inventada" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="feb35121-0122-a589-f766-797bbbb1de6d" executionId="c115a2c6-67e4-473b-b661-9a0822ce32d3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0aaa880a-58d2-5be8-c9d8-19afdb3706ec" executionId="924160f7-a46f-43f6-aa20-a6870bd6f987" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f6f123c9-7369-6fe6-9e58-b6397ff64c26" executionId="541e167b-eda0-421d-a722-3ddfe83b05af" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6d440243-8aa7-d1b1-d03d-8070367bf471" executionId="454afc47-98b3-4669-b039-bf00a937be35" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="29119b4a-f703-f471-97d9-fe2e5c02f5b8" executionId="fd2db3ba-e42c-4c22-8957-5054ab2a3bd1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Resultados sin formato de lista" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Todos los resultados cargados" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="5" executed="5" passed="4" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.01] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.11)&#xD;
+[xUnit.net 00:00:00.69]   Discovering: ControlMarcacion.Infrastructure.Tests&#xD;
+[xUnit.net 00:00:01.37]   Discovered:  ControlMarcacion.Infrastructure.Tests&#xD;
+[xUnit.net 00:00:01.50]   Starting:    ControlMarcacion.Infrastructure.Tests&#xD;
+[xUnit.net 00:00:15.19]       Shouldly.ShouldAssertException : sinPermiso.MinutosSalidaAnticipada&#xD;
+[xUnit.net 00:00:15.19]           should be&#xD;
+[xUnit.net 00:00:15.19]       120&#xD;
+[xUnit.net 00:00:15.19]           but was&#xD;
+[xUnit.net 00:00:15.19]       22&#xD;
+[xUnit.net 00:00:15.19]       Stack Trace:&#xD;
+[xUnit.net 00:00:15.19]         C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Infrastructure.Tests\Asistencia\PagoDeJustificacionesAlRecalcularTests.cs(173,0): at ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada()&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)&#xD;
+[xUnit.net 00:00:15.19]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)&#xD;
+[xUnit.net 00:00:15.19]            at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task, ConfigureAwaitOptions options)&#xD;
+[xUnit.net 00:00:16.29]   Finished:    ControlMarcacion.Infrastructure.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="PCGCAREM-DF" outcome="Error" timestamp="2026-11-05T11:26:09.6849589-05:00">
+        <Text>[xUnit.net 00:00:15.19]     ControlMarcacion.Infrastructure.Tests.Asistencia.PagoDeJustificacionesAlRecalcularTests.Un_permiso_al_final_de_la_jornada_borra_la_salida_anticipada [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

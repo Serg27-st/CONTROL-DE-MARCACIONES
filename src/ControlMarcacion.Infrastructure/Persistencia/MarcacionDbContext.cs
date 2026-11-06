@@ -69,9 +69,12 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
     public DbSet<MarcacionCruda> MarcacionesCrudas => Set<MarcacionCruda>();
     public DbSet<ImportacionMarcador> Importaciones => Set<ImportacionMarcador>();
     public DbSet<ErrorImportacion> ErroresImportacion => Set<ErrorImportacion>();
+    public DbSet<ConciliacionBiometrica> ConciliacionesBiometricas => Set<ConciliacionBiometrica>();
+    public DbSet<DecisionVinculacionBiometrica> DecisionesVinculacionBiometrica => Set<DecisionVinculacionBiometrica>();
 
     // Solicitudes y justificaciones
     public DbSet<SolicitudAusencia> SolicitudesAusencia => Set<SolicitudAusencia>();
+    public DbSet<SolicitudCambioTurno> SolicitudesCambioTurno => Set<SolicitudCambioTurno>();
     public DbSet<Justificacion> Justificaciones => Set<Justificacion>();
 
     // Asistencia y normativa
@@ -115,7 +118,6 @@ public class MarcacionDbContext(DbContextOptions<MarcacionDbContext> options)
         base.OnModelCreating(builder);
 
         builder.ApplyConfigurationsFromAssembly(typeof(MarcacionDbContext).Assembly);
-
         DatosSemilla.Aplicar(builder);
 
         // Se aplica al final para que alcance también a lo que definieron las

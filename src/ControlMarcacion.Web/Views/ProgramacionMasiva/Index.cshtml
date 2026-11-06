@@ -1,0 +1,63 @@
+@model ControlMarcacion.Web.Models.ProgramacionMasivaAlcanceVm
+@{
+    ViewData["Title"] = "Programación masiva de turnos";
+}
+
+<div class="titulo-pagina">
+    <div>
+        <h1>Programación masiva de turnos</h1>
+        <p class="texto-suave">
+            Asignar un turno fijo a varios trabajadores de una planta a la vez.
+        </p>
+    </div>
+</div>
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alerta alerta-error">@error</div>
+}
+@if (TempData["Mensaje"] is string mensaje)
+{
+    <div class="alerta alerta-exito">@mensaje</div>
+}
+
+<div class="tarjeta">
+    <h2>Paso 1: Alcance</h2>
+    <form method="post" asp-action="Seleccion" class="formulario-vertical">
+        <div class="rejilla-formulario">
+            <div class="campo">
+                <label for="PlantaId">Planta</label>
+                <select id="PlantaId" name="PlantaId" class="select-buscable" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var p in Model.Plantas)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="TurnoId">Turno destino</label>
+                <select id="TurnoId" name="TurnoId" class="select-buscable" required>
+                    <option value="">— Seleccione —</option>
+                    @foreach (var t in Model.Turnos)
+                    {
+                        <option value="@t.Id">@t.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="FechaEfectiva">Fecha efectiva</label>
+                <input type="date" id="FechaEfectiva" name="FechaEfectiva"
+                       value="@Model.FechaEfectiva.ToString("yyyy-MM-dd")" required />
+            </div>
+        </div>
+
+        <input type="hidden" name="pagina" value="1" />
+
+        <div class="acciones-formulario">
+            <button type="submit" class="boton boton-primario">Seleccionar trabajadores</button>
+        </div>
+    </form>
+</div>

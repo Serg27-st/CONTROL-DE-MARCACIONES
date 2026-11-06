@@ -224,6 +224,18 @@ public sealed class CargaMasivaVm
 {
     /// <summary>Nulo mientras no se haya procesado ningún archivo en esta pantalla.</summary>
     public ResultadoCargaMasiva? Resultado { get; init; }
+
+    /// <summary>
+    /// Clave opaca y de un solo uso para confirmar exactamente el archivo analizado que
+    /// permanece temporalmente en el servidor. Nunca contiene datos de la plantilla.
+    /// </summary>
+    public string? TokenConfirmacion { get; init; }
+
+    public bool PuedeConfirmar => Resultado is { SoloValidacion: true } resultado
+        && resultado.Puestos.Ambiguos.Count == 0
+        && !resultado.Conciliacion.TieneBloqueos
+        && resultado.FilasLeidas > resultado.Rechazados
+        && !string.IsNullOrWhiteSpace(TokenConfirmacion);
 }
 
 /// <summary>

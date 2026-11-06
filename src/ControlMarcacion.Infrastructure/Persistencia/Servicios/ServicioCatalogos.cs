@@ -66,7 +66,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
 
         await ValidarCodigoUnicoAsync(definicion, codigo, solicitud, cancelacion).ConfigureAwait(false);
 
-        var id = Normalizar(clave) switch
+        var entidad = Normalizar(clave) switch
         {
             "puestos" => await GuardarPuestoAsync(solicitud, codigo, nombre, usuario, cancelacion).ConfigureAwait(false),
             "plantas" => await GuardarPlantaAsync(solicitud, codigo, nombre, usuario, cancelacion).ConfigureAwait(false),
@@ -78,7 +78,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
 
         await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
 
-        return id;
+        return entidad.Id;
     }
 
     public async Task CambiarEstadoAsync(
@@ -235,14 +235,14 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
     // Altas y ediciones
     // ------------------------------------------------------------------
 
-    private async Task<long> GuardarPuestoAsync(
+    private async Task<EntidadBase> GuardarPuestoAsync(
         GuardarCatalogoRequest s, string codigo, string nombre, string usuario, CancellationToken ct)
     {
         if (s.Id is not { } id)
         {
             var nuevo = new Puesto { Codigo = codigo, Nombre = nombre, Activo = s.Activo, CreadoPor = usuario };
             await contexto.Puestos.AddAsync(nuevo, ct).ConfigureAwait(false);
-            return nuevo.Id;
+            return nuevo;
         }
 
         var actual = await BuscarAsync(contexto.Puestos, id, "puestos", ct).ConfigureAwait(false);
@@ -250,10 +250,10 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
         actual.Nombre = nombre;
         actual.Activo = s.Activo;
         actual.ModificadoPor = usuario;
-        return actual.Id;
+        return actual;
     }
 
-    private async Task<long> GuardarPlantaAsync(
+    private async Task<EntidadBase> GuardarPlantaAsync(
         GuardarCatalogoRequest s, string codigo, string nombre, string usuario, CancellationToken ct)
     {
         if (s.Id is not { } id)
@@ -264,7 +264,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
                 Activo = s.Activo, CreadoPor = usuario
             };
             await contexto.Plantas.AddAsync(nueva, ct).ConfigureAwait(false);
-            return nueva.Id;
+            return nueva;
         }
 
         var actual = await BuscarAsync(contexto.Plantas, id, "plantas", ct).ConfigureAwait(false);
@@ -273,10 +273,10 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
         actual.EmpresaId = s.PadreId!.Value;
         actual.Activo = s.Activo;
         actual.ModificadoPor = usuario;
-        return actual.Id;
+        return actual;
     }
 
-    private async Task<long> GuardarAreaAsync(
+    private async Task<EntidadBase> GuardarAreaAsync(
         GuardarCatalogoRequest s, string codigo, string nombre, string usuario, CancellationToken ct)
     {
         if (s.Id is not { } id)
@@ -287,7 +287,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
                 Activo = s.Activo, CreadoPor = usuario
             };
             await contexto.Areas.AddAsync(nueva, ct).ConfigureAwait(false);
-            return nueva.Id;
+            return nueva;
         }
 
         var actual = await BuscarAsync(contexto.Areas, id, "areas", ct).ConfigureAwait(false);
@@ -296,10 +296,10 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
         actual.PlantaId = s.PadreId!.Value;
         actual.Activo = s.Activo;
         actual.ModificadoPor = usuario;
-        return actual.Id;
+        return actual;
     }
 
-    private async Task<long> GuardarSeccionAsync(
+    private async Task<EntidadBase> GuardarSeccionAsync(
         GuardarCatalogoRequest s, string codigo, string nombre, string usuario, CancellationToken ct)
     {
         if (s.Id is not { } id)
@@ -310,7 +310,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
                 Activo = s.Activo, CreadoPor = usuario
             };
             await contexto.Secciones.AddAsync(nueva, ct).ConfigureAwait(false);
-            return nueva.Id;
+            return nueva;
         }
 
         var actual = await BuscarAsync(contexto.Secciones, id, "secciones", ct).ConfigureAwait(false);
@@ -319,17 +319,17 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
         actual.AreaId = s.PadreId!.Value;
         actual.Activo = s.Activo;
         actual.ModificadoPor = usuario;
-        return actual.Id;
+        return actual;
     }
 
-    private async Task<long> GuardarTipoDocumentoAsync(
+    private async Task<EntidadBase> GuardarTipoDocumentoAsync(
         GuardarCatalogoRequest s, string codigo, string nombre, string usuario, CancellationToken ct)
     {
         if (s.Id is not { } id)
         {
             var nuevo = new TipoDocumento { Codigo = codigo, Nombre = nombre, Activo = s.Activo, CreadoPor = usuario };
             await contexto.TiposDocumento.AddAsync(nuevo, ct).ConfigureAwait(false);
-            return nuevo.Id;
+            return nuevo;
         }
 
         var actual = await BuscarAsync(contexto.TiposDocumento, id, "tipos-documento", ct).ConfigureAwait(false);
@@ -337,7 +337,7 @@ internal sealed class ServicioCatalogos(MarcacionDbContext contexto) : IServicio
         actual.Nombre = nombre;
         actual.Activo = s.Activo;
         actual.ModificadoPor = usuario;
-        return actual.Id;
+        return actual;
     }
 
     // ------------------------------------------------------------------

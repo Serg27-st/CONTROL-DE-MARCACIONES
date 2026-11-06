@@ -10,9 +10,11 @@ namespace ControlMarcacion.Web.Seguridad;
 /// Resuelve las plantas visibles desde el rol y las asignaciones de la sesión.
 /// </summary>
 /// <remarks>
-/// Solo el <c>ADMINISTRADOR</c> queda acotado a las plantas que gestiona (<c>UsuarioPlanta</c>).
-/// COORDINADOR, GERENCIA y TRABAJADOR_SOCIAL no tienen restricción; sin sesión tampoco, que es
-/// el arranque y no expone datos a nadie.
+/// <c>ADMINISTRADOR</c> queda siempre acotado a las plantas que gestiona
+/// (<c>UsuarioPlanta</c>). Un <c>COORDINADOR</c> con asignaciones también queda acotado a ellas;
+/// solo el coordinador sin asignaciones conserva el alcance global que corresponde al rol
+/// superior. GERENCIA y TRABAJADOR_SOCIAL no usan este alcance operativo; sin sesión tampoco,
+/// que es el arranque y no expone datos a nadie.
 ///
 /// El resultado se calcula una sola vez por petición (el proveedor es Scoped): Personal,
 /// Solicitudes, Justificaciones, Tareo y Reportes lo consultan varias veces en la misma
@@ -42,12 +44,17 @@ public sealed class ProveedorAlcancePlantasHttp(
     {
         var usuario = acceso.HttpContext?.User;
 
-        // Sin sesión (arranque, siembra) o sin ser un ADMINISTRADOR: sin restricción.
-        // COORDINADOR gana siempre —aunque por diseño nadie tiene dos roles, que mande el más
-        // amplio evita un cierre accidental si algún día alguien acumula roles—.
-        if (usuario?.Identity?.IsAuthenticated != true
-            || !usuario.IsInRole(RolesSistema.Administrador)
-            || usuario.IsInRole(RolesSistema.Coordinador))
+        // Sin sesión: procesos internos de arranque/siembra, sin una petición que exponga datos.
+        if (usuario?.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        var esAdministrador = usuario.IsInRole(RolesSistema.Administrador);
+        var esCoordinador = usuario.IsInRole(RolesSistema.Coordinador);
+
+        // Estos roles no operan la preparación ni administran datos por planta.
+        if (!esAdministrador && !esCoordinador)
         {
             return null;
         }
@@ -56,16 +63,24 @@ public sealed class ProveedorAlcancePlantasHttp(
 
         if (string.IsNullOrEmpty(id))
         {
-            // Autenticado como ADMINISTRADOR pero sin id legible en la cookie: fail-closed,
+            // Autenticado con un rol operativo pero sin id legible en la cookie: fail-closed,
             // no ve nada, en vez de caer en la rama «sin restricción» y verlo todo.
             return [];
         }
 
-        return await contexto.UsuariosPlanta
+        var plantas = await contexto.UsuariosPlanta
             .AsNoTracking()
             .Where(up => up.UsuarioId == id)
             .Select(up => up.PlantaId)
+            .Distinct()
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
+
+        // ADMINISTRADOR sin filas es alcance vacío (fail-closed). COORDINADOR sin filas es el
+        // único caso HTTP autorizado de alcance global. Si el coordinador tiene una o más
+        // asignaciones, esas filas son deliberadamente restrictivas y nunca se descartan.
+        return esCoordinador && plantas.Count == 0
+            ? null
+            : plantas;
     }
 }

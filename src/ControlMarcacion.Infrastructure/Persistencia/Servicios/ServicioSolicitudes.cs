@@ -1,9 +1,11 @@
 using ControlMarcacion.Application.Comun;
+using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Solicitudes;
 using ControlMarcacion.Application.Solicitudes.Dto;
 using ControlMarcacion.Domain.Catalogos;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Domain.Justificaciones;
+using ControlMarcacion.Domain.Personal;
 using ControlMarcacion.Domain.Solicitudes;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +16,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// </summary>
 internal sealed class ServicioSolicitudes(
     MarcacionDbContext contexto,
-    IProveedorAlcancePlantas alcance) : IServicioSolicitudes
+    IProveedorAlcancePlantas alcance,
+    IServicioCalculoTareo? calculo = null) : IServicioSolicitudes
 {
     public async Task<ResultadoPaginado<SolicitudListaDto>> ListarAsync(
         FiltroSolicitudes filtro,
@@ -69,6 +72,229 @@ internal sealed class ServicioSolicitudes(
 
         return new ResultadoPaginado<SolicitudListaDto>(elementos, total, pagina, tamanio);
     }
+
+    public async Task<IReadOnlyList<SolicitudCambioTurnoDto>> ListarCambiosTurnoAsync(
+        CancellationToken cancelacion = default)
+    {
+        var consulta = contexto.SolicitudesCambioTurno.AsNoTracking();
+        var plantas = await alcance.PlantasVisiblesAsync(cancelacion).ConfigureAwait(false);
+        if (plantas is not null)
+        {
+            consulta = consulta.Where(s => contexto.AsignacionesPlanta.Any(a =>
+                a.PeriodoLaboral!.TrabajadorId == s.TrabajadorId && a.FechaInicio <= s.FechaEfectiva
+                && (a.FechaFin == null || a.FechaFin >= s.FechaEfectiva)
+                && plantas.Contains(a.PlantaId)));
+        }
+
+        return await consulta.OrderByDescending(s => s.FechaEfectiva).ThenByDescending(s => s.Id)
+            .Select(s => new SolicitudCambioTurnoDto(
+                s.Id, s.TrabajadorId,
+                contexto.Trabajadores.Where(t => t.Id == s.TrabajadorId)
+                    .Select(t => t.ApellidoPaterno + " " + t.ApellidoMaterno + ", " + t.Nombres)
+                    .FirstOrDefault() ?? "-",
+                s.FechaEfectiva, s.TurnoSolicitadoId,
+                s.TurnoSolicitado!.Codigo + " - " + s.TurnoSolicitado.Nombre,
+                s.TurnoAnteriorId == null ? "Cuadrilla programada" :
+                    contexto.Turnos.Where(t => t.Id == s.TurnoAnteriorId)
+                        .Select(t => t.Codigo + " - " + t.Nombre).FirstOrDefault() ?? "-",
+                s.Motivo, s.Estado, s.SolicitadoPorUsuario, s.SolicitadoEn,
+                s.ResueltoPorUsuario, s.ResueltoEn, s.MotivoResolucion))
+            .ToListAsync(cancelacion).ConfigureAwait(false);
+    }
+
+    public async Task<long> GuardarCambioTurnoAsync(
+        GuardarCambioTurnoRequest solicitud,
+        string usuario,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(solicitud);
+        if (string.IsNullOrWhiteSpace(solicitud.Motivo) || solicitud.Motivo.Trim().Length < 5)
+        {
+            throw new ReglaNegocioException("Indique un motivo de al menos 5 caracteres.");
+        }
+
+        var plantaId = await PlantaHistoricaAsync(solicitud.TrabajadorId, solicitud.FechaEfectiva, cancelacion)
+            .ConfigureAwait(false);
+        await GarantizarPlantaEnAlcanceAsync(plantaId, solicitud.TrabajadorId, cancelacion).ConfigureAwait(false);
+
+        if (!await contexto.PeriodosLaborales.AsNoTracking().AnyAsync(p =>
+                p.TrabajadorId == solicitud.TrabajadorId && p.FechaIngreso <= solicitud.FechaEfectiva
+                && (p.FechaCese == null || p.FechaCese >= solicitud.FechaEfectiva), cancelacion)
+            .ConfigureAwait(false))
+        {
+            throw new ReglaNegocioException("La fecha efectiva no pertenece a un vínculo laboral vigente.");
+        }
+
+        var periodo = await contexto.Periodos.AsNoTracking().FirstOrDefaultAsync(p =>
+            p.Activo && p.FechaInicio <= solicitud.FechaEfectiva && p.FechaFin >= solicitud.FechaEfectiva,
+            cancelacion).ConfigureAwait(false)
+            ?? throw new ReglaNegocioException("La fecha efectiva no pertenece a un periodo registrado.");
+        if (!periodo.EstaAbierto)
+        {
+            throw new PeriodoCerradoException(periodo.Codigo);
+        }
+
+        var turno = await contexto.Turnos.AsNoTracking().Include(t => t.PlantasHabilitadas)
+            .FirstOrDefaultAsync(t => t.Id == solicitud.TurnoId, cancelacion).ConfigureAwait(false)
+            ?? throw new RecursoNoEncontradoException("el turno", solicitud.TurnoId);
+        if (!turno.Activo || (turno.PlantasHabilitadas.Count > 0
+                              && turno.PlantasHabilitadas.All(p => p.PlantaId != plantaId)))
+        {
+            throw new ReglaNegocioException("El turno solicitado no está habilitado para la unidad de esa fecha.");
+        }
+
+        var aplicables = await contexto.AsignacionesTurno.AsNoTracking().Where(a =>
+            a.TrabajadorId == solicitud.TrabajadorId && a.FechaInicio <= solicitud.FechaEfectiva
+            && (a.FechaFin == null || a.FechaFin >= solicitud.FechaEfectiva))
+            .ToListAsync(cancelacion).ConfigureAwait(false);
+        var vigente = aplicables.Count == 1 ? aplicables[0] : throw new ReglaNegocioException(
+            aplicables.Count == 0 ? "El trabajador no tiene turno vigente en la fecha efectiva."
+                : "El trabajador tiene asignaciones de turno solapadas en la fecha efectiva.");
+        if (vigente.TurnoId == solicitud.TurnoId)
+        {
+            throw new ReglaNegocioException("El turno solicitado ya es el vigente para esa fecha.");
+        }
+
+        if (await contexto.SolicitudesCambioTurno.AnyAsync(s =>
+                s.TrabajadorId == solicitud.TrabajadorId && s.FechaEfectiva == solicitud.FechaEfectiva
+                && (s.Estado == EstadoSolicitud.Pendiente || s.Estado == EstadoSolicitud.Aprobada), cancelacion)
+            .ConfigureAwait(false))
+        {
+            throw new ReglaNegocioException("Ya existe una solicitud vigente para ese trabajador y fecha.");
+        }
+
+        var entidad = new SolicitudCambioTurno
+        {
+            TrabajadorId = solicitud.TrabajadorId,
+            FechaEfectiva = solicitud.FechaEfectiva,
+            TurnoSolicitadoId = solicitud.TurnoId,
+            TurnoAnteriorId = vigente.TurnoId,
+            CuadrillaAnteriorId = vigente.CuadrillaId,
+            Motivo = solicitud.Motivo.Trim(),
+            SolicitadoPorUsuario = usuario,
+            SolicitadoEn = DateTime.Now,
+            CreadoPor = usuario
+        };
+        await contexto.SolicitudesCambioTurno.AddAsync(entidad, cancelacion).ConfigureAwait(false);
+        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        return entidad.Id;
+    }
+
+    public async Task ResolverCambioTurnoAsync(
+        long id,
+        bool aprueba,
+        string? motivo,
+        string usuario,
+        CancellationToken cancelacion = default)
+    {
+        if (!aprueba && string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new ReglaNegocioException("Indique el motivo del rechazo.");
+        }
+
+        var solicitud = await contexto.SolicitudesCambioTurno
+            .FirstOrDefaultAsync(s => s.Id == id, cancelacion).ConfigureAwait(false)
+            ?? throw new RecursoNoEncontradoException("la solicitud de cambio de turno", id);
+        var plantaId = await PlantaHistoricaAsync(
+            solicitud.TrabajadorId, solicitud.FechaEfectiva, cancelacion).ConfigureAwait(false);
+        await GarantizarPlantaEnAlcanceAsync(plantaId, solicitud.TrabajadorId, cancelacion).ConfigureAwait(false);
+
+        if (solicitud.Estado != EstadoSolicitud.Pendiente)
+        {
+            throw new ReglaNegocioException("La solicitud ya fue resuelta y no admite una segunda decisión.");
+        }
+        if (string.Equals(solicitud.SolicitadoPorUsuario, usuario, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ReglaNegocioException("Quien solicitó el cambio no puede aprobarlo ni rechazarlo.");
+        }
+
+        var periodo = await contexto.Periodos.FirstOrDefaultAsync(p =>
+            p.Activo && p.FechaInicio <= solicitud.FechaEfectiva && p.FechaFin >= solicitud.FechaEfectiva,
+            cancelacion).ConfigureAwait(false)
+            ?? throw new ReglaNegocioException("La fecha efectiva no pertenece a un periodo registrado.");
+        if (!periodo.EstaAbierto)
+        {
+            throw new PeriodoCerradoException(periodo.Codigo);
+        }
+
+        var vinculoVigente = await contexto.PeriodosLaborales.AsNoTracking().AnyAsync(p =>
+            p.TrabajadorId == solicitud.TrabajadorId
+            && p.FechaIngreso <= solicitud.FechaEfectiva
+            && (p.FechaCese == null || p.FechaCese >= solicitud.FechaEfectiva), cancelacion)
+            .ConfigureAwait(false);
+        if (!vinculoVigente)
+        {
+            throw new ReglaNegocioException("El vínculo laboral ya no cubre la fecha efectiva.");
+        }
+
+        var turnoSolicitadoValido = await contexto.Turnos.AsNoTracking()
+            .Include(t => t.PlantasHabilitadas)
+            .AnyAsync(t => t.Id == solicitud.TurnoSolicitadoId && t.Activo
+                           && (t.PlantasHabilitadas.Count == 0
+                               || t.PlantasHabilitadas.Any(p => p.PlantaId == plantaId)), cancelacion)
+            .ConfigureAwait(false);
+        if (!turnoSolicitadoValido)
+        {
+            throw new ReglaNegocioException(
+                "El turno solicitado dejó de estar activo o habilitado para la unidad.");
+        }
+
+        await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion).ConfigureAwait(false);
+        if (aprueba)
+        {
+            var asignaciones = await contexto.AsignacionesTurno
+                .Where(a => a.TrabajadorId == solicitud.TrabajadorId)
+                .OrderBy(a => a.FechaInicio).ToListAsync(cancelacion).ConfigureAwait(false);
+            var vigentes = asignaciones.Where(a => a.EstaVigenteEn(solicitud.FechaEfectiva)).ToList();
+            if (vigentes.Count != 1)
+            {
+                throw new ReglaNegocioException("La vigencia de turno cambió o está solapada; revise antes de aprobar.");
+            }
+
+            var vigente = vigentes[0];
+            if (!vigente.Asigna(solicitud.TurnoAnteriorId, solicitud.CuadrillaAnteriorId))
+            {
+                throw new ReglaNegocioException(
+                    "El turno vigente cambió después de registrar la solicitud; anúlela y registre otra.");
+            }
+
+            AplicarExcepcionDeUnDia(
+                asignaciones, vigente, solicitud.FechaEfectiva, solicitud.TurnoSolicitadoId, usuario);
+            ValidadorVigencias.GarantizarLineaDeTiempoSana(asignaciones, "turno");
+            contexto.AsignacionesTurno.AddRange(asignaciones.Where(a => a.Id == 0));
+        }
+
+        solicitud.Estado = aprueba ? EstadoSolicitud.Aprobada : EstadoSolicitud.Rechazada;
+        solicitud.ResueltoPorUsuario = usuario;
+        solicitud.ResueltoEn = DateTime.Now;
+        solicitud.MotivoResolucion = motivo?.Trim();
+        solicitud.ModificadoPor = usuario;
+        solicitud.Version++;
+        contexto.AfirmarAbierto(periodo);
+
+        try
+        {
+            await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+            if (aprueba && calculo is not null)
+            {
+                await calculo.RecalcularJornadaAsync(
+                    periodo.Id, solicitud.TrabajadorId, solicitud.FechaEfectiva, usuario, cancelacion)
+                    .ConfigureAwait(false);
+            }
+            await transaccion.CommitAsync(cancelacion).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ReglaNegocioException(
+                "Otra persona resolvió la solicitud o cerró el periodo mientras se aprobaba.");
+        }
+    }
+
+    public async Task<IReadOnlyList<OpcionDto>> TurnosAsync(CancellationToken cancelacion = default) =>
+        await contexto.Turnos.AsNoTracking().Where(t => t.Activo)
+            .OrderBy(t => t.Codigo)
+            .Select(t => new OpcionDto(t.Id, t.Codigo + " - " + t.Nombre))
+            .ToListAsync(cancelacion).ConfigureAwait(false);
 
     public async Task<SolicitudListaDto?> ObtenerAsync(long id, CancellationToken cancelacion = default)
     {
@@ -237,10 +463,12 @@ internal sealed class ServicioSolicitudes(
                 "Use «Registrar sustento» en el listado para agregarlo, y apruebe después.");
         }
 
+        // Los periodos quedan seguidos por el contexto: además de validar su estado antes
+        // de preparar las justificaciones, al guardar se afirma su versión. Así un cierre
+        // concurrente hace fallar el SaveChanges completo en vez de permitir que la
+        // solicitud quede aprobada dentro de un periodo que acaba de cerrarse.
         var periodos = await contexto.Periodos
-            .AsNoTracking()
             .Where(p => p.Activo && p.FechaInicio <= solicitud.FechaFin && p.FechaFin >= solicitud.FechaInicio)
-            .Select(p => new { p.Id, p.FechaInicio, p.FechaFin, p.Estado })
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
@@ -249,15 +477,23 @@ internal sealed class ServicioSolicitudes(
         // que una manual ya cargada para esa fecha tiene que bloquear la nueva, no coexistir.
         var existentes = await contexto.Justificaciones
             .Where(j => j.TrabajadorId == solicitud.TrabajadorId
-                        && j.Fecha >= solicitud.FechaInicio && j.Fecha <= solicitud.FechaFin)
+                        && j.Fecha >= solicitud.FechaInicio && j.Fecha <= solicitud.FechaFin
+                        // Las rechazadas y canceladas quedan como evidencia, pero ya no
+                        // ocupan el día. Es el mismo criterio del índice único filtrado.
+                        && j.Estado != EstadoJustificacion.Rechazada
+                        && j.Estado != EstadoJustificacion.Cancelada)
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-        var creadas = 0;
         var enCerrado = new List<DateOnly>();
         var sinPeriodo = new List<DateOnly>();
         var conJustificacionExistente = new List<DateOnly>();
+        var diasAcrear = new List<(DateOnly Fecha, Periodo Periodo)>();
+        var periodosAfirmar = new Dictionary<long, Periodo>();
 
+        // Primera pasada: validar TODO el rango sin cambiar estado ni agregar filas. Antes,
+        // cada impedimento hacía continue y los demás días sí se agregaban; al final la
+        // cabecera quedaba Aprobada aunque su efecto fuera parcial (AUS-007).
         for (var fecha = solicitud.FechaInicio; fecha <= solicitud.FechaFin; fecha = fecha.AddDays(1))
         {
             var periodo = periodos.Find(p => p.FechaInicio <= fecha && p.FechaFin >= fecha);
@@ -275,6 +511,8 @@ internal sealed class ServicioSolicitudes(
                 continue;
             }
 
+            periodosAfirmar.TryAdd(periodo.Id, periodo);
+
             var existente = existentes.Find(j => j.Fecha == fecha);
 
             if (existente is not null)
@@ -289,6 +527,44 @@ internal sealed class ServicioSolicitudes(
                 continue;
             }
 
+            diasAcrear.Add((fecha, periodo));
+        }
+
+        if (enCerrado.Count > 0 || sinPeriodo.Count > 0 || conJustificacionExistente.Count > 0)
+        {
+            var impedimentos = new List<string>();
+
+            if (enCerrado.Count > 0)
+            {
+                impedimentos.Add(
+                    $"{enCerrado.Count} día(s) pertenecen a un periodo cerrado " +
+                    $"({FormatearFechas(enCerrado)})");
+            }
+
+            if (sinPeriodo.Count > 0)
+            {
+                impedimentos.Add(
+                    $"{sinPeriodo.Count} día(s) no pertenecen a ningún periodo activo " +
+                    $"({FormatearFechas(sinPeriodo)})");
+            }
+
+            if (conJustificacionExistente.Count > 0)
+            {
+                impedimentos.Add(
+                    $"{conJustificacionExistente.Count} día(s) ya tienen otra justificación " +
+                    $"({FormatearFechas(conJustificacionExistente)})");
+            }
+
+            throw new ReglaNegocioException(
+                "La solicitud no se aprobó: todos sus días deben poder justificarse en una sola " +
+                $"operación. {string.Join("; ", impedimentos)}. Corrija esos días y vuelva a intentarlo.");
+        }
+
+        // Segunda pasada: recién cuando todo el rango es válido se preparan las filas. El
+        // cambio de cabecera y todas las justificaciones viajan en un único SaveChanges,
+        // que EF confirma o revierte como una sola transacción.
+        foreach (var (fecha, periodo) in diasAcrear)
+        {
             await contexto.Justificaciones.AddAsync(new Justificacion
             {
                 TrabajadorId = solicitud.TrabajadorId,
@@ -312,16 +588,35 @@ internal sealed class ServicioSolicitudes(
                 RegistradoEn = DateTime.Now,
                 CreadoPor = usuario
             }, cancelacion).ConfigureAwait(false);
+        }
 
-            creadas++;
+        foreach (var periodo in periodosAfirmar.Values)
+        {
+            contexto.AfirmarAbierto(periodo);
         }
 
         solicitud.Estado = EstadoSolicitud.Aprobada;
         solicitud.ModificadoPor = usuario;
 
-        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        try
+        {
+            await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ReglaNegocioException(
+                "Uno de los periodos cambió mientras se aprobaba la solicitud; no se aprobó " +
+                "la cabecera ni se guardó ninguna justificación. Actualice la pantalla y vuelva a intentarlo.");
+        }
+        catch (DbUpdateException excepcion) when (EsRestriccionUnica(excepcion))
+        {
+            throw new ReglaNegocioException(
+                "Otra operación registró una justificación para uno de los días mientras se " +
+                "aprobaba la solicitud; no se aprobó la cabecera ni se guardó ninguna " +
+                "justificación nueva. Actualice la pantalla y vuelva a intentarlo.");
+        }
 
-        return new ResultadoAprobacion(solicitud.Id, creadas, enCerrado, sinPeriodo, conJustificacionExistente);
+        return new ResultadoAprobacion(solicitud.Id, diasAcrear.Count, [], [], []);
     }
 
     public async Task RegistrarSustentoAsync(
@@ -421,15 +716,62 @@ internal sealed class ServicioSolicitudes(
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-        var periodosCerrados = await contexto.Periodos
-            .AsNoTracking()
-            .Where(p => p.Estado != EstadoPeriodo.Abierto)
-            .Select(p => p.Id)
+        // No se intenta "arreglar" una solicitud histórica ya incompleta. AUS-007 evita
+        // nuevos casos, pero una cabecera aprobada anterior podría haber quedado con días
+        // omitidos. Cancelar solo lo que sobrevivió ocultaría esa inconsistencia y la fila
+        // perdida no puede reconstruirse con actor/fecha/ID auténticos.
+        var fechasEsperadas = Enumerable
+            .Range(0, solicitud.FechaFin.DayNumber - solicitud.FechaInicio.DayNumber + 1)
+            .Select(desplazamiento => solicitud.FechaInicio.AddDays(desplazamiento))
+            .ToHashSet();
+        var evidenciaCompleta = justificaciones.Count == fechasEsperadas.Count
+                                && justificaciones.Select(j => j.Fecha).Distinct().Count()
+                                == fechasEsperadas.Count
+                                && justificaciones.All(j =>
+                                    fechasEsperadas.Contains(j.Fecha)
+                                    && j.Origen == OrigenJustificacion.Solicitud
+                                    && j.TrabajadorId == solicitud.TrabajadorId
+                                    && j.TipoAusenciaId == solicitud.TipoAusenciaId
+                                    && j.Estado == EstadoJustificacion.Aprobada);
+
+        if (!evidenciaCompleta)
+        {
+            throw new ReglaNegocioException(
+                "No se puede anular: la evidencia derivada de la solicitud está incompleta " +
+                "o es inconsistente. No se modificó nada; audite esas filas y trátelas en " +
+                "un saneamiento separado.");
+        }
+
+        var idsPeriodos = justificaciones
+            .Select(j => j.PeriodoId)
+            .Distinct()
+            .ToList();
+
+        // Se cargan seguidos por el contexto: al guardar, AfirmarAbierto convierte la
+        // comprobación en parte de la misma transacción. Si un periodo se cierra entre
+        // esta lectura y el SaveChanges, no se anula ni la cabecera ni una sola fila.
+        var periodos = await contexto.Periodos
+            .Where(p => idsPeriodos.Contains(p.Id))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
-        // Si alguna justificación cayó en un periodo ya cerrado, no se puede retirar: el
-        // tareo de ese periodo está congelado. Se avisa en vez de romper la invariante.
+        var idsPeriodosEncontrados = periodos.Select(p => p.Id).ToHashSet();
+        var sinPeriodo = idsPeriodos.FindAll(id => !idsPeriodosEncontrados.Contains(id));
+
+        if (sinPeriodo.Count > 0)
+        {
+            throw new ReglaNegocioException(
+                "No se puede anular: una o más justificaciones apuntan a periodos que ya no " +
+                "existen. Preserve la evidencia y revise esos datos antes de continuar.");
+        }
+
+        // Si alguna justificación cayó en un periodo ya cerrado, no se puede dejar sin
+        // efecto: el tareo de ese periodo está congelado. Se avisa en vez de romper la
+        // invariante.
+        var periodosCerrados = periodos
+            .Where(p => p.Estado != EstadoPeriodo.Abierto)
+            .Select(p => p.Id)
+            .ToHashSet();
         var bloqueadas = justificaciones.FindAll(j => periodosCerrados.Contains(j.PeriodoId));
 
         if (bloqueadas.Count > 0)
@@ -439,13 +781,56 @@ internal sealed class ServicioSolicitudes(
                 "cerrado y su tareo ya está congelado. Reabra el periodo si realmente corresponde.");
         }
 
-        contexto.Justificaciones.RemoveRange(justificaciones);
+        var ahora = DateTime.Now;
+        var motivoNormalizado = motivo.Trim();
+
+        foreach (var justificacion in justificaciones)
+        {
+            // La anulación ya no borra la evidencia derivada. Cancelada es un estado no
+            // aplicable al tareo y no ocupa el índice único del día, pero conserva la fila,
+            // su origen, su vínculo con la solicitud y quién tomó la decisión.
+            justificacion.Estado = EstadoJustificacion.Cancelada;
+            justificacion.ResueltaPorUsuario = usuario;
+            justificacion.ResueltaEn = ahora;
+            justificacion.MotivoResolucion = motivoNormalizado;
+            justificacion.ModificadoPor = usuario;
+            justificacion.Version++;
+        }
+
+        foreach (var periodo in periodos)
+        {
+            contexto.AfirmarAbierto(periodo);
+        }
 
         solicitud.Estado = EstadoSolicitud.Anulada;
-        solicitud.MotivoAnulacion = motivo.Trim();
+        solicitud.MotivoAnulacion = motivoNormalizado;
         solicitud.ModificadoPor = usuario;
 
-        await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        try
+        {
+            await contexto.SaveChangesAsync(cancelacion).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException excepcion)
+        {
+            var periodoEnConflicto = excepcion.Entries
+                .Select(e => e.Entity)
+                .OfType<Periodo>()
+                .FirstOrDefault();
+
+            if (periodoEnConflicto is not null)
+            {
+                throw await contexto
+                    .ExplicarChoqueAsync(
+                        periodoEnConflicto.Id,
+                        "anulaba la solicitud",
+                        cancelacion)
+                    .ConfigureAwait(false);
+            }
+
+            throw new ReglaNegocioException(
+                "Otra operación modificó una justificación mientras se anulaba la solicitud; " +
+                "no se guardó ningún cambio. Actualice la pantalla y vuelva a intentarlo.");
+        }
     }
 
     public async Task<IReadOnlyList<OpcionDto>> TrabajadoresAsync(CancellationToken cancelacion = default)
@@ -622,6 +1007,90 @@ internal sealed class ServicioSolicitudes(
         tipo.EsPorHoras && solicitud.HoraInicio is { } inicio && solicitud.HoraFin is { } fin
             ? (int)(fin.ToTimeSpan() - inicio.ToTimeSpan()).TotalMinutes
             : null;
+
+    private static string FormatearFechas(IEnumerable<DateOnly> fechas) =>
+        string.Join(", ", fechas.Select(
+            fecha => fecha.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)));
+
+    private static bool EsRestriccionUnica(DbUpdateException excepcion) =>
+        excepcion.InnerException?.Message.Contains(
+            "UNIQUE constraint failed",
+            StringComparison.OrdinalIgnoreCase) == true;
+
+    private static void AplicarExcepcionDeUnDia(
+        List<AsignacionTurno> asignaciones,
+        AsignacionTurno vigente,
+        DateOnly fecha,
+        long turnoId,
+        string usuario)
+    {
+        var inicioOriginal = vigente.FechaInicio;
+        var finOriginal = vigente.FechaFin;
+
+        if (inicioOriginal < fecha)
+        {
+            vigente.FechaFin = fecha.AddDays(-1);
+            vigente.ModificadoPor = usuario;
+            if (finOriginal is null || finOriginal > fecha)
+            {
+                asignaciones.Add(new AsignacionTurno
+                {
+                    TrabajadorId = vigente.TrabajadorId,
+                    TurnoId = vigente.TurnoId,
+                    CuadrillaId = vigente.CuadrillaId,
+                    FechaInicio = fecha.AddDays(1),
+                    FechaFin = finOriginal,
+                    CreadoPor = usuario
+                });
+            }
+        }
+        else if (finOriginal is null || finOriginal > fecha)
+        {
+            vigente.FechaInicio = fecha.AddDays(1);
+            vigente.ModificadoPor = usuario;
+        }
+        else
+        {
+            vigente.TurnoId = turnoId;
+            vigente.CuadrillaId = null;
+            vigente.ModificadoPor = usuario;
+            return;
+        }
+
+        asignaciones.Add(new AsignacionTurno
+        {
+            TrabajadorId = vigente.TrabajadorId,
+            TurnoId = turnoId,
+            FechaInicio = fecha,
+            FechaFin = fecha,
+            CreadoPor = usuario
+        });
+    }
+
+    private async Task<long> PlantaHistoricaAsync(
+        long trabajadorId,
+        DateOnly fecha,
+        CancellationToken cancelacion)
+    {
+        var plantas = await contexto.AsignacionesPlanta.AsNoTracking()
+            .Where(a => a.PeriodoLaboral!.TrabajadorId == trabajadorId && a.FechaInicio <= fecha
+                        && (a.FechaFin == null || a.FechaFin >= fecha))
+            .Select(a => a.PlantaId).ToListAsync(cancelacion).ConfigureAwait(false);
+        return plantas.Count == 1 ? plantas[0] : throw new ReglaNegocioException(
+            plantas.Count == 0 ? "El trabajador no tiene unidad vigente en la fecha efectiva."
+                : "El trabajador tiene unidades solapadas en la fecha efectiva.");
+    }
+
+    private async Task GarantizarPlantaEnAlcanceAsync(
+        long plantaId,
+        long trabajadorId,
+        CancellationToken cancelacion)
+    {
+        if (!await alcance.PuedeVerPlantaAsync(plantaId, cancelacion).ConfigureAwait(false))
+        {
+            throw new RecursoNoEncontradoException("el trabajador", trabajadorId);
+        }
+    }
 
     private async Task<SolicitudAusencia> BuscarAsync(long id, CancellationToken cancelacion)
     {

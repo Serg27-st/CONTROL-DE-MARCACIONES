@@ -965,8 +965,8 @@ internal sealed class ServicioImportacion(
         if (equipo.PlantaId != plantaId)
         {
             throw new ReglaNegocioException(
-                $"El marcador '{equipo.Nombre}' no pertenece a la planta indicada. " +
-                "Verifique la planta antes de cargar: el archivo se atribuiría al personal " +
+                $"El marcador '{equipo.Nombre}' no pertenece a la unidad indicada. " +
+                "Verifique la unidad antes de cargar: el archivo se atribuiría al personal " +
                 "equivocado.");
         }
 

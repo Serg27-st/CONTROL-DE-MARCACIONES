@@ -136,7 +136,7 @@
                lo mismo. Antes había además un campo de texto libre "Unidad" que ya no se
                captura — dos formas de escribir el mismo dato solo consiguen que discrepen. *@
             <div class="campo">
-                <label asp-for="Datos.PlantaId">Unidad (planta)</label>
+                <label asp-for="Datos.PlantaId">Unidad</label>
                 <select asp-for="Datos.PlantaId" id="PlantaId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
                     <option value="">Seleccione…</option>
@@ -206,7 +206,7 @@
                     }
                 </select>
                 <small class="texto-suave">
-                    El aparato donde la persona pone la huella. Con dos aparatos en la planta
+                    El aparato donde la persona pone la huella. Con dos aparatos en la unidad
                     el mismo número es de dos personas distintas.
                 </small>
             </div>
@@ -260,7 +260,7 @@
                 </select>
                 <small class="texto-suave">
                     Si la persona rota con un grupo, elija su cuadrilla: el turno de cada día lo
-                    da el ciclo de la cuadrilla y el turno fijo se ignora. Debe ser de su planta.
+                    da el ciclo de la cuadrilla y el turno fijo se ignora. Debe ser de su unidad.
                 </small>
             </div>
 

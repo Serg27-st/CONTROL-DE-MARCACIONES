@@ -10,11 +10,11 @@
 
 <div class="tarjeta">
     <p class="subtitulo">
-        Cada equipo es un <strong>aparato ZKTeco físico</strong> instalado en una planta. Es
+        Cada equipo es un <strong>aparato ZKTeco físico</strong> instalado en una unidad. Es
         el catálogo que hay que llenar primero: los códigos de marcador pertenecen a un
         aparato, y la pantalla de carga exige declarar de cuál salió cada archivo.
         <br />
-        Por eso una misma planta puede tener dos equipos —uno para apellidos A–L y otro para
+        Por eso una misma unidad puede tener dos equipos —uno para apellidos A–L y otro para
         M–Z— <strong>ambos numerados del 1 al 100</strong> sin que sus marcaciones se
         confundan: el código identifica a una persona dentro de su aparato, no en todo el
         sistema.
@@ -29,7 +29,7 @@
             </div>
 
             <div class="campo">
-                <label for="PlantaId">Planta</label>
+                <label for="PlantaId">Unidad</label>
                 <select id="PlantaId" name="PlantaId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre", Model.Filtro.PlantaId))">
                     <option value="">Todas</option>
@@ -75,7 +75,7 @@
                     <tr>
                         <th>Código</th>
                         <th>Nombre</th>
-                        <th>Planta</th>
+                        <th>Unidad</th>
                         <th>Empresa</th>
                         <th>Serie</th>
                         <th>Marcadores</th>

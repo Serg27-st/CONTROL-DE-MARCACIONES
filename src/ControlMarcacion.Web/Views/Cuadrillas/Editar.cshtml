@@ -31,7 +31,7 @@
                 <label asp-for="Datos.Codigo">Código</label>
                 <input asp-for="Datos.Codigo" type="text" maxlength="20" placeholder="A" />
                 <span class="error-campo" asp-validation-for="Datos.Codigo"></span>
-                <small class="texto-suave">Único dentro de la planta: «A» y «B» en cada una.</small>
+                <small class="texto-suave">Único dentro de la unidad: «A» y «B» en cada una.</small>
             </div>
 
             <div class="campo">
@@ -41,14 +41,14 @@
             </div>
 
             <div class="campo">
-                <label asp-for="Datos.PlantaId">Planta</label>
+                <label asp-for="Datos.PlantaId">Unidad</label>
                 <select asp-for="Datos.PlantaId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre"))">
                     <option value="">Seleccione…</option>
                 </select>
                 <span class="error-campo" asp-validation-for="Datos.PlantaId"></span>
                 <small class="texto-suave">
-                    Solo pueden integrarla trabajadores de esta planta, y su ciclo solo admite
+                    Solo pueden integrarla trabajadores de esta unidad, y su ciclo solo admite
                     turnos habilitados en ella.
                 </small>
             </div>

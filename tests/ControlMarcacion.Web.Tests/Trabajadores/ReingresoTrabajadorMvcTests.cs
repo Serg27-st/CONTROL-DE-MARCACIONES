@@ -44,7 +44,7 @@ public sealed partial class ReingresoTrabajadorMvcTests
         html.ShouldContain("Reingresar trabajador");
         html.ShouldContain("Nueva fecha de ingreso");
         html.ShouldContain("Empresa");
-        html.ShouldContain("Planta inicial");
+        html.ShouldContain("Unidad inicial");
         html.ShouldNotContain("Turno rige desde");
     }
 
@@ -122,7 +122,7 @@ public sealed partial class ReingresoTrabajadorMvcTests
         var html = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync().ConfigureAwait(true));
         html.ShouldContain("No se pudo registrar el reingreso");
         html.ShouldContain("Seleccione la empresa del nuevo vínculo");
-        html.ShouldContain("Seleccione la planta inicial del nuevo vínculo");
+        html.ShouldContain("Seleccione la unidad inicial del nuevo vínculo");
         (await escenario.PeriodosAsync().ConfigureAwait(true)).ShouldHaveSingleItem();
     }
 

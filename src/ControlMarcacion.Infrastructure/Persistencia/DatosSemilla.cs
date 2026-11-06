@@ -429,7 +429,7 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
             new Turno
             {
                 Id = 1, Codigo = "DIU", Nombre = "Diurno",
-                HoraInicio = new TimeOnly(7, 0), HoraFin = new TimeOnly(19, 0),
+                HoraInicio = new TimeOnly(7, 0), HoraFin = new TimeOnly(17, 22),
                 MinutosRefrigerio = 0, MinutosTolerancia = 5, MinutosJornadaOrdinaria = 480,
                 MinutosAnticipacionEntrada = AnticipacionEntrada,
                 MinutosAnticipacionSalida = AnticipacionSalida,
@@ -439,7 +439,7 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
             {
                 // Cruza medianoche: la jornada se imputa al día de INICIO del turno.
                 Id = 2, Codigo = "NOC", Nombre = "Nocturno",
-                HoraInicio = new TimeOnly(19, 0), HoraFin = new TimeOnly(7, 0),
+                HoraInicio = new TimeOnly(19, 0), HoraFin = new TimeOnly(5, 22),
                 MinutosRefrigerio = 0, MinutosTolerancia = 5, MinutosJornadaOrdinaria = 480,
                 MinutosAnticipacionEntrada = AnticipacionEntrada,
                 MinutosAnticipacionSalida = AnticipacionSalida,
@@ -452,7 +452,7 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
                 MinutosRefrigerio = 0, MinutosTolerancia = 5, MinutosJornadaOrdinaria = 480,
                 MinutosAnticipacionEntrada = AnticipacionEntrada,
                 MinutosAnticipacionSalida = AnticipacionSalida,
-                DiasAplicables = DiasSemana.Sabado, Activo = true, CreadoEn = Origen
+                DiasAplicables = DiasSemana.Sabado, Activo = false, CreadoEn = Origen
             },
             new Turno
             {
@@ -461,7 +461,7 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
                 MinutosRefrigerio = 0, MinutosTolerancia = 5, MinutosJornadaOrdinaria = 480,
                 MinutosAnticipacionEntrada = AnticipacionEntrada,
                 MinutosAnticipacionSalida = AnticipacionSalida,
-                DiasAplicables = DiasSemana.Domingo, Activo = true, CreadoEn = Origen
+                DiasAplicables = DiasSemana.Domingo, Activo = false, CreadoEn = Origen
             },
             new Turno
             {
@@ -470,13 +470,13 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
                 MinutosRefrigerio = 0, MinutosTolerancia = 5, MinutosJornadaOrdinaria = 480,
                 MinutosAnticipacionEntrada = AnticipacionEntrada,
                 MinutosAnticipacionSalida = AnticipacionSalida,
-                DiasAplicables = DiasSemana.Domingo, Activo = true, CreadoEn = Origen
+                DiasAplicables = DiasSemana.Domingo, Activo = false, CreadoEn = Origen
             });
 
         // El turno especial de sábado solo existe en Planta 01. Se modela como dato,
         // no como condición en el código: extenderlo a otra planta será un INSERT.
         modelBuilder.Entity<TurnoPlanta>().HasData(
-            new TurnoPlanta { Id = 1, TurnoId = 3, PlantaId = 3, Activo = true, CreadoEn = Origen });
+            new TurnoPlanta { Id = 1, TurnoId = 3, PlantaId = 3, Activo = false, CreadoEn = Origen });
 
         // La versión abierta de cada turno: el horario que rige hoy, con vigencia desde una
         // fecha anterior a todo dato real. El cálculo resuelve el horario por la versión
@@ -492,13 +492,13 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
         int anticipacionEntrada,
         int anticipacionSalida)
     {
-        (long Id, long TurnoId, TimeOnly Inicio, TimeOnly Fin, DiasSemana Dias)[] versiones =
+        (long Id, long TurnoId, TimeOnly Inicio, TimeOnly Fin, DiasSemana Dias, bool Activo)[] versiones =
         [
-            (1, 1, new TimeOnly(7, 0), new TimeOnly(19, 0), DiasSemana.LunesASabado),
-            (2, 2, new TimeOnly(19, 0), new TimeOnly(7, 0), DiasSemana.LunesASabado),
-            (3, 3, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Sabado),
-            (4, 4, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Domingo),
-            (5, 5, new TimeOnly(7, 0), new TimeOnly(19, 0), DiasSemana.Domingo)
+            (1, 1, new TimeOnly(7, 0), new TimeOnly(17, 22), DiasSemana.LunesASabado, true),
+            (2, 2, new TimeOnly(19, 0), new TimeOnly(5, 22), DiasSemana.LunesASabado, true),
+            (3, 3, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Sabado, false),
+            (4, 4, new TimeOnly(7, 0), new TimeOnly(15, 0), DiasSemana.Domingo, false),
+            (5, 5, new TimeOnly(7, 0), new TimeOnly(19, 0), DiasSemana.Domingo, false)
         ];
 
         modelBuilder.Entity<VersionTurno>().HasData(
@@ -517,7 +517,7 @@ private static readonly DateTime Origen = new(2026, 1, 1, 0, 0, 0, DateTimeKind.
                 MinutosAnticipacionSalida = anticipacionSalida,
                 MinutosGraciaSalida = 0,
                 DiasAplicables = v.Dias,
-                Activo = true,
+                Activo = v.Activo,
                 CreadoEn = Origen
             }).ToArray());
     }

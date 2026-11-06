@@ -1,4 +1,5 @@
 using ControlMarcacion.Application.Asistencia.Dto;
+using ControlMarcacion.Application.Asistencia;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.Justificaciones;
 using ControlMarcacion.Application.Justificaciones.Dto;
@@ -14,7 +15,8 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Servicios;
 /// </summary>
 internal sealed class ServicioJustificaciones(
     MarcacionDbContext contexto,
-    IProveedorAlcancePlantas alcance) : IServicioJustificaciones
+    IProveedorAlcancePlantas alcance,
+    IServicioCalculoTareo? calculo = null) : IServicioJustificaciones
 {
     public async Task<ResultadoPaginado<JustificacionListaDto>> ListarAsync(
         FiltroJustificaciones filtro,
@@ -205,6 +207,10 @@ internal sealed class ServicioJustificaciones(
                 Origen = OrigenJustificacion.Manual,
                 TipoAusenciaId = solicitud.TipoAusenciaId,
                 Tipo = solicitud.Tipo,
+                // REG-APR-001: un alta manual es una petición, no una autorización.
+                // Las justificaciones generadas por una solicitud aprobada conservan su
+                // estado aprobado porque ya pasaron por el ciclo formal de esa solicitud.
+                Estado = EstadoJustificacion.Solicitada,
                 MinutosJustificados = solicitud.MinutosJustificados,
                 EstadoAnterior = await ObtenerEstadoActualAsync(
                     solicitud.TrabajadorId, periodo.Id, solicitud.Fecha, cancelacion).ConfigureAwait(false),
@@ -416,6 +422,16 @@ internal sealed class ServicioJustificaciones(
                 $"y no se puede volver a resolver.");
         }
 
+        if (string.Equals(
+                justificacion.RegistradoPorUsuario,
+                usuario,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ReglaNegocioException(
+                "Quien registró la justificación no puede aprobarla ni rechazarla. " +
+                "Debe resolverla otro coordinador autorizado.");
+        }
+
         var periodo = await contexto.Periodos
             .FirstAsync(p => p.Id == justificacion.PeriodoId, cancelacion)
             .ConfigureAwait(false);
@@ -424,6 +440,10 @@ internal sealed class ServicioJustificaciones(
         {
             throw new PeriodoCerradoException(periodo.Codigo);
         }
+
+        await using var transaccion = await contexto.Database
+            .BeginTransactionAsync(cancelacion)
+            .ConfigureAwait(false);
 
         justificacion.Estado = aprueba ? EstadoJustificacion.Aprobada : EstadoJustificacion.Rechazada;
         justificacion.ResueltaPorUsuario = usuario;
@@ -460,6 +480,20 @@ internal sealed class ServicioJustificaciones(
                 "Otra persona resolvió esta regularización mientras la revisaba. " +
                 "Vuelva a abrir la bandeja para ver cómo quedó.");
         }
+
+        if (calculo is not null)
+        {
+            await calculo
+                .RecalcularJornadaAsync(
+                    justificacion.PeriodoId,
+                    justificacion.TrabajadorId,
+                    justificacion.Fecha,
+                    usuario,
+                    cancelacion)
+                .ConfigureAwait(false);
+        }
+
+        await transaccion.CommitAsync(cancelacion).ConfigureAwait(false);
     }
 
     public async Task CancelarAsync(long id, string usuario, CancellationToken cancelacion = default)

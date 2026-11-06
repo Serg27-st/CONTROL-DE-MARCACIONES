@@ -10,11 +10,13 @@ using ControlMarcacion.Application.Seguridad;
 using ControlMarcacion.Application.Comun;
 using ControlMarcacion.Application.MarcacionesProvisionales;
 using ControlMarcacion.Application.Solicitudes;
+using ControlMarcacion.Application.Programacion;
 using ControlMarcacion.Infrastructure.Catalogos;
 using ControlMarcacion.Infrastructure.Marcaciones;
 using ControlMarcacion.Infrastructure.MarcacionesProvisionales;
 using ControlMarcacion.Infrastructure.Reportes;
 using ControlMarcacion.Infrastructure.Seguridad;
+using ControlMarcacion.Infrastructure.Programacion;
 using ControlMarcacion.Domain.Personal;
 using ControlMarcacion.Infrastructure.Personal;
 using ControlMarcacion.Infrastructure.Persistencia;
@@ -47,6 +49,8 @@ public static class InyeccionDependencias
         // "sistema" en vez de impedir el arranque. Web registra después el que lee la
         // identidad de la petición HTTP, y esa registración gana sobre esta.
         servicios.TryAddScoped<IProveedorUsuarioActual, ProveedorUsuarioSistema>();
+        servicios.TryAddScoped<IContextoAutorizacionVinculacionBiometrica, ContextoVinculacionBiometricaNoConfigurado>();
+        servicios.TryAddScoped<IProveedorEvidenciaIdentidad, ProveedorEvidenciaIdentidadNoConfigurado>();
 
         // Aislamiento por planta: mismo patrón que el proveedor de usuario. El respaldo ve
         // TODAS las plantas (sin restricción), para que la siembra y las herramientas de EF
@@ -95,6 +99,10 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         servicios.AddScoped<IConsultaAuditoria, ConsultaAuditoria>();
         servicios.AddScoped<IServicioTiposAusencia, ServicioTiposAusencia>();
         servicios.AddScoped<IServicioCalculoTareo, ServicioCalculoTareo>();
+        servicios.AddScoped<IValidadorPreparacionTareo, ValidadorPreparacionTareo>();
+        servicios.AddScoped<IConciliadorProgramacion, ConciliadorProgramacion>();
+        servicios.AddScoped<IImportadorProgramacionLaboral, ImportadorProgramacionLaboral>();
+        servicios.AddScoped<IServicioProgramacionMasiva, ServicioProgramacionMasiva>();
         servicios.AddScoped<IServicioDescansosSustitutorios, ServicioDescansosSustitutorios>();
         servicios.AddScoped<IServicioPeriodos, ServicioPeriodos>();
         servicios.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
@@ -111,6 +119,9 @@ servicios.AddScoped<IConsultaTrabajadores, ConsultaTrabajadores>();
         servicios.AddScoped<LectorRespaldoZkteco>();
         servicios.AddScoped<LectorRespaldoZktecoSdk>();
         servicios.AddScoped<ComparadorLecturasBkTransaction>();
+        servicios.AddSingleton<ILectorUsuariosZkteco, LectorUsuariosZkteco>();
+        servicios.AddScoped<IServicioConciliacionBiometrica, ServicioConciliacionBiometrica>();
+        servicios.AddScoped<IServicioConfirmacionVinculacionBiometrica, ServicioConfirmacionVinculacionBiometrica>();
         servicios.AddScoped<IFuenteDeMarcaciones, LectorMarcadorAutomatico>();
         servicios.AddScoped<IServicioImportacion, ServicioImportacion>();
 

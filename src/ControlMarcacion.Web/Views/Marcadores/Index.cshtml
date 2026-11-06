@@ -11,11 +11,11 @@
 <div class="tarjeta">
     <p class="subtitulo">
         Cada marcador es un identificador que emite un <strong>equipo</strong> ZKTeco, y
-        hereda de él la planta. El formulario de personal solo ofrece los marcadores de la
-        planta del trabajador.
+        hereda de él la unidad. El formulario de personal solo ofrece los marcadores de la
+        unidad del trabajador.
         <br />
         El código es <strong>único dentro de su equipo</strong>, no en todo el sistema: así
-        lo numera el aparato, y es lo que permite que el A–L y el M–Z de una misma planta
+        lo numera el aparato, y es lo que permite que el A–L y el M–Z de una misma unidad
         tengan ambos del 1 al 100. De qué equipo salió cada marcación lo declara el operador
         al cargar el archivo, y la serie del propio archivo lo confirma.
     </p>
@@ -29,7 +29,7 @@
             </div>
 
             <div class="campo">
-                <label for="PlantaId">Planta</label>
+                <label for="PlantaId">Unidad</label>
                 <select id="PlantaId" name="PlantaId" class="select-buscable"
                         asp-items="@(new SelectList(Model.Plantas, "Id", "Nombre", Model.Filtro.PlantaId))">
                     <option value="">Todas</option>
@@ -63,7 +63,7 @@
                     <tr>
                         <th>Código</th>
                         <th>Equipo</th>
-                        <th>Planta</th>
+                        <th>Unidad</th>
                         <th>Empresa</th>
                         <th>Descripción</th>
                         <th>Asignado a</th>

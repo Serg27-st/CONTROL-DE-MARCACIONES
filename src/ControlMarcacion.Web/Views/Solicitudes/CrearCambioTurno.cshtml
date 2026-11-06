@@ -1,0 +1,57 @@
+@model CambioTurnoVm
+@{
+    ViewData["Title"] = "Cambio puntual de turno";
+}
+
+<div class="titulo-pagina">
+    <h1>Cambio puntual de turno</h1>
+    <a class="boton boton-secundario" asp-action="CambiosTurno">Volver</a>
+</div>
+
+<div class="tarjeta">
+    <p class="subtitulo">
+        La solicitud sustituye el turno únicamente en la fecha indicada. No altera
+        marcaciones y no surte efecto hasta que otro coordinador la apruebe.
+    </p>
+    <form method="post" asp-action="GuardarCambioTurno">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="validacion"></div>
+        <div class="rejilla">
+            <div class="campo">
+                <label asp-for="Datos.TrabajadorId">Trabajador</label>
+                <select asp-for="Datos.TrabajadorId" class="select-buscable">
+                    <option value="">Seleccione</option>
+                    @foreach (var item in Model.Trabajadores)
+                    {
+                        <option value="@item.Id">@item.Nombre</option>
+                    }
+                </select>
+                <span asp-validation-for="Datos.TrabajadorId" class="validacion"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.FechaEfectiva">Fecha efectiva</label>
+                <input asp-for="Datos.FechaEfectiva" type="date" />
+                <span asp-validation-for="Datos.FechaEfectiva" class="validacion"></span>
+            </div>
+            <div class="campo">
+                <label asp-for="Datos.TurnoId">Turno solicitado</label>
+                <select asp-for="Datos.TurnoId">
+                    <option value="">Seleccione</option>
+                    @foreach (var item in Model.Turnos)
+                    {
+                        <option value="@item.Id">@item.Nombre</option>
+                    }
+                </select>
+                <span asp-validation-for="Datos.TurnoId" class="validacion"></span>
+            </div>
+        </div>
+        <div class="campo">
+            <label asp-for="Datos.Motivo">Motivo</label>
+            <textarea asp-for="Datos.Motivo" rows="3"></textarea>
+            <span asp-validation-for="Datos.Motivo" class="validacion"></span>
+        </div>
+        <div class="acciones">
+            <button type="submit" class="boton boton-primario">Registrar solicitud</button>
+        </div>
+    </form>
+</div>

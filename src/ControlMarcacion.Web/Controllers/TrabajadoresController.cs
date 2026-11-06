@@ -9,6 +9,7 @@ using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace ControlMarcacion.Web.Controllers;
 
@@ -28,13 +29,15 @@ public sealed class TrabajadoresController(
     ServicioTrabajadores servicio,
     IConsultaCatalogos catalogos,
     ICargaMasivaTrabajadores cargaMasiva,
-    IConsultaAuditoria auditoria) : Controller
+    IConsultaAuditoria auditoria,
+    IMemoryCache cache) : Controller
 {
     /// <summary>
     /// Tamaño máximo del CSV de carga masiva. El padrón completo de Intradevco en texto
     /// no llega a 200 KB.
     /// </summary>
     private const long TamanioMaximoCargaBytes = 5 * 1024 * 1024;
+    private static readonly TimeSpan VigenciaPrevisualizacion = TimeSpan.FromMinutes(20);
 
     [HttpGet]
     public async Task<IActionResult> Index(FiltroTrabajadores filtro, CancellationToken cancelacion)
@@ -478,7 +481,6 @@ public sealed class TrabajadoresController(
     [RequestSizeLimit(TamanioMaximoCargaBytes)]
     public async Task<IActionResult> ProcesarCargaMasiva(
         IFormFile? archivo,
-        bool soloValidar,
         bool actualizarExistentes,
         bool registrarMarcadores,
         CancellationToken cancelacion)
@@ -507,12 +509,33 @@ public sealed class TrabajadoresController(
             var usuario = User.Identity?.Name ?? "sistema";
 
             var resultado = await cargaMasiva
-                .ProcesarAsync(
-                    contenido, archivo.FileName, usuario, soloValidar, actualizarExistentes,
+                .PrevisualizarAsync(
+                    contenido, archivo.FileName, usuario, actualizarExistentes,
                     registrarMarcadores, cancelacion)
                 .ConfigureAwait(false);
 
-            return View("CargaMasiva", new CargaMasivaVm { Resultado = resultado });
+            string? token = null;
+
+            if (resultado.Puestos.Ambiguos.Count == 0
+                && !resultado.Conciliacion.TieneBloqueos
+                && resultado.FilasLeidas > resultado.Rechazados)
+            {
+                token = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+                cache.Set(
+                    ClaveCache(token),
+                    new CargaMasivaPendiente(
+                        contenido.ToArray(),
+                        archivo.FileName,
+                        usuario,
+                        actualizarExistentes,
+                        registrarMarcadores,
+                        resultado.HuellaConfirmacion),
+                    VigenciaPrevisualizacion);
+            }
+
+            return View(
+                "CargaMasiva",
+                new CargaMasivaVm { Resultado = resultado, TokenConfirmacion = token });
         }
         catch (ReglaNegocioException excepcion)
         {
@@ -523,6 +546,75 @@ public sealed class TrabajadoresController(
             return RedirectToAction(nameof(CargaMasiva));
         }
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmarCargaMasiva(
+        string? token,
+        CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(token)
+            || !cache.TryGetValue<CargaMasivaPendiente>(ClaveCache(token), out var pendiente)
+            || pendiente is null)
+        {
+            TempData["Error"] =
+                "La previsualización venció o ya fue utilizada. Vuelva a analizar el archivo.";
+            return RedirectToAction(nameof(CargaMasiva));
+        }
+
+        cache.Remove(ClaveCache(token));
+        var usuario = User.Identity?.Name ?? "sistema";
+
+        if (!string.Equals(pendiente.Usuario, usuario, StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            using var contenido = new MemoryStream(pendiente.Contenido, writable: false);
+            var resultado = await cargaMasiva
+                .ConfirmarAsync(
+                    contenido,
+                    pendiente.NombreArchivo,
+                    usuario,
+                    pendiente.HuellaConfirmacion,
+                    pendiente.ActualizarExistentes,
+                    pendiente.RegistrarMarcadores,
+                    cancelacion)
+                .ConfigureAwait(false);
+
+            return View("CargaMasiva", new CargaMasivaVm { Resultado = resultado });
+        }
+        catch (ReglaNegocioException excepcion)
+        {
+            TempData["Error"] = excepcion.Message;
+            return RedirectToAction(nameof(CargaMasiva));
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult CancelarCargaMasiva(string? token)
+    {
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            cache.Remove(ClaveCache(token));
+        }
+
+        TempData["Mensaje"] = "La importación fue cancelada. No se guardó ningún cambio.";
+        return RedirectToAction(nameof(CargaMasiva));
+    }
+
+    private static string ClaveCache(string token) => $"carga-masiva:{token}";
+
+    private sealed record CargaMasivaPendiente(
+        byte[] Contenido,
+        string NombreArchivo,
+        string Usuario,
+        bool ActualizarExistentes,
+        bool RegistrarMarcadores,
+        string HuellaConfirmacion);
 
     /// <summary>Plantas de una empresa, para encadenar los desplegables del formulario.</summary>
     [HttpGet]

@@ -199,7 +199,32 @@
                                 </small>
                             </td>
                             <td>
-                                @if (j.EsperaResolucion && string.Equals(j.RegistradoPorUsuario, User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                                @if (j.EsperaResolucion
+                                    && User.IsInRole(RolesSistema.Coordinador)
+                                    && !string.Equals(j.RegistradoPorUsuario, User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <form method="post" asp-action="Resolver" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@j.Id" />
+                                        <input type="hidden" name="aprueba" value="true" />
+                                        <button type="submit" class="boton boton-primario boton-chico"
+                                                data-confirmar="@($"¿Aprobar la justificación de {j.Trabajador} del {j.Fecha:dd/MM/yyyy}? Se recalculará únicamente esa jornada.")">
+                                            Aprobar
+                                        </button>
+                                    </form>
+                                    <form method="post" asp-action="Resolver" class="en-linea">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@j.Id" />
+                                        <input type="hidden" name="aprueba" value="false" />
+                                        <input type="text" name="motivo" required minlength="3" maxlength="500"
+                                               placeholder="Motivo del rechazo" aria-label="Motivo del rechazo" />
+                                        <button type="submit" class="boton boton-secundario boton-chico"
+                                                data-confirmar="@($"¿Rechazar la justificación de {j.Trabajador} del {j.Fecha:dd/MM/yyyy}?")">
+                                            Rechazar
+                                        </button>
+                                    </form>
+                                }
+                                else if (j.EsperaResolucion && string.Equals(j.RegistradoPorUsuario, User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
                                 {
                                     <form method="post" asp-action="Cancelar" class="en-linea">
                                         @Html.AntiForgeryToken()

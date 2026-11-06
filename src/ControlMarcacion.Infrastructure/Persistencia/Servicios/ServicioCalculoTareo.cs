@@ -45,7 +45,23 @@ internal sealed partial class ServicioCalculoTareo(
     public async Task<ResultadoRecalculo> RecalcularPeriodoAsync(
         long periodoId,
         string usuario,
-        CancellationToken cancelacion = default)
+        CancellationToken cancelacion = default) =>
+        await RecalcularAsync(periodoId, null, null, usuario, cancelacion).ConfigureAwait(false);
+
+    public async Task<ResultadoRecalculo> RecalcularJornadaAsync(
+        long periodoId,
+        long trabajadorId,
+        DateOnly fecha,
+        string usuario,
+        CancellationToken cancelacion = default) =>
+        await RecalcularAsync(periodoId, trabajadorId, fecha, usuario, cancelacion).ConfigureAwait(false);
+
+    private async Task<ResultadoRecalculo> RecalcularAsync(
+        long periodoId,
+        long? trabajadorObjetivo,
+        DateOnly? fechaObjetivo,
+        string usuario,
+        CancellationToken cancelacion)
     {
         var periodo = await contexto.Periodos
             .FirstOrDefaultAsync(p => p.Id == periodoId, cancelacion)
@@ -58,6 +74,13 @@ internal sealed partial class ServicioCalculoTareo(
         {
             // El constructor arma el mensaje a partir del código: no acepta texto libre.
             throw new PeriodoCerradoException(periodo.Codigo);
+        }
+
+        if (fechaObjetivo is { } fechaFuera
+            && (fechaFuera < periodo.FechaInicio || fechaFuera > periodo.FechaFin))
+        {
+            throw new ReglaNegocioException(
+                $"La fecha {fechaFuera:dd/MM/yyyy} no pertenece al periodo {periodo.Codigo}.");
         }
 
         // Aislamiento por planta: un ADMINISTRADOR recalcula SOLO sus plantas. El recálculo es
@@ -75,6 +98,7 @@ internal sealed partial class ServicioCalculoTareo(
             .ConfigureAwait(false);
 
         var historias = historiasCargadas
+            .Where(par => trabajadorObjetivo is null || par.Key == trabajadorObjetivo.Value)
             .Where(par => plantasVisibles is null
                           || par.Value.EnRango(periodo.FechaInicio, periodo.FechaFin)
                               .SelectMany(p => p.Plantas)
@@ -246,6 +270,23 @@ internal sealed partial class ServicioCalculoTareo(
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
+        // FER-003: el descanso existe solo si fue otorgado explícitamente. Se carga como
+        // otra entrada del motor; no se infiere de una ausencia ni modifica el tareo del
+        // feriado origen.
+        var descansosSustitutorios = await contexto.DescansosSustitutorios
+            .AsNoTracking()
+            .Where(d => d.Activo
+                        && d.Estado == EstadoDescansoSustitutorio.Otorgado
+                        && ids.Contains(d.TrabajadorId)
+                        && d.FechaDescanso >= periodo.FechaInicio
+                        && d.FechaDescanso <= periodo.FechaFin)
+            .Select(d => new { d.TrabajadorId, d.FechaDescanso, d.FechaFeriadoOrigen })
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+        var descansosPorDia = descansosSustitutorios.ToDictionary(
+            d => (d.TrabajadorId, d.FechaDescanso),
+            d => d.FechaFeriadoOrigen);
+
         var existentes = await contexto.TareosDiarios
             .Where(t => t.PeriodoId == periodo.Id)
             .ToDictionaryAsync(t => (t.TrabajadorId, t.Fecha), cancelacion)
@@ -349,6 +390,11 @@ internal sealed partial class ServicioCalculoTareo(
 
             for (var fecha = periodo.FechaInicio; fecha <= periodo.FechaFin; fecha = fecha.AddDays(1))
             {
+                if (fechaObjetivo is { } objetivo && fecha != objetivo)
+                {
+                    continue;
+                }
+
                 var contextoLaboral = historia.Resolver(fecha).ObtenerOError();
 
                 // Un administrador restringido solo puede reescribir días cuya planta
@@ -363,6 +409,8 @@ internal sealed partial class ServicioCalculoTareo(
 
                 var resuelto = resoluciones[fecha];
                 var turno = resuelto.Turno;
+                var esDescansoSustitutorio = descansosPorDia.TryGetValue(
+                    (trabajador.Id, fecha), out var fechaFeriadoCompensado);
                 List<MarcaAtribuida> deLaJornada;
                 var delimitacionAmbigua = false;
 
@@ -388,6 +436,13 @@ internal sealed partial class ServicioCalculoTareo(
                     OrigenTurno = resuelto.Origen,
                     MotivoSinTurno = resuelto.MotivoSinTurno,
                     EsDescansoProgramado = resuelto.Estado == EstadoProgramacionDiaria.DescansoProgramado,
+                    EsTrabajoProgramadoEnRotacion =
+                        resuelto.Estado == EstadoProgramacionDiaria.Trabajo
+                        && resuelto.ProgramacionId is not null,
+                    EsDescansoSustitutorio = esDescansoSustitutorio,
+                    FechaFeriadoCompensado = esDescansoSustitutorio
+                        ? fechaFeriadoCompensado
+                        : null,
                     DelimitacionDescansoAmbigua = delimitacionAmbigua,
                     TieneVinculo = contextoLaboral is not null,
                     EsFeriado = feriados.Any(f => f.Fecha == fecha
@@ -561,7 +616,19 @@ internal sealed partial class ServicioCalculoTareo(
                 x.Tareo.Estado,
                 x.Tareo.Observacion,
                 x.Tareo.TipoIncidencia,
-                x.Tareo.RequiereValidacion))
+                x.Tareo.RequiereValidacion,
+                contexto.DescansosSustitutorios.Any(d =>
+                    d.Activo
+                    && d.Estado == EstadoDescansoSustitutorio.Otorgado
+                    && d.TrabajadorId == x.Tareo.TrabajadorId
+                    && d.FechaFeriadoOrigen == x.Tareo.Fecha),
+                contexto.DescansosSustitutorios
+                    .Where(d => d.Activo
+                                && d.Estado == EstadoDescansoSustitutorio.Otorgado
+                                && d.TrabajadorId == x.Tareo.TrabajadorId
+                                && d.FechaFeriadoOrigen == x.Tareo.Fecha)
+                    .Select(d => (DateOnly?)d.FechaDescanso)
+                    .FirstOrDefault()))
             .ToListAsync(cancelacion)
             .ConfigureAwait(false);
 
@@ -672,14 +739,22 @@ internal sealed partial class ServicioCalculoTareo(
                 x.Tareo.TipoIncidencia,
                 x.Tareo.MarcacionesFueraVentana,
                 x.Tareo.Observacion,
-                // La justificación del día, sea cual sea su estado: es lo que distingue
-                // «hay que resolverlo» de «ya se pidió y falta autorizarlo».
+                // La justificación vigente gana sobre la evidencia rechazada/cancelada; si
+                // solo queda historia, se muestra la más reciente. AUS-008 permite que ambas
+                // convivan el mismo día, así que un FirstOrDefault sin orden podría enseñar
+                // una cancelada mientras ya existe otra aprobada.
                 contexto.Justificaciones
                     .Where(j => j.TrabajadorId == x.Tareo.TrabajadorId && j.Fecha == x.Tareo.Fecha)
+                    .OrderBy(j => j.Estado == EstadoJustificacion.Rechazada
+                                  || j.Estado == EstadoJustificacion.Cancelada)
+                    .ThenByDescending(j => j.Id)
                     .Select(j => (long?)j.Id)
                     .FirstOrDefault(),
                 contexto.Justificaciones
                     .Where(j => j.TrabajadorId == x.Tareo.TrabajadorId && j.Fecha == x.Tareo.Fecha)
+                    .OrderBy(j => j.Estado == EstadoJustificacion.Rechazada
+                                  || j.Estado == EstadoJustificacion.Cancelada)
+                    .ThenByDescending(j => j.Id)
                     .Select(j => (EstadoJustificacion?)j.Estado)
                     .FirstOrDefault()))
             .ToListAsync(cancelacion)
@@ -865,6 +940,11 @@ internal sealed partial class ServicioCalculoTareo(
                             : 0)
                         : 0),
                 Feriado = g.Sum(t => t.TipoDiaNoLaborable == TipoDiaNoLaborable.Feriado
+                                      && !contexto.DescansosSustitutorios.Any(d =>
+                                          d.Activo
+                                          && d.Estado == EstadoDescansoSustitutorio.Otorgado
+                                          && d.TrabajadorId == t.TrabajadorId
+                                          && d.FechaFeriadoOrigen == t.Fecha)
                     ? t.MinutosTrabajados
                     : 0),
 
@@ -1020,13 +1100,14 @@ internal sealed partial class ServicioCalculoTareo(
 
         if (vigente.TurnoId is { } turnoFijo)
         {
+            var turnoResuelto = horarios.En(turnoFijo, fecha);
             return new TurnoResuelto(
-                horarios.En(turnoFijo, fecha),
+                turnoResuelto,
                 EstadoProgramacionDiaria.Trabajo,
                 null,
                 null,
                 null,
-                null);
+                turnoResuelto is null ? horarios.MotivoNoDisponible(turnoFijo, fecha) : null);
         }
 
         var programacion = vigente.CuadrillaId is { } cuadrillaId
@@ -1090,7 +1171,7 @@ internal sealed partial class ServicioCalculoTareo(
             resultado.ProgramacionId,
             resultado.TramoId,
             turno is null ? null : $"Cuadrilla {cuadrilla}: turno {turno.Codigo}.",
-            turno is null ? "El turno programado no existe." : null);
+            turno is null ? horarios.MotivoNoDisponible(turnoId, fecha) : null);
     }
 
     /// <summary>
@@ -1124,14 +1205,13 @@ internal sealed partial class ServicioCalculoTareo(
 
             var version = porTurno.GetValueOrDefault(turnoId)?.FirstOrDefault(v => v.EstaVigenteEn(fecha));
 
-            // Sin versión que cubra la fecha se usa el turno tal como está hoy, que es
-            // exactamente como se calculaba antes de existir la vigencia: conservador y sin
-            // regresión. La semilla y el relleno de la migración abren la primera versión de
-            // cada turno en VigenciaOriginal, así que en la práctica solo ocurriría con una
-            // fecha anterior al año 2000.
+            // Sin versión aplicable no existe una política económica verificable para la
+            // fecha. Usar los valores actuales del catálogo inventaría historia y podría
+            // contaminar liquidaciones. Las marcaciones se conservan; el día queda sin
+            // horario económico hasta completar la configuración.
             if (version is null)
             {
-                return turno;
+                return null;
             }
 
             if (!hidratados.TryGetValue(version.Id, out var conHorario))
@@ -1142,6 +1222,12 @@ internal sealed partial class ServicioCalculoTareo(
 
             return conHorario;
         }
+
+        public string MotivoNoDisponible(long turnoId, DateOnly fecha) =>
+            !turnos.ContainsKey(turnoId)
+                ? "El turno programado no existe."
+                : $"El turno no tiene una versión económica vigente para el {fecha:dd/MM/yyyy}. " +
+                  "Complete la configuración antes de calcular conceptos definitivos.";
     }
 
     /// <summary>Asignación de turno con su vigencia, para resolver en memoria.</summary>

@@ -455,7 +455,7 @@ public sealed class CambioDeTurnoTests
                 "coordinador",
                 CancellationToken.None));
 
-        error.Message.ShouldContain("solo pueden integrarla trabajadores de esa planta");
+        error.Message.ShouldContain("solo pueden integrarla trabajadores de esa unidad");
         trabajador.AsignacionesTurno.Count.ShouldBe(1);
     }
 

@@ -64,7 +64,7 @@ public sealed class TurnosController(IServicioTurnos servicio) : Controller
                 MinutosJornadaOrdinaria = actual.MinutosJornadaOrdinaria,
                 DiasAplicables = actual.DiasAplicables,
                 Activo = actual.Activo,
-                PlantasHabilitadas = actual.PlantasHabilitadasIds
+                PlantasHabilitadas = actual.PlantasHabilitadasIds.ToList()
             };
         }
 

@@ -169,4 +169,45 @@ public sealed class JustificacionesController(
 
         return RedirectToAction(nameof(Index));
     }
+
+    /// <summary>Aprueba o rechaza una justificación manual pendiente.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = RolesSistema.Coordinador)]
+    public async Task<IActionResult> Resolver(
+        long id,
+        bool aprueba,
+        string? motivo,
+        CancellationToken cancelacion)
+    {
+        try
+        {
+            await servicio
+                .ResolverAsync(
+                    id,
+                    aprueba,
+                    motivo,
+                    User.Identity?.Name ?? "sistema",
+                    cancelacion)
+                .ConfigureAwait(false);
+
+            TempData["Mensaje"] = aprueba
+                ? "Justificación aprobada y jornada recalculada."
+                : "Justificación rechazada; no modificó el tareo.";
+        }
+        catch (ReglaNegocioException excepcion)
+        {
+            TempData["Error"] = excepcion.Message;
+        }
+        catch (PeriodoCerradoException excepcion)
+        {
+            TempData["Error"] = excepcion.Message;
+        }
+        catch (RecursoNoEncontradoException)
+        {
+            return NotFound();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
 }

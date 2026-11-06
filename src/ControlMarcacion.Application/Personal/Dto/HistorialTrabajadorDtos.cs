@@ -48,8 +48,8 @@ public sealed record ReingresarTrabajadorRequest
     [Range(1, long.MaxValue, ErrorMessage = "Seleccione la empresa del nuevo vínculo.")]
     public long EmpresaId { get; init; }
 
-    [Required(ErrorMessage = "Seleccione la planta inicial del nuevo vínculo.")]
-    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la planta inicial del nuevo vínculo.")]
+    [Required(ErrorMessage = "Seleccione la unidad inicial del nuevo vínculo.")]
+    [Range(1, long.MaxValue, ErrorMessage = "Seleccione la unidad inicial del nuevo vínculo.")]
     public long PlantaId { get; init; }
 }
 

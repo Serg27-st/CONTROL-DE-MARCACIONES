@@ -142,7 +142,7 @@ public class MapaColumnasTests
     public void La_fila_de_ejemplo_tiene_tantos_campos_como_el_encabezado()
     {
         var csv = System.Text.Encoding.UTF8.GetString(
-            new CargaMasivaTrabajadores(null!, null!, null!, null!, null!).GenerarPlantillaCsv());
+            new CargaMasivaTrabajadores(null!, null!, null!, null!, null!, null!).GenerarPlantillaCsv());
 
         var lineas = csv.TrimEnd('\r', '\n').Split('\n');
 

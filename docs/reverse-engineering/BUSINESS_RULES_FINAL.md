@@ -1,8 +1,10 @@
 # P1-BUSINESS-RULES-FINAL — catálogo autoritativo
 
-Fecha de corte: 2026-10-16  
-Baseline de entrada: build Release 0 errores/0 warnings; 948/948 pruebas verdes.  
-Alcance: documentación; código, tests, migraciones, datos y producción no se modifican.
+Fecha de corte original: 2026-10-16. Actualización operacional: 2026-10-23.
+Baseline actual: build Release 0 errores/0 warnings; 994/994 pruebas verdes.
+La creación original fue documental. P2-AUS-006/007/008, P2-PMV-004 y P2-AUD-001 actualizaron
+contratos e implementación según cada frente, sin migraciones ni datos fuente; producción
+permanece intacta.
 
 ## Convenciones y precedencia
 
@@ -68,8 +70,8 @@ IDs `RN-*`/`PMV-RN-*` de Fase 6.1.
 |---|---|---|---|---|---|---|
 | FER-001 | Feriado nacional no trabajado conserva remuneración ordinaria y no genera HE por sí solo. | FER-NAC-01 | derecho ordinario explícito en días-persona; cero minutos físicos y cero HE100 | `FER_001_feriado_no_trabajado_conserva_derecho_sin_inventar_minutos` | VIGENTE_IMPLEMENTADA | — |
 | FER-002 | Trabajado sin sustitutorio: remuneración ordinaria + base trabajada + sobretasa 100 %; parcial se prorratea por minutos reales. | FER-NAC-02/03 | derecho ordinario separado; `FeriadoTrabajado` desglosa base y recargo sobre N minutos únicos | `FER_002_dia_completo...`; `FER_002_trabajo_parcial...` | VIGENTE_IMPLEMENTADA | RN-102 |
-| FER-003 | Con descanso sustitutorio no corresponde adicional de trabajo + 100 %; el dato aún no existe. | FER-NAC-04; BD02-D04 | no modelado | NO LOCALIZADO | VIGENTE_NO_IMPLEMENTADA | gap BD-02 |
-| FER-004 | Turno que cruza hacia feriado conserva día de inicio; turno iniciado en feriado se trata como feriado hasta D+1, sin duplicar minutos. | FER-NAC-05/06; BD02-D08/09 | clasificación por fecha de jornada | `FER_NAC_05...`; `FER_NAC_06...` | VIGENTE_IMPLEMENTADA | RN-104 |
+| FER-003 | Con descanso sustitutorio explícito no corresponde el adicional general de trabajo + 100 %; el feriado conserva minutos físicos y el día sustituto completo acredita 0 minutos sin incidencias. | FER-NAC-04; BD02-D04 | `DescansoSustitutorio`; exclusión del agregado `FeriadoTrabajado`; `EstadoTareo.DescansoSustitutorio` | `DescansoSustitutorioAcceptanceTests`; `DescansoSustitutorioPersistenceTests`; `DescansosSustitutoriosControllerTests` | VIGENTE_IMPLEMENTADA | — |
+| FER-004 | Turno que cruza hacia feriado conserva día de inicio; turno iniciado en feriado se trata como feriado hasta D+1, sin duplicar minutos. | FER-NAC-05/06; BD02-D08/09 | clasificación por fecha de jornada | `FER004_01...`; `FER004_02...` (SQLite directo) | VIGENTE_IMPLEMENTADA | RN-104 |
 | FER-005 | Feriado nacional ≠ día no laborable compensable; este último no está clasificado expresamente. | FER-NAC-07 | no modelado | NO LOCALIZADO | VIGENTE_NO_IMPLEMENTADA | gap BD-02 |
 | FER-006 | Feriado ordinario + descanso: sin trabajo es un descanso único; trabajado usa minutos únicos y prevalece `FeriadoTrabajado`. | BD02-D01..05 | `TipoCoincidenciaFeriadoDescanso` | `DescansoProgramadoAcceptanceTests`; `RotacionTurnosTests` | VIGENTE_IMPLEMENTADA | RN-101/102 |
 | FER-007 | 1 de mayo + descanso conserva base única pero tratamiento económico especial (cuatro componentes trabajado; descanso+feriado no trabajado). | BD02-D06/07 | dos derechos diarios separados + base y recargo sobre N minutos únicos; sin trabajo conserva dos derechos y cero físico | `FER_007_1_de_mayo_trabajado...`; `FER_007_1_de_mayo_no_trabajado...` | VIGENTE_IMPLEMENTADA | RN-103 |
@@ -83,9 +85,9 @@ IDs `RN-*`/`PMV-RN-*` de Fase 6.1.
 | AUS-003 | Permiso parcial conserva duración/solape real; no recibe 480 ni inventa trabajo. | R-P1-08 | cálculo de solape | `PermisoParcialTests` | VIGENTE_IMPLEMENTADA | RN-062 |
 | AUS-004 | Permiso por horas es de un día y fin posterior al inicio. | solicitud vigente | validadores | `ValidadorLimitesSolicitudTests` | VIGENTE_IMPLEMENTADA | RN-071 |
 | AUS-005 | Sustento requerido se valida al aprobar; detalle clínico solo en contingencias subsidiadas. | solicitud vigente | servicio/validadores | `SustentoYAprobacionTests`; `ValidadorDetalleClinicoTests` | VIGENTE_IMPLEMENTADA | RN-069 |
-| AUS-006 | Solicitudes pendientes/aprobadas consumen límites inclusivos y no deben solaparse. | solicitud vigente | servicio | `ValidadorLimitesSolicitudTests` | VIGENTE_PARCIAL | RN-067/072 |
-| AUS-007 | Aprobación debería ser atómica; hoy puede quedar aprobada con días omitidos por choque/periodo. | P2-02 | `ServicioSolicitudes.AprobarAsync` | NO LOCALIZADO directo | VIGENTE_PARCIAL | RN-070 |
-| AUS-008 | Anulación debe preservar evidencia; el borrado físico derivado actual es deuda. | política de evidencia; P2-03 | servicio solicitudes | parcial | VIGENTE_PARCIAL | RN-073 |
+| AUS-006 | Solicitudes pendientes/aprobadas consumen límites inclusivos y reservan su rango; para el mismo trabajador todo cruce, incluidos los extremos, se rechaza. Rechazada/anulada liberan el rango. | solicitud vigente; P2-AUS-006 | `ServicioSolicitudes.GuardarAsync`; `ValidarLimitesAsync`; `ValidadorLimitesSolicitud` | `ValidadorLimitesSolicitudTests`; `SolapamientoSolicitudesTests` (`AUS006-01/02`) | VIGENTE_IMPLEMENTADA | RN-067/072 |
+| AUS-007 | Aprobación atómica: todo el rango se prevalida; choque, periodo cerrado o día sin periodo dejan la solicitud pendiente y crean cero filas. El éxito guarda cabecera y todos los días juntos y afirma la versión del periodo. | P2-AUS-007 | `ServicioSolicitudes.AprobarAsync` | `AprobacionAtomicaSolicitudesTests` (`AUS007-01..03`) | VIGENTE_IMPLEMENTADA | RN-070 SUPERADA |
+| AUS-008 | Anular una solicitud conserva sus justificaciones como `Cancelada`, con actor, fecha, motivo y versión; deja de aplicar al tareo sin borrar evidencia. | P2-AUS-008; política de evidencia | `ServicioSolicitudes.AnularAsync`; índice filtrado; guarda de periodo | `AUS008-01..06` | VIGENTE_IMPLEMENTADA | RN-073 SUPERADA |
 | AUS-009 | Regularización conserva original, corrección, motivo, actores, fechas, validación y auditoría; si es parcial mantiene incidencia. | RQ-007; R-P1-03 | `Justificacion`, servicio | `RegularizacionDeMarcacionTests`; `FlujoDeRegularizacionTests` | VIGENTE_IMPLEMENTADA | RN-010/063 |
 
 ## Marcaciones, atribución e importación
@@ -125,7 +127,7 @@ IDs `RN-*`/`PMV-RN-*` de Fase 6.1.
 | PMV-001 | PMV es provisional/aislado: solo escribe `prov_*`, nunca tareo, personal ni asignaciones oficiales. | RQ-008 | servicios PMV | `ImportacionProvisionalTests` | VIGENTE_IMPLEMENTADA | PMV-RN-001 |
 | PMV-002 | Reutiliza lectores; importación transaccional; dedupe equipo+ID+instante. | contrato PMV | importador PMV | `ImportacionProvisionalTests` | VIGENTE_IMPLEMENTADA | PMV-RN-002/004/005 |
 | PMV-003 | Atribución dinámica equipo+ID+vigencia; sin dueño se conserva “Sin asignar”. | contrato PMV | consulta PMV | `ConsultaMarcacionProvisionalTests` | VIGENTE_IMPLEMENTADA | PMV-RN-006 |
-| PMV-004 | No calcula tardanza, HE, nocturnidad, incidencias, feriados ni pago oficial. | RQ-008 | consulta/exportador | pruebas PMV indirectas | VIGENTE_IMPLEMENTADA | PMV-RN-008 |
+| PMV-004 | No calcula tardanza, HE, nocturnidad, incidencias, feriados ni pago oficial; importar, consultar y exportar no escribe el modelo oficial. | RQ-008; P2-PMV-004 | importador/consulta/exportador aislados | `ImportacionProvisionalTests.PMV004-01` | VIGENTE_IMPLEMENTADA | PMV-RN-008 |
 | PMV-005 | Planta histórica sale de `AsignacionPlanta`, no de proyección actual. | 3E-B | contexto laboral PMV | `PeriodoLaboralFase3EBCuadrillasTests` | VIGENTE_IMPLEMENTADA | PMV-RN-009 actualizada |
 | PMV-006 | Alcance por planta aplica a catálogo, historial, importación, consulta y exportación. | R-P0-01 | `IProveedorAlcancePlantas` | `AislamientoPmvAcceptanceTests` | VIGENTE_IMPLEMENTADA | PMV-RN-012 SUPERADA |
 | PMV-007 | 1–30 días normal; 31–40 advierte; 41+ consulta permitida, exportación bloqueada. | contrato PMV | controlador/consulta | pruebas consulta/exportador | VIGENTE_IMPLEMENTADA | PMV-RN-010 |
@@ -153,7 +155,7 @@ IDs `RN-*`/`PMV-RN-*` de Fase 6.1.
 | SEG-004 | En `Starting`/`Failed` se bloquean rutas funcionales salvo `/vivo` y `/estado`; readiness puede recuperarse sin reinicio. | hardening startup | estado/middleware | `StartupHealthTests` | VIGENTE_IMPLEMENTADA | — |
 | SEG-005 | Instalación local usa loopback, instancia única y ProgramData persistente; reinstalar/desinstalar preserva DB. | P1-DESKTOP/LOCAL-FIRST-RUN | hosting/installer | ciclo UAC + `FirstRunTests` | VIGENTE_IMPLEMENTADA | — |
 | SEG-006 | Credencial expuesta debe rotarse/inutilizarse antes de producción; contención local no cierra exposición histórica. | PHASE 7A | control operativo | manifiesto cuarentena | VIGENTE_NO_IMPLEMENTADA | P0-SEC-01 abierto externamente |
-| AUD-001 | Escrituras sensibles conservan actor/fecha/operación; tareo derivado usa log agregado, no auditoría por fila. | arquitectura | `InterceptorAuditoria` + logging | cobertura indirecta | VIGENTE_PARCIAL | RN-095 |
+| AUD-001 | Escrituras sensibles conservan actor/fecha/operación; tareo derivado usa log agregado, no auditoría por fila. | arquitectura; P2-AUD-001 | `InterceptorAuditoria` + logging | `AuditoriaTransversalTests` (`AUD001-01/02`); `IMP_AT_01` | VIGENTE_IMPLEMENTADA | RN-095 |
 | AUD-002 | Cambios/borrados relevantes deben invalidar vigencia; no anunciar tareo obsoleto como vigente. | R-P1-04 | auditoría + evaluador | `VigenciaTareoAcceptanceTests` | VIGENTE_IMPLEMENTADA | — |
 
 ## Reglas históricas no vigentes
@@ -174,13 +176,18 @@ IDs `RN-*`/`PMV-RN-*` de Fase 6.1.
 
 1. OP-01: instalaciones con versión sembrada 07:00–19:00 / 19:00–07:00 requieren nueva
    `VersionTurno` fechada y recálculo de periodos abiertos; nunca reescribir historia.
-2. Feriados: permanecen separados el descanso sustitutorio y el día no laborable compensable;
-   FER-001/002/004/007 quedaron cerrados el 2026-10-19.
+2. Feriados: permanece separado el día no laborable compensable; FER-001/002/004/007
+   quedaron cerrados el 2026-10-19 y FER-003 el 2026-10-20.
 3. P1-06: otros maestros del reporte aún pueden reflejar estado actual.
-4. Solicitudes: aprobación parcial y borrado físico derivado siguen como deuda P2.
+4. Solicitudes: AUS-006 cerró el contrato integrado de solapamientos, AUS-007 la aprobación
+   parcial y AUS-008 la preservación al anular.
 5. Nocturnidad/tasas por empresa requieren decisión económica uniforme.
 6. P0-SEC-01 no cierra hasta rotar/inutilizar la credencial comprometida.
 7. Producción permanece intacta; OP-03 no fue ejecutado.
+
+Revalidación `P1-FER-001` del 2026-10-22: el supuesto externo `GAP_FUNCIONAL/P1` quedó
+reconciliado contra este catálogo, la matriz vigente, código y contrato SQLite. FER-001
+permanece `VIGENTE_IMPLEMENTADA`; no se encontró gap ni se modificó lógica funcional.
 
 `ACCEPTANCE_FAILURES.md` queda como evidencia histórica de contratos ya cerrados. Para detalle
 usar BD-01/BD-02, `P1_STARTUP_HEALTH.md`, los dossiers PeriodoLaboral 3B–3E,

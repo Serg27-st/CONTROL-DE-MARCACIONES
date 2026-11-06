@@ -53,6 +53,7 @@ public sealed class BandejaIncidenciasVm
         TipoIncidencia.FueraDeTurno => "Marcaciones fuera del turno",
         TipoIncidencia.TurnoDiscrepante => "El turno no coincide",
         TipoIncidencia.SinCoberturaDeCarga => "Falta cargar el archivo del marcador",
+        TipoIncidencia.TrabajoEnDescansoSustitutorio => "Trabajo en descanso sustitutorio",
         _ => "—"
     };
 
@@ -72,6 +73,8 @@ public sealed class BandejaIncidenciasVm
             "Corrija la rotación en la cuadrilla o en la ficha; el día se recalcula solo.",
         TipoIncidencia.SinCoberturaDeCarga =>
             "Cargue el archivo de ese marcador y recalcule. Regularice solo si el archivo no existe.",
+        TipoIncidencia.TrabajoEnDescansoSustitutorio =>
+            "Revise si corresponde anular el descanso sustitutorio o regularizar la jornada trabajada.",
         _ => string.Empty
     };
 }

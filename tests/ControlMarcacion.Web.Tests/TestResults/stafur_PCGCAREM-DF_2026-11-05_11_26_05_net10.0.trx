@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="9f70f418-e7e5-4ba3-8ad2-1b73318a9077" name="stafur@PCGCAREM-DF 2026-11-05 11:26:05" runUser="GCA\stafur" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-11-05T11:26:05.2861150-05:00" queuing="2026-11-05T11:26:05.2861155-05:00" start="2026-11-05T11:25:59.4207739-05:00" finish="2026-11-05T11:26:05.2873725-05:00" />
+  <TestSettings name="default" id="eae6879f-61a0-4f6a-8916-1fb370a3cfd0">
+    <Deployment runDeploymentRoot="stafur_PCGCAREM-DF_2026-11-05_11_26_05" />
+  </TestSettings>
+  <TestLists>
+    <TestList name="Resultados sin formato de lista" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Todos los resultados cargados" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="0" executed="0" passed="0" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.02] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.11)&#xD;
+[xUnit.net 00:00:00.71]   Discovering: ControlMarcacion.Web.Tests&#xD;
+[xUnit.net 00:00:01.00]   Discovered:  ControlMarcacion.Web.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="PCGCAREM-DF" outcome="Warning" timestamp="2026-11-05T11:26:03.4615992-05:00">
+        <Text>Ninguna prueba coincide con el filtro de casos de prueba proporcionado "FullyQualifiedName~PagoDeJustificaciones" en C:\Users\stafur\Documents\CONTROL DE MARCACIONES\tests\ControlMarcacion.Web.Tests\bin\Debug\net10.0\ControlMarcacion.Web.Tests.dll</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

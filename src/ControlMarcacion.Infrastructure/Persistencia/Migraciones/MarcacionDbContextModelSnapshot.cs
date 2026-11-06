@@ -17,6 +17,101 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Asistencia.DescansoSustitutorio", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime?>("AnuladoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("anulado_en");
+
+                    b.Property<string>("AnuladoPorUsuario")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("anulado_por_usuario");
+
+                    b.Property<DateTime>("AprobadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("aprobado_en");
+
+                    b.Property<string>("AprobadoPorUsuario")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("aprobado_por_usuario");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly>("FechaDescanso")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_descanso");
+
+                    b.Property<DateOnly>("FechaFeriadoOrigen")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_feriado_origen");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo_anulacion");
+
+                    b.Property<long>("TrabajadorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("trabajador_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_descanso_sustitutorio");
+
+                    b.HasIndex("FechaDescanso")
+                        .HasDatabaseName("ix_descanso_sustitutorio_fecha_descanso");
+
+                    b.HasIndex("TrabajadorId", "FechaDescanso")
+                        .IsUnique()
+                        .HasDatabaseName("uq_descanso_sustitutorio_fecha_activa")
+                        .HasFilter("activo = 1");
+
+                    b.HasIndex("TrabajadorId", "FechaFeriadoOrigen")
+                        .IsUnique()
+                        .HasDatabaseName("uq_descanso_sustitutorio_feriado_activo")
+                        .HasFilter("activo = 1");
+
+                    b.ToTable("descanso_sustitutorio", (string)null);
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Asistencia.ReintegroTareo", b =>
                 {
                     b.Property<long>("Id")
@@ -1613,7 +1708,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "DIU",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "LunesASabado",
-                            HoraFin = new TimeOnly(19, 0, 0),
+                            HoraFin = new TimeOnly(17, 22, 0),
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
@@ -1630,7 +1725,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             Codigo = "NOC",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "LunesASabado",
-                            HoraFin = new TimeOnly(7, 0, 0),
+                            HoraFin = new TimeOnly(5, 22, 0),
                             HoraInicio = new TimeOnly(19, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
@@ -1643,7 +1738,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 3L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "SAB",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Sabado",
@@ -1660,7 +1755,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 4L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "DOM1",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Domingo",
@@ -1677,7 +1772,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 5L,
-                            Activo = true,
+                            Activo = false,
                             Codigo = "DOM2",
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Domingo",
@@ -1746,7 +1841,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 1L,
-                            Activo = true,
+                            Activo = false,
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             PlantaId = 3L,
                             TurnoId = 3L
@@ -1853,7 +1948,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "LunesASabado",
                             FechaInicio = new DateOnly(2000, 1, 1),
-                            HoraFin = new TimeOnly(19, 0, 0),
+                            HoraFin = new TimeOnly(17, 22, 0),
                             HoraInicio = new TimeOnly(7, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
@@ -1870,7 +1965,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "LunesASabado",
                             FechaInicio = new DateOnly(2000, 1, 1),
-                            HoraFin = new TimeOnly(7, 0, 0),
+                            HoraFin = new TimeOnly(5, 22, 0),
                             HoraInicio = new TimeOnly(19, 0, 0),
                             MinutosAnticipacionEntrada = 15,
                             MinutosAnticipacionSalida = 5,
@@ -1883,7 +1978,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 3L,
-                            Activo = true,
+                            Activo = false,
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Sabado",
                             FechaInicio = new DateOnly(2000, 1, 1),
@@ -1900,7 +1995,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 4L,
-                            Activo = true,
+                            Activo = false,
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Domingo",
                             FechaInicio = new DateOnly(2000, 1, 1),
@@ -1917,7 +2012,7 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         new
                         {
                             Id = 5L,
-                            Activo = true,
+                            Activo = false,
                             CreadoEn = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DiasAplicables = "Domingo",
                             FechaInicio = new DateOnly(2000, 1, 1),
@@ -2080,6 +2175,276 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasFilter("estado NOT IN ('Rechazada', 'Cancelada')");
 
                     b.ToTable("justificacion", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ConciliacionBiometrica", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("ExpiraEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("expira_en");
+
+                    b.Property<string>("FormatoRespaldo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("formato_respaldo");
+
+                    b.Property<string>("HuellaEstado")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("huella_estado");
+
+                    b.Property<string>("HuellaRespaldo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("huella_respaldo");
+
+                    b.Property<Guid>("IdentificadorPublico")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("identificador_publico");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<long>("PlantaId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planta_id");
+
+                    b.Property<DateTime>("RespaldoLeidoEnUtc")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("respaldo_leido_en_utc");
+
+                    b.Property<long>("TamanoRespaldo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tamano_respaldo");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.Property<int>("VersionPoliticaIdentidad")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version_politica_identidad");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conciliacion_biometrica");
+
+                    b.HasIndex("IdentificadorPublico")
+                        .IsUnique()
+                        .HasDatabaseName("ix_conciliacion_biometrica_identificador_publico");
+
+                    b.HasIndex("PlantaId")
+                        .HasDatabaseName("ix_conciliacion_biometrica_planta_id");
+
+                    b.HasIndex("EquipoId", "ExpiraEn")
+                        .HasDatabaseName("ix_conciliacion_biometrica_equipo_id_expira_en");
+
+                    b.ToTable("conciliacion_biometrica", (string)null);
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.DecisionVinculacionBiometrica", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<long?>("AsignacionMarcadorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("asignacion_marcador_id");
+
+                    b.Property<string>("BaseConfirmacion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("base_confirmacion");
+
+                    b.Property<string>("CategoriaEvidencia")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("categoria_evidencia");
+
+                    b.Property<string>("ClaveIdempotencia")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("clave_idempotencia");
+
+                    b.Property<long>("ConciliacionId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("conciliacion_id");
+
+                    b.Property<DateTime?>("ConfirmadaEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("confirmada_en");
+
+                    b.Property<string>("ConfirmadaPor")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("confirmada_por");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<string>("Diagnosticos")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("diagnosticos");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<DateTime?>("EvidenciaExpiraEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("evidencia_expira_en");
+
+                    b.Property<DateTime>("EvidenciaVerificadaEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("evidencia_verificada_en");
+
+                    b.Property<DateOnly?>("FechaFin")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<string>("HuellaEstado")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("huella_estado");
+
+                    b.Property<string>("HuellaEvidencia")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("huella_evidencia");
+
+                    b.Property<int>("IndiceRegistro")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("indice_registro");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("MotivoResultado")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo_resultado");
+
+                    b.Property<string>("NaturalezaVigencia")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("naturaleza_vigencia");
+
+                    b.Property<string>("Pin")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("pin");
+
+                    b.Property<string>("ReferenciaEvidencia")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("referencia_evidencia");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resultado");
+
+                    b.Property<long?>("TrabajadorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("trabajador_id");
+
+                    b.Property<ulong?>("UidRegistro")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("uid_registro");
+
+                    b.HasKey("Id")
+                        .HasName("pk_decision_vinculacion_biometrica");
+
+                    b.HasIndex("AsignacionMarcadorId")
+                        .HasDatabaseName("ix_decision_vinculacion_biometrica_asignacion_marcador_id");
+
+                    b.HasIndex("ClaveIdempotencia")
+                        .IsUnique()
+                        .HasDatabaseName("ix_decision_vinculacion_biometrica_clave_idempotencia");
+
+                    b.HasIndex("EquipoId")
+                        .HasDatabaseName("ix_decision_vinculacion_biometrica_equipo_id");
+
+                    b.HasIndex("TrabajadorId")
+                        .HasDatabaseName("ix_decision_vinculacion_biometrica_trabajador_id");
+
+                    b.HasIndex("ConciliacionId", "IndiceRegistro")
+                        .IsUnique()
+                        .HasDatabaseName("ix_decision_vinculacion_biometrica_conciliacion_id_indice_registro");
+
+                    b.ToTable("decision_vinculacion_biometrica", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_decision_vigencia", "[fecha_fin] IS NULL OR [fecha_fin] >= [fecha_inicio]");
+                        });
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ErrorImportacion", b =>
@@ -5419,6 +5784,113 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.ToTable("solicitud_ausencia", (string)null);
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Solicitudes.SolicitudCambioTurno", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_en");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creado_por");
+
+                    b.Property<long?>("CuadrillaAnteriorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cuadrilla_anterior_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly>("FechaEfectiva")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fecha_efectiva");
+
+                    b.Property<DateTime?>("ModificadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_en");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("modificado_por");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoResolucion")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("motivo_resolucion");
+
+                    b.Property<DateTime?>("ResueltoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resuelto_en");
+
+                    b.Property<string>("ResueltoPorUsuario")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resuelto_por_usuario");
+
+                    b.Property<DateTime>("SolicitadoEn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("solicitado_en");
+
+                    b.Property<string>("SolicitadoPorUsuario")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("solicitado_por_usuario");
+
+                    b.Property<long>("TrabajadorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("trabajador_id");
+
+                    b.Property<long?>("TurnoAnteriorId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("turno_anterior_id");
+
+                    b.Property<long>("TurnoSolicitadoId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("turno_solicitado_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_solicitud_cambio_turno");
+
+                    b.HasIndex("Estado")
+                        .HasDatabaseName("ix_solicitud_cambio_turno_estado");
+
+                    b.HasIndex("TurnoSolicitadoId")
+                        .HasDatabaseName("ix_solicitud_cambio_turno_turno_solicitado_id");
+
+                    b.HasIndex("TrabajadorId", "FechaEfectiva")
+                        .IsUnique()
+                        .HasDatabaseName("ix_solicitud_cambio_turno_trabajador_id_fecha_efectiva")
+                        .HasFilter("estado IN ('Pendiente', 'Aprobada')");
+
+                    b.ToTable("solicitud_cambio_turno", (string)null);
+                });
+
             modelBuilder.Entity("ControlMarcacion.Infrastructure.Seguridad.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -5770,6 +6242,16 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.ToTable("asp_net_user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Asistencia.DescansoSustitutorio", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Personal.Trabajador", null)
+                        .WithMany()
+                        .HasForeignKey("TrabajadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_descanso_sustitutorio_trabajador_trabajador_id");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Domain.Catalogos.Cuadrilla", b =>
                 {
                     b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
@@ -5887,6 +6369,64 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                         .HasForeignKey("SolicitudAusenciaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_justificacion_solicitud_ausencia_solicitud_ausencia_id");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ConciliacionBiometrica", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_conciliacion_biometrica_equipo_marcador_equipo_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", "Planta")
+                        .WithMany()
+                        .HasForeignKey("PlantaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_conciliacion_biometrica_planta_planta_id");
+
+                    b.Navigation("Equipo");
+
+                    b.Navigation("Planta");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.DecisionVinculacionBiometrica", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Personal.AsignacionMarcador", "AsignacionMarcador")
+                        .WithMany()
+                        .HasForeignKey("AsignacionMarcadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_decision_vinculacion_biometrica_asignacion_marcador_asignacion_marcador_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Marcaciones.ConciliacionBiometrica", "Conciliacion")
+                        .WithMany("Decisiones")
+                        .HasForeignKey("ConciliacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_decision_vinculacion_biometrica_conciliacion_biometrica_conciliacion_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.EquipoMarcador", "Equipo")
+                        .WithMany()
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_decision_vinculacion_biometrica_equipo_marcador_equipo_id");
+
+                    b.HasOne("ControlMarcacion.Domain.Personal.Trabajador", "Trabajador")
+                        .WithMany()
+                        .HasForeignKey("TrabajadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_decision_vinculacion_biometrica_trabajador_trabajador_id");
+
+                    b.Navigation("AsignacionMarcador");
+
+                    b.Navigation("Conciliacion");
+
+                    b.Navigation("Equipo");
+
+                    b.Navigation("Trabajador");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ErrorImportacion", b =>
@@ -6183,6 +6723,18 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Navigation("TipoAusencia");
                 });
 
+            modelBuilder.Entity("ControlMarcacion.Domain.Solicitudes.SolicitudCambioTurno", b =>
+                {
+                    b.HasOne("ControlMarcacion.Domain.Catalogos.Turno", "TurnoSolicitado")
+                        .WithMany()
+                        .HasForeignKey("TurnoSolicitadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_solicitud_cambio_turno_turno_turno_solicitado_id");
+
+                    b.Navigation("TurnoSolicitado");
+                });
+
             modelBuilder.Entity("ControlMarcacion.Infrastructure.Seguridad.UsuarioPlanta", b =>
                 {
                     b.HasOne("ControlMarcacion.Domain.Organizacion.Planta", null)
@@ -6274,6 +6826,11 @@ namespace ControlMarcacion.Infrastructure.Persistencia.Migraciones
                     b.Navigation("PlantasHabilitadas");
 
                     b.Navigation("Versiones");
+                });
+
+            modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ConciliacionBiometrica", b =>
+                {
+                    b.Navigation("Decisiones");
                 });
 
             modelBuilder.Entity("ControlMarcacion.Domain.Marcaciones.ImportacionMarcador", b =>

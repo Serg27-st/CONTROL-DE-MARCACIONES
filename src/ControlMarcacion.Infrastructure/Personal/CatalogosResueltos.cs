@@ -1,3 +1,4 @@
+using System.Globalization;
 using ControlMarcacion.Domain.Comun;
 using ControlMarcacion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
@@ -22,14 +23,8 @@ internal sealed class CatalogosResueltos
     private readonly Dictionary<string, long> _empresas;
     private readonly Dictionary<string, long> _turnos;
 
-    /// <summary>
-    /// Puestos indexados por empresa (nula para los universales).
-    /// </summary>
-    /// <remarks>
-    /// "OPERARIO" y "SUPERVISOR" existen en las dos razones sociales: resolver solo por
-    /// nombre le daría a un trabajador de CA Outsourcing el puesto de Consulting Advisers.
-    /// </remarks>
-    private readonly Dictionary<(long? Empresa, string Nombre), long> _puestos;
+    private readonly List<PuestoCatalogo> _puestos;
+    private readonly IReadOnlyDictionary<long, string> _nombresEmpresa;
 
     /// <summary>
     /// Centros de costo por código, con la empresa y la planta de su centro SAP.
@@ -46,7 +41,7 @@ internal sealed class CatalogosResueltos
     /// Plantas indexadas por empresa: dos razones sociales distintas pueden tener una
     /// planta con el mismo nombre, y resolver solo por nombre elegiría cualquiera de las dos.
     /// </summary>
-    private readonly Dictionary<(long Empresa, string Nombre), long> _plantas;
+    private readonly List<PlantaCatalogo> _plantas;
 
     /// <summary>
     /// Áreas indexadas por planta: "Producción" existe en las cuatro plantas, y resolver
@@ -62,15 +57,18 @@ internal sealed class CatalogosResueltos
     /// aparato, y resolver solo por nombre le daría al trabajador el equipo de otra —lo que
     /// mandaría sus marcaciones a otra persona.
     /// </remarks>
-    private readonly Dictionary<(long Planta, string Nombre), long> _equipos;
+    private readonly List<EquipoCatalogo> _equipos;
+    private readonly List<MarcadorCatalogo> _marcadores;
 
     private CatalogosResueltos(
         Dictionary<string, long> tiposDocumento,
         Dictionary<string, long> empresas,
-        Dictionary<(long, string), long> plantas,
+        List<PlantaCatalogo> plantas,
         Dictionary<(long, string), long> areas,
-        Dictionary<(long, string), long> equipos,
-        Dictionary<(long?, string), long> puestos,
+        List<EquipoCatalogo> equipos,
+        List<MarcadorCatalogo> marcadores,
+        List<PuestoCatalogo> puestos,
+        IReadOnlyDictionary<long, string> nombresEmpresa,
         Dictionary<string, List<CandidatoCentroCosto>> centrosCosto,
         Dictionary<string, long> turnos)
     {
@@ -79,7 +77,9 @@ internal sealed class CatalogosResueltos
         _plantas = plantas;
         _areas = areas;
         _equipos = equipos;
+        _marcadores = marcadores;
         _puestos = puestos;
+        _nombresEmpresa = nombresEmpresa;
         _centrosCosto = centrosCosto;
         _turnos = turnos;
     }
@@ -102,6 +102,7 @@ internal sealed class CatalogosResueltos
         }
 
         var empresas = new Dictionary<string, long>(StringComparer.Ordinal);
+        var nombresEmpresa = new Dictionary<long, string>();
 
         foreach (var empresa in await contexto.Empresas.AsNoTracking()
             .Where(e => e.Activo)
@@ -110,17 +111,18 @@ internal sealed class CatalogosResueltos
         {
             Indexar(empresas, empresa.RazonSocial, empresa.Id);
             Indexar(empresas, empresa.Ruc, empresa.Id);
+            nombresEmpresa[empresa.Id] = empresa.RazonSocial;
         }
 
-        var plantas = new Dictionary<(long, string), long>();
+        var plantas = new List<PlantaCatalogo>();
 
         foreach (var planta in await contexto.Plantas.AsNoTracking()
             .Where(p => p.Activo)
             .Select(p => new { p.Id, p.Nombre, p.Codigo, p.EmpresaId })
             .ToListAsync(cancelacion).ConfigureAwait(false))
         {
-            plantas.TryAdd((planta.EmpresaId, CargaMasivaTrabajadores.Normalizar(planta.Nombre)), planta.Id);
-            plantas.TryAdd((planta.EmpresaId, CargaMasivaTrabajadores.Normalizar(planta.Codigo)), planta.Id);
+            plantas.Add(new PlantaCatalogo(
+                planta.Id, planta.EmpresaId, planta.Codigo, planta.Nombre, CreadaEnLote: false));
         }
 
         var areas = new Dictionary<(long, string), long>();
@@ -134,27 +136,37 @@ internal sealed class CatalogosResueltos
             areas.TryAdd((area.PlantaId, CargaMasivaTrabajadores.Normalizar(area.Codigo)), area.Id);
         }
 
-        var equipos = new Dictionary<(long, string), long>();
+        var equipos = new List<EquipoCatalogo>();
 
         foreach (var equipo in await contexto.EquiposMarcador.AsNoTracking()
             .Where(e => e.Activo)
-            .Select(e => new { e.Id, e.Nombre, e.Codigo, e.PlantaId })
+            .Select(e => new { e.Id, e.Nombre, e.Codigo, e.Serie, e.PlantaId })
             .ToListAsync(cancelacion).ConfigureAwait(false))
         {
-            equipos.TryAdd((equipo.PlantaId, CargaMasivaTrabajadores.Normalizar(equipo.Nombre)), equipo.Id);
-            equipos.TryAdd((equipo.PlantaId, CargaMasivaTrabajadores.Normalizar(equipo.Codigo)), equipo.Id);
+            equipos.Add(new EquipoCatalogo(
+                equipo.Id, equipo.PlantaId, equipo.Codigo, equipo.Nombre, equipo.Serie,
+                CreadoEnLote: false));
         }
 
-        var puestos = new Dictionary<(long?, string), long>();
+        var marcadores = await contexto.Marcadores.AsNoTracking()
+            .Where(m => m.Activo)
+            .Select(m => new MarcadorCatalogo(m.Id, m.EquipoId, m.Codigo))
+            .ToListAsync(cancelacion)
+            .ConfigureAwait(false);
+
+        var puestos = new List<PuestoCatalogo>();
 
         foreach (var puesto in await contexto.Puestos.AsNoTracking()
-            .Where(p => p.Activo)
             .OrderBy(p => p.Id)
-            .Select(p => new { p.Id, p.Codigo, p.Nombre, p.EmpresaId })
+            .Select(p => new { p.Id, p.Codigo, p.Nombre, p.EmpresaId, p.Activo })
             .ToListAsync(cancelacion).ConfigureAwait(false))
         {
-            puestos.TryAdd((puesto.EmpresaId, CargaMasivaTrabajadores.Normalizar(puesto.Codigo)), puesto.Id);
-            puestos.TryAdd((puesto.EmpresaId, CargaMasivaTrabajadores.Normalizar(puesto.Nombre)), puesto.Id);
+            puestos.Add(new PuestoCatalogo(
+                puesto.Id,
+                puesto.EmpresaId,
+                puesto.Codigo,
+                puesto.Nombre,
+                puesto.Activo));
         }
 
         var centrosCosto = new Dictionary<string, List<CandidatoCentroCosto>>(StringComparer.Ordinal);
@@ -188,7 +200,8 @@ internal sealed class CatalogosResueltos
         }
 
         return new CatalogosResueltos(
-            tiposDocumento, empresas, plantas, areas, equipos, puestos, centrosCosto, turnos);
+            tiposDocumento, empresas, plantas, areas, equipos, marcadores, puestos, nombresEmpresa,
+            centrosCosto, turnos);
     }
 
     public long TipoDocumento(string valor) =>
@@ -197,22 +210,74 @@ internal sealed class CatalogosResueltos
     public long Empresa(string valor) =>
         Resolver(_empresas, valor, "empresa");
 
-    /// <summary>
-    /// Puesto por código o nombre: primero entre los de la empresa, luego los universales.
-    /// </summary>
-    public long Puesto(string valor, long empresaId)
-    {
-        var clave = CargaMasivaTrabajadores.Normalizar(valor);
+    public string NombreEmpresa(long empresaId) =>
+        _nombresEmpresa.TryGetValue(empresaId, out var nombre)
+            ? nombre
+            : empresaId.ToString(CultureInfo.InvariantCulture);
 
-        if (_puestos.TryGetValue((empresaId, clave), out var id)
-            || _puestos.TryGetValue((null, clave), out id))
+    /// <summary>
+    /// Concilia un puesto por código o nombre. Primero considera el alcance de la empresa;
+    /// solo cuando allí no hay coincidencias consulta los puestos universales.
+    /// </summary>
+    public ResolucionPuesto ResolverPuesto(string valor, long empresaId)
+    {
+        var visible = CargaMasivaTrabajadores.LimpiarPuestoVisible(valor);
+        var clave = CargaMasivaTrabajadores.NormalizarPuesto(visible);
+
+        if (CargaMasivaTrabajadores.EsPuestoSentinela(clave))
         {
-            return id;
+            throw new ReglaNegocioException(
+                $"El valor de puesto '{visible}' no identifica un puesto válido. " +
+                "Complete la columna con el nombre o código real del puesto.");
         }
 
-        throw new ReglaNegocioException(
-            $"El puesto '{valor}' no existe en el catálogo de la empresa indicada o está inactivo.");
+        var deEmpresa = CoincidenciasActivas(empresaId, clave);
+        var candidatos = deEmpresa.Count > 0 ? deEmpresa : CoincidenciasActivas(null, clave);
+
+        if (candidatos.Count == 1)
+        {
+            var encontrado = candidatos[0];
+            return ResolucionPuesto.Existente(
+                empresaId, clave, encontrado.Id, encontrado.Nombre, encontrado.Codigo);
+        }
+
+        if (candidatos.Count > 1)
+        {
+            return ResolucionPuesto.Ambigua(
+                empresaId,
+                clave,
+                visible,
+                candidatos.Select(p => $"{p.Codigo} — {p.Nombre}").ToArray());
+        }
+
+        var codigo = CargaMasivaTrabajadores.CodigoPuestoImportado(empresaId, clave);
+        var colision = _puestos.FirstOrDefault(p =>
+            string.Equals(p.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+        if (colision is not null)
+        {
+            return ResolucionPuesto.Ambigua(
+                empresaId,
+                clave,
+                visible,
+                [$"{colision.Codigo} — {colision.Nombre}" + (colision.Activo ? string.Empty : " (inactivo)")]);
+        }
+
+        return ResolucionPuesto.Nueva(empresaId, clave, visible, codigo);
     }
+
+    public void RegistrarPuesto(long id, long empresaId, string codigo, string nombre) =>
+        _puestos.Add(new PuestoCatalogo(id, empresaId, codigo, nombre, true));
+
+    private List<PuestoCatalogo> CoincidenciasActivas(long? empresaId, string clave) =>
+        _puestos
+            .Where(p => p.Activo && p.EmpresaId == empresaId)
+            .Where(p =>
+                CargaMasivaTrabajadores.NormalizarPuesto(p.Codigo) == clave
+                || CargaMasivaTrabajadores.NormalizarPuesto(p.Nombre) == clave)
+            .DistinctBy(p => p.Id)
+            .OrderBy(p => p.Id)
+            .ToList();
 
     /// <summary>
     /// Resuelve la unidad (planta) por nombre o código dentro de la empresa.
@@ -227,29 +292,83 @@ internal sealed class CatalogosResueltos
     /// cliente dentro del nombre de la planta confundiría dos dimensiones que el modelo
     /// tiene separadas, y rompería el día que GCA atienda a un segundo cliente.
     /// </remarks>
-    public long Planta(string valor, long empresaId)
+    public ResolucionCatalogo ResolverPlanta(string valor, long empresaId, string? codigoPropuesto)
     {
-        if (_plantas.TryGetValue((empresaId, CargaMasivaTrabajadores.Normalizar(valor)), out var id))
+        var visible = CargaMasivaTrabajadores.LimpiarCatalogoVisible(valor);
+        var clave = CargaMasivaTrabajadores.NormalizarCatalogo(visible);
+        var candidatos = _plantas
+            .Where(p => p.EmpresaId == empresaId)
+            .Where(p => CargaMasivaTrabajadores.NormalizarCatalogo(p.Codigo) == clave
+                || CargaMasivaTrabajadores.NormalizarCatalogo(p.Nombre) == clave)
+            .DistinctBy(p => p.Id)
+            .ToList();
+
+        if (candidatos.Count == 0)
         {
-            return id;
-        }
-
-        var guion = valor.LastIndexOf('-');
-
-        if (guion >= 0 && guion < valor.Length - 1)
-        {
-            var tramoFinal = CargaMasivaTrabajadores.Normalizar(valor[(guion + 1)..]);
-
-            if (_plantas.TryGetValue((empresaId, tramoFinal), out var idPorTramo))
+            var guion = visible.LastIndexOf('-');
+            if (guion >= 0 && guion < visible.Length - 1)
             {
-                return idPorTramo;
+                var tramo = CargaMasivaTrabajadores.NormalizarCatalogo(visible[(guion + 1)..]);
+                candidatos = _plantas
+                    .Where(p => p.EmpresaId == empresaId)
+                    .Where(p => CargaMasivaTrabajadores.NormalizarCatalogo(p.Codigo) == tramo
+                        || CargaMasivaTrabajadores.NormalizarCatalogo(p.Nombre) == tramo)
+                    .DistinctBy(p => p.Id)
+                    .ToList();
             }
         }
 
-        throw new ReglaNegocioException(
-            $"La unidad (planta) '{valor}' no existe en la empresa indicada, o pertenece a la " +
-            "otra razón social. Revise que la empresa y la unidad de la fila correspondan.");
+        if (candidatos.Count == 1)
+        {
+            var existente = candidatos[0];
+            if (!string.IsNullOrWhiteSpace(codigoPropuesto)
+                && CargaMasivaTrabajadores.NormalizarCatalogo(codigoPropuesto)
+                    != CargaMasivaTrabajadores.NormalizarCatalogo(existente.Codigo))
+            {
+                return ResolucionCatalogo.Ambigua(
+                    visible,
+                    [$"La unidad existe con código '{existente.Codigo}', no '{codigoPropuesto}'."]);
+            }
+
+            return ResolucionCatalogo.Existente(existente.Id, existente.Codigo, existente.Nombre);
+        }
+
+        if (candidatos.Count > 1)
+        {
+            return ResolucionCatalogo.Ambigua(
+                visible, candidatos.Select(p => $"{p.Codigo} — {p.Nombre}").ToArray());
+        }
+
+        if (string.IsNullOrWhiteSpace(codigoPropuesto))
+        {
+            return ResolucionCatalogo.Pendiente(
+                visible, "La unidad no existe. Complete la columna 'codigo_unidad' para proponer su alta.");
+        }
+
+        var codigo = CargaMasivaTrabajadores.LimpiarCatalogoVisible(codigoPropuesto);
+        var colision = _plantas.FirstOrDefault(p => p.EmpresaId == empresaId &&
+            CargaMasivaTrabajadores.NormalizarCatalogo(p.Codigo)
+                == CargaMasivaTrabajadores.NormalizarCatalogo(codigo));
+        if (colision is not null)
+        {
+            return ResolucionCatalogo.Ambigua(
+                visible, [$"El código '{codigo}' ya pertenece a {colision.Nombre}."]);
+        }
+
+        return ResolucionCatalogo.Nueva(codigo, visible);
     }
+
+    public long Planta(string valor, long empresaId)
+    {
+        var resolucion = ResolverPlanta(valor, empresaId, null);
+        return resolucion.Estado == EstadoResolucionCatalogo.Existente
+            ? resolucion.Id!.Value
+            : throw new ReglaNegocioException(resolucion.Motivo
+                ?? $"La unidad '{valor}' no existe en la empresa indicada.");
+    }
+
+    public void RegistrarPlanta(long id, long empresaId, string codigo, string nombre) =>
+        _plantas.Add(new PlantaCatalogo(id, empresaId, codigo, nombre, CreadaEnLote: true));
 
     /// <summary>
     /// Área interna dentro de la planta. Nulo si el archivo no la trae.
@@ -286,19 +405,122 @@ internal sealed class CatalogosResueltos
     /// preguntar, y <c>ServicioTrabajadores</c> lo resuelve solo. Con dos, es ese servicio
     /// el que rechaza la fila nombrando los candidatos.
     /// </remarks>
-    public long? EquipoOpcional(string? valor, long plantaId)
+    public ResolucionCatalogo ResolverEquipo(
+        string? selector,
+        string? codigoPropuesto,
+        string? nombrePropuesto,
+        string? seriePropuesta,
+        long plantaId,
+        bool requerido)
     {
-        if (string.IsNullOrWhiteSpace(valor))
+        var valores = new[] { selector, codigoPropuesto, nombrePropuesto, seriePropuesta }
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(CargaMasivaTrabajadores.LimpiarCatalogoVisible)
+            .ToArray();
+
+        var candidatos = _equipos
+            .Where(e => e.PlantaId == plantaId)
+            .Where(e => valores.Any(v =>
+                CargaMasivaTrabajadores.NormalizarCatalogo(e.Codigo) == CargaMasivaTrabajadores.NormalizarCatalogo(v)
+                || CargaMasivaTrabajadores.NormalizarCatalogo(e.Nombre) == CargaMasivaTrabajadores.NormalizarCatalogo(v)
+                || (e.Serie is not null && CargaMasivaTrabajadores.NormalizarCatalogo(e.Serie)
+                    == CargaMasivaTrabajadores.NormalizarCatalogo(v))))
+            .DistinctBy(e => e.Id)
+            .ToList();
+
+        if (candidatos.Count == 0 && valores.Length == 0)
         {
-            return null;
+            var deUnidad = _equipos.Where(e => e.PlantaId == plantaId).ToList();
+            if (deUnidad.Count == 1)
+            {
+                var unico = deUnidad[0];
+                return ResolucionCatalogo.Existente(unico.Id, unico.Codigo, unico.Nombre);
+            }
+
+            return requerido
+                ? ResolucionCatalogo.Pendiente(
+                    string.Empty,
+                    deUnidad.Count == 0
+                        ? "La unidad no tiene equipo. Complete codigo_equipo y nombre_equipo."
+                        : "La unidad tiene varios equipos. Identifique uno con la columna 'equipo'.")
+                : ResolucionCatalogo.NoAplica();
         }
 
-        return _equipos.TryGetValue((plantaId, CargaMasivaTrabajadores.Normalizar(valor)), out var id)
-            ? id
-            : throw new ReglaNegocioException(
-                $"El marcador '{valor}' no existe en la unidad indicada o está de baja. " +
-                "Regístrelo en Equipos, o deje la columna vacía si la planta tiene un solo aparato.");
+        if (candidatos.Count == 1)
+        {
+            var existente = candidatos[0];
+            var codigoContradice = !string.IsNullOrWhiteSpace(codigoPropuesto)
+                && CargaMasivaTrabajadores.NormalizarCatalogo(codigoPropuesto)
+                    != CargaMasivaTrabajadores.NormalizarCatalogo(existente.Codigo);
+            var nombreContradice = !string.IsNullOrWhiteSpace(nombrePropuesto)
+                && CargaMasivaTrabajadores.NormalizarCatalogo(nombrePropuesto)
+                    != CargaMasivaTrabajadores.NormalizarCatalogo(existente.Nombre);
+            var serieContradice = !string.IsNullOrWhiteSpace(seriePropuesta)
+                && existente.Serie is not null
+                && CargaMasivaTrabajadores.NormalizarCatalogo(seriePropuesta)
+                    != CargaMasivaTrabajadores.NormalizarCatalogo(existente.Serie);
+            if (codigoContradice || nombreContradice || serieContradice)
+            {
+                return ResolucionCatalogo.Ambigua(
+                    selector ?? codigoPropuesto ?? nombrePropuesto ?? string.Empty,
+                    [$"Los datos declarados no coinciden con {existente.Codigo} — {existente.Nombre}."]);
+            }
+
+            return ResolucionCatalogo.Existente(existente.Id, existente.Codigo, existente.Nombre);
+        }
+
+        if (candidatos.Count > 1)
+        {
+            return ResolucionCatalogo.Ambigua(
+                selector ?? codigoPropuesto ?? nombrePropuesto ?? seriePropuesta ?? string.Empty,
+                candidatos.Select(e => $"{e.Codigo} — {e.Nombre}").ToArray());
+        }
+
+        if (string.IsNullOrWhiteSpace(codigoPropuesto) || string.IsNullOrWhiteSpace(nombrePropuesto))
+        {
+            return ResolucionCatalogo.Pendiente(
+                selector ?? codigoPropuesto ?? nombrePropuesto ?? string.Empty,
+                "El equipo no existe. Complete 'codigo_equipo' y 'nombre_equipo' para proponer su alta.");
+        }
+
+        var codigo = CargaMasivaTrabajadores.LimpiarCatalogoVisible(codigoPropuesto);
+        var nombre = CargaMasivaTrabajadores.LimpiarCatalogoVisible(nombrePropuesto);
+        var colision = _equipos.FirstOrDefault(e =>
+            CargaMasivaTrabajadores.NormalizarCatalogo(e.Codigo)
+                == CargaMasivaTrabajadores.NormalizarCatalogo(codigo)
+            || (!string.IsNullOrWhiteSpace(seriePropuesta) && e.Serie is not null
+                && CargaMasivaTrabajadores.NormalizarCatalogo(e.Serie)
+                    == CargaMasivaTrabajadores.NormalizarCatalogo(seriePropuesta)));
+        if (colision is not null)
+        {
+            return ResolucionCatalogo.Ambigua(
+                nombre, [$"El código o serie ya pertenece a {colision.Codigo} — {colision.Nombre}."]);
+        }
+
+        return ResolucionCatalogo.Nueva(codigo, nombre, seriePropuesta);
     }
+
+    public long? EquipoOpcional(string? valor, long plantaId)
+    {
+        var resolucion = ResolverEquipo(valor, null, null, null, plantaId, requerido: false);
+        return resolucion.Estado switch
+        {
+            EstadoResolucionCatalogo.Existente => resolucion.Id,
+            EstadoResolucionCatalogo.NoAplica => null,
+            _ => throw new ReglaNegocioException(resolucion.Motivo
+                ?? $"El equipo '{valor}' no existe en la unidad indicada o está de baja.")
+        };
+    }
+
+    public void RegistrarEquipo(long id, long plantaId, string codigo, string nombre, string? serie) =>
+        _equipos.Add(new EquipoCatalogo(id, plantaId, codigo, nombre, serie, CreadoEnLote: true));
+
+    public bool ExisteMarcador(long equipoId, string codigo) =>
+        _marcadores.Any(m => m.EquipoId == equipoId
+            && string.Equals(m.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+    public void RegistrarMarcador(long id, long equipoId, string codigo) =>
+        _marcadores.Add(new MarcadorCatalogo(id, equipoId, codigo));
 
     /// <summary>
     /// Centro de costo por código, dentro de la empresa de la fila. Nulo si el archivo no
@@ -366,4 +588,83 @@ internal sealed class CatalogosResueltos
             ? id
             : throw new ReglaNegocioException(
                 $"El {queEs} '{valor}' no existe en el catálogo o está inactivo.");
+
+    internal sealed record PuestoCatalogo(
+        long Id,
+        long? EmpresaId,
+        string Codigo,
+        string Nombre,
+        bool Activo);
+
+    private sealed record PlantaCatalogo(
+        long Id, long EmpresaId, string Codigo, string Nombre, bool CreadaEnLote);
+
+    private sealed record EquipoCatalogo(
+        long Id, long PlantaId, string Codigo, string Nombre, string? Serie, bool CreadoEnLote);
+
+    private sealed record MarcadorCatalogo(long Id, long EquipoId, string Codigo);
+}
+
+internal enum EstadoResolucionCatalogo
+{
+    Existente,
+    Nuevo,
+    Ambiguo,
+    Invalido,
+    NoAplica,
+    PendienteDatos
+}
+
+internal sealed record ResolucionCatalogo(
+    EstadoResolucionCatalogo Estado,
+    long? Id,
+    string Codigo,
+    string Nombre,
+    string? Serie,
+    IReadOnlyList<string> Candidatos,
+    string? Motivo)
+{
+    public static ResolucionCatalogo Existente(long id, string codigo, string nombre) =>
+        new(EstadoResolucionCatalogo.Existente, id, codigo, nombre, null, [], null);
+
+    public static ResolucionCatalogo Nueva(string codigo, string nombre, string? serie = null) =>
+        new(EstadoResolucionCatalogo.Nuevo, null, codigo, nombre, serie, [], null);
+
+    public static ResolucionCatalogo Ambigua(string nombre, IReadOnlyList<string> candidatos) =>
+        new(EstadoResolucionCatalogo.Ambiguo, null, string.Empty, nombre, null, candidatos,
+            "La referencia coincide con más de un elemento o colisiona con otro catálogo.");
+
+    public static ResolucionCatalogo Pendiente(string nombre, string motivo) =>
+        new(EstadoResolucionCatalogo.PendienteDatos, null, string.Empty, nombre, null, [], motivo);
+
+    public static ResolucionCatalogo NoAplica() =>
+        new(EstadoResolucionCatalogo.NoAplica, null, string.Empty, string.Empty, null, [], null);
+}
+
+internal enum EstadoResolucionPuesto
+{
+    Existente,
+    Nuevo,
+    Ambiguo
+}
+
+internal sealed record ResolucionPuesto(
+    EstadoResolucionPuesto Estado,
+    long EmpresaId,
+    string Clave,
+    string Nombre,
+    string? Codigo,
+    long? PuestoId,
+    IReadOnlyList<string> Candidatos)
+{
+    public static ResolucionPuesto Existente(
+        long empresaId, string clave, long puestoId, string nombre, string codigo) =>
+        new(EstadoResolucionPuesto.Existente, empresaId, clave, nombre, codigo, puestoId, []);
+
+    public static ResolucionPuesto Nueva(long empresaId, string clave, string nombre, string codigo) =>
+        new(EstadoResolucionPuesto.Nuevo, empresaId, clave, nombre, codigo, null, []);
+
+    public static ResolucionPuesto Ambigua(
+        long empresaId, string clave, string nombre, IReadOnlyList<string> candidatos) =>
+        new(EstadoResolucionPuesto.Ambiguo, empresaId, clave, nombre, null, null, candidatos);
 }

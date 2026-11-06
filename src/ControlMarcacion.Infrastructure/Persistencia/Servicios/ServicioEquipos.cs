@@ -68,7 +68,7 @@ internal sealed class ServicioEquipos(MarcacionDbContext contexto) : IServicioEq
 
         if (!plantaExiste)
         {
-            throw new ReglaNegocioException("La planta indicada no existe o está inactiva.");
+            throw new ReglaNegocioException("La unidad indicada no existe o está inactiva.");
         }
 
         var codigoRepetido = await contexto.EquiposMarcador
@@ -258,9 +258,9 @@ internal sealed class ServicioEquipos(MarcacionDbContext contexto) : IServicioEq
         if (marcadores > 0)
         {
             throw new ReglaNegocioException(
-                $"No se puede cambiar de planta el equipo '{equipo.Nombre}': tiene {marcadores} " +
-                "marcador(es) registrados que heredan su planta. Dé de baja este equipo y " +
-                "registre el aparato en su nueva planta.");
+                $"No se puede cambiar de unidad el equipo '{equipo.Nombre}': tiene {marcadores} " +
+                "marcador(es) registrados que heredan su unidad. Dé de baja este equipo y " +
+                "registre el aparato en su nueva unidad.");
         }
 
         var importaciones = await contexto.Importaciones
@@ -270,8 +270,8 @@ internal sealed class ServicioEquipos(MarcacionDbContext contexto) : IServicioEq
         if (importaciones > 0)
         {
             throw new ReglaNegocioException(
-                $"No se puede cambiar de planta el equipo '{equipo.Nombre}': tiene " +
-                $"{importaciones} archivo(s) cargados que quedarían atribuidos a una planta " +
+                $"No se puede cambiar de unidad el equipo '{equipo.Nombre}': tiene " +
+                $"{importaciones} archivo(s) cargados que quedarían atribuidos a una unidad " +
                 "en la que esas marcaciones nunca ocurrieron.");
         }
     }

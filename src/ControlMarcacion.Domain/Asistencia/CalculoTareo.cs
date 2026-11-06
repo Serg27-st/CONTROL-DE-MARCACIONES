@@ -108,6 +108,21 @@ public sealed record EntradaCalculo
     public bool EsDescansoProgramado { get; init; }
 
     /// <summary>
+    /// La jornada fue declarada como trabajo por una programación rotativa explícita.
+    /// En combinación con un turno aplicable los siete días permite distinguir el régimen
+    /// de descanso rotativo de la regla semanal industrial legacy.
+    /// </summary>
+    public bool EsTrabajoProgramadoEnRotacion { get; init; }
+
+    /// <summary>
+    /// Existe un otorgamiento explícito y vigente para que este día completo sustituya a
+    /// un feriado trabajado. Nunca se infiere desde la ausencia de marcas.
+    /// </summary>
+    public bool EsDescansoSustitutorio { get; init; }
+
+    public DateOnly? FechaFeriadoCompensado { get; init; }
+
+    /// <summary>
     /// Las marcas residuales no permiten fijar con seguridad el cierre del trabajo en
     /// descanso. En ese caso el motor conserva cero minutos y exige validación.
     /// </summary>
@@ -481,6 +496,32 @@ public static class CalculadoraTareo
             return Vacio(
                 EstadoTareo.SinVinculo,
                 "Fuera del vínculo laboral: el día es anterior al ingreso o posterior al cese.");
+        }
+
+        if (entrada.EsDescansoSustitutorio)
+        {
+            var origen = entrada.FechaFeriadoCompensado is { } fecha
+                ? fecha.ToString("dd/MM/yyyy", null)
+                : "identificado en el registro de sustitución";
+
+            if (entrada.Marcaciones.Count == 0)
+            {
+                return Vacio(
+                    EstadoTareo.DescansoSustitutorio,
+                    $"Descanso sustitutorio de jornada completa por el feriado trabajado del {origen}. " +
+                    "No genera minutos físicos ni incidencias de asistencia.");
+            }
+
+            return new ResultadoCalculo
+            {
+                Estado = EstadoTareo.PendienteValidacion,
+                TipoIncidencia = Asistencia.TipoIncidencia.TrabajoEnDescansoSustitutorio,
+                RequiereValidacion = true,
+                Observacion =
+                    $"El día estaba otorgado como descanso sustitutorio del feriado {origen}, " +
+                    $"pero contiene {entrada.Marcaciones.Count} marcación(es). No se inventa ni " +
+                    "se descarta una jornada: revise el otorgamiento antes de liquidar."
+            };
         }
 
         if (entrada.EsDescansoProgramado)
@@ -1085,11 +1126,16 @@ public static class CalculadoraTareo
         // separadas por 40 segundos llegan las dos.
         var entradaReal = marcaciones[0];
         var salidaReal = marcaciones[^1];
+        var esRegimenRotativoSemanal =
+            entrada.EsTrabajoProgramadoEnRotacion
+            && turno.DiasAplicables == DiasSemana.Todos;
 
         // El domingo es descanso semanal aunque el turno (DOM1/DOM2) lo declare aplicable:
         // trabajado, todo va al 100 % (VIG-DOM-01). Va aquí para cubrir también la jornada
         // armada por una regularización.
-        if (entrada.Fecha.DayOfWeek == DayOfWeek.Sunday && tipoDiaNoLaborable == TipoDiaNoLaborable.Ninguno)
+        if (entrada.Fecha.DayOfWeek == DayOfWeek.Sunday
+            && tipoDiaNoLaborable == TipoDiaNoLaborable.Ninguno
+            && !esRegimenRotativoSemanal)
         {
             tipoDiaNoLaborable = TipoDiaNoLaborable.DescansoSemanal;
             etiqueta ??= "Domingo";
@@ -1110,9 +1156,19 @@ public static class CalculadoraTareo
         // Solo aplica si la jornada empezó antes del fin: si no, no hay turno que cerrar.
         var finTurno = FinTurno(turno, entrada.Fecha);
 
+        // La operación rotativa puede recuperar a la salida hasta la tolerancia configurada.
+        // Esos minutos completan jornada ordinaria: no pueden desaparecer por el umbral de
+        // HE ni volver a pagarse como sobretiempo.
+        var retrasoBruto = Math.Max(0, (int)(entradaReal - inicioTurno).TotalMinutes);
+        var colaReal = Math.Max(0, (int)(salidaReal - finTurno).TotalMinutes);
+        var minutosRecuperados = esRegimenRotativoSemanal
+            ? Math.Min(Math.Min(retrasoBruto, turno.MinutosTolerancia), colaReal)
+            : 0;
+
         var salidaEnGracia = salidaReal > finTurno
                              && salidaReal <= finTurno.AddMinutes(turno.MinutosGraciaSalida)
-                             && inicioComputo < finTurno;
+                             && inicioComputo < finTurno
+                             && minutosRecuperados == 0;
 
         var finComputo = salidaEnGracia ? finTurno : salidaReal;
         var minutosEnGracia = salidaEnGracia ? (int)(salidaReal - finTurno).TotalMinutes : 0;
@@ -1124,15 +1180,16 @@ public static class CalculadoraTareo
 
         if (!salidaEnGracia
             && tipoDiaNoLaborable == TipoDiaNoLaborable.Ninguno
-            && entrada.Fecha.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)
+            && (esRegimenRotativoSemanal
+                || entrada.Fecha.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
             && salidaReal > finTurno
             && inicioComputo < finTurno)
         {
-            var exceso = (int)(salidaReal - finTurno).TotalMinutes;
+            var exceso = Math.Max(0, (int)(salidaReal - finTurno).TotalMinutes - minutosRecuperados);
 
             if (exceso < UmbralSobretiempoMinutos)
             {
-                finComputo = finTurno;
+                finComputo = finTurno.AddMinutes(minutosRecuperados);
                 minutosBajoUmbral = exceso;
             }
         }
@@ -1151,11 +1208,12 @@ public static class CalculadoraTareo
         var trabajados = Math.Max(0, brutos - turno.MinutosRefrigerio);
 
         var (ordinarios, extras, reparto) = Repartir(
-            entrada.Fecha, turno, inicioComputo, finComputo, trabajados, tipoDiaNoLaborable);
+            entrada.Fecha, turno, inicioComputo, finComputo, trabajados,
+            tipoDiaNoLaborable, esRegimenRotativoSemanal);
         var extra25 = Math.Min(extras, MinutosExtraAlVeinticinco);
         var extra35 = extras - extra25;
 
-        var tardanza = CalcularTardanza(entradaReal, inicioTurno);
+        var tardanza = CalcularTardanza(entradaReal, inicioTurno, minutosRecuperados);
         var salidaAnticipada = CalcularSalidaAnticipada(salidaReal, turno, entrada.Fecha);
         var nocturnos = MinutosEnFranjaNocturna(inicioComputo, finComputo);
 
@@ -1163,7 +1221,9 @@ public static class CalculadoraTareo
         // sábado, en cambio, empieza con la jornada y termina al entrar al domingo: desde
         // las 00:00 el remanente es HE100. Los intervalos exactos mantienen correcto el
         // solape 25/35 con la franja nocturna sin sumar minutos físicos.
-        var extrasEmpiezanConLaJornada = entrada.Fecha.DayOfWeek == DayOfWeek.Saturday;
+        var extrasEmpiezanConLaJornada =
+            entrada.Fecha.DayOfWeek == DayOfWeek.Saturday
+            && !esRegimenRotativoSemanal;
         var inicioExtras = extrasEmpiezanConLaJornada
             ? inicioComputo
             : finComputo.AddMinutes(-extras);
@@ -1196,8 +1256,8 @@ public static class CalculadoraTareo
             Estado = estado,
             Observacion = Describir(
                 etiqueta, entradaReal, salidaReal, trabajados, extras, tardanza,
-                salidaAnticipada, nocturnos, entradaReal < inicioTurno, minutosEnGracia, intermedias,
-                reparto, minutosBajoUmbral)
+                minutosRecuperados, salidaAnticipada, nocturnos, entradaReal < inicioTurno,
+                minutosEnGracia, intermedias, reparto, minutosBajoUmbral)
         };
     }
 
@@ -1207,12 +1267,14 @@ public static class CalculadoraTareo
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
-    ///   <item>Domingo: ni ordinarios ni 25/35; todo lo trabajado es el 100 % del día no
-    ///   laborable.</item>
+    ///   <item>Régimen rotativo semanal: el día programado es ordinario también en sábado
+    ///   y domingo, hasta <see cref="Turno.MinutosJornadaOrdinaria"/>.</item>
+    ///   <item>Domingo legacy: ni ordinarios ni 25/35; todo lo trabajado es el 100 % del
+    ///   día no laborable.</item>
     ///   <item>Feriado o descanso de otro día: comportamiento vigente, sin cambios.</item>
     ///   <item>Sábado laborable: todo minuto anterior al domingo es sobretiempo (25 % las
     ///   dos primeras horas); desde domingo 00:00 el remanente es HE100.</item>
-    ///   <item>Lunes a viernes: ordinario hasta el fin teórico del turno (DIU 17:22, NOC
+    ///   <item>Lunes a viernes legacy: ordinario hasta el fin teórico del turno (DIU 17:22, NOC
     ///   05:22 del día siguiente) y sobretiempo después, ya filtrado por el umbral de 15 min.
     ///   Llegar tarde no corre el corte; llegar antes no suma (el cómputo ya empieza en la
     ///   hora del turno). <see cref="Turno.MinutosJornadaOrdinaria"/> no interviene.</item>
@@ -1226,9 +1288,10 @@ public static class CalculadoraTareo
         DateTime inicioComputo,
         DateTime finComputo,
         int trabajados,
-        TipoDiaNoLaborable tipoDiaNoLaborable)
+        TipoDiaNoLaborable tipoDiaNoLaborable,
+        bool esTrabajoProgramadoEnRotacion)
     {
-        if (fecha.DayOfWeek == DayOfWeek.Sunday)
+        if (fecha.DayOfWeek == DayOfWeek.Sunday && !esTrabajoProgramadoEnRotacion)
         {
             return (0, 0, "domingo: todo el tiempo trabajado va al 100 %");
         }
@@ -1239,7 +1302,17 @@ public static class CalculadoraTareo
             return (ordinariosNoLaborable, trabajados - ordinariosNoLaborable, null);
         }
 
-        if (fecha.DayOfWeek == DayOfWeek.Saturday)
+        // En una rotación explícita el día programado es ordinario con independencia del
+        // nombre del día. La jornada configurada es además el límite físico: en los turnos
+        // Hotel de 540 min con 60 de refrigerio, los primeros 480 son ordinarios y la cola
+        // reconocida se evalúa como sobretiempo.
+        if (esTrabajoProgramadoEnRotacion)
+        {
+            var ordinariosRotacion = Math.Min(trabajados, turno.MinutosJornadaOrdinaria);
+            return (ordinariosRotacion, trabajados - ordinariosRotacion, null);
+        }
+
+        if (fecha.DayOfWeek == DayOfWeek.Saturday && !esTrabajoProgramadoEnRotacion)
         {
             var inicioDomingo = fecha.AddDays(1).ToDateTime(TimeOnly.MinValue);
             var finTramoSabado = finComputo < inicioDomingo ? finComputo : inicioDomingo;
@@ -1272,14 +1345,21 @@ public static class CalculadoraTareo
             : fecha.ToDateTime(turno.HoraFin);
 
     /// <summary>
-    /// Minutos de tardanza de planilla, contados desde el inicio teórico del turno.
+    /// Minutos de tardanza de planilla, contados desde el inicio teórico del turno y
+    /// descontando la recuperación explícitamente reconocida.
     /// </summary>
     /// <remarks>
-    /// La regla de planilla tiene tolerancia cero. <see cref="Turno.MinutosTolerancia"/>
-    /// permanece como configuración histórica, pero no modifica este cálculo.
+    /// La regla legacy conserva tolerancia cero. Solo una jornada declarada como trabajo
+    /// de rotación puede aportar minutos recuperados, ya limitados por
+    /// <see cref="Turno.MinutosTolerancia"/> y por la permanencia real a la salida.
     /// </remarks>
-    private static int CalcularTardanza(DateTime entradaReal, DateTime inicioTurno) =>
-        entradaReal <= inicioTurno ? 0 : (int)(entradaReal - inicioTurno).TotalMinutes;
+    private static int CalcularTardanza(
+        DateTime entradaReal,
+        DateTime inicioTurno,
+        int minutosRecuperados) =>
+        entradaReal <= inicioTurno
+            ? 0
+            : Math.Max(0, (int)(entradaReal - inicioTurno).TotalMinutes - minutosRecuperados);
 
     private static int CalcularSalidaAnticipada(DateTime salidaReal, Turno turno, DateOnly fecha)
     {
@@ -1427,6 +1507,7 @@ public static class CalculadoraTareo
         int trabajados,
         int extras,
         int tardanza,
+        int minutosRecuperados,
         int salidaAnticipada,
         int nocturnos,
         bool llegoAntes,
@@ -1462,6 +1543,12 @@ public static class CalculadoraTareo
         if (tardanza > 0)
         {
             partes.Add($"tardanza de {tardanza} min");
+        }
+
+        if (minutosRecuperados > 0)
+        {
+            partes.Add(
+                $"recuperó {minutosRecuperados} min de tardanza permaneciendo después del fin del turno");
         }
 
         if (salidaAnticipada > 0)

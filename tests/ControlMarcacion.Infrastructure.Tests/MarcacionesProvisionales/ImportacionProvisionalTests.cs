@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using ControlMarcacion.Application.Marcaciones;
 using ControlMarcacion.Application.Marcaciones.Dto;
 using ControlMarcacion.Domain.Catalogos;
@@ -262,6 +263,89 @@ public sealed class ImportacionProvisionalTests : IDisposable
 
         var enBase = await _contexto.MarcacionesProvisionales.CountAsync();
         enBase.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task PMV004_01_el_flujo_provisional_no_escribe_ni_expone_conceptos_del_motor_oficial()
+    {
+        var importacionesOficialesAntes = await _contexto.Importaciones.CountAsync();
+        var erroresOficialesAntes = await _contexto.ErroresImportacion.CountAsync();
+        var marcacionesCrudasAntes = await _contexto.MarcacionesCrudas.CountAsync();
+        var tareosAntes = await _contexto.TareosDiarios.CountAsync();
+        var periodosLaboralesAntes = await _contexto.PeriodosLaborales.CountAsync();
+
+        ConfigurarFuente(
+            new MarcacionLeida("PMV-404", Marca1, null, null, 1, "entrada provisional"),
+            new MarcacionLeida("PMV-404", Marca2, null, null, 2, "salida provisional"));
+
+        var carga = await _servicio.ImportarAsync(
+            FlujoVacio(),
+            "pmv004.dat",
+            _equipoId,
+            "coordinador");
+
+        var consulta = new ServicioConsultaMarcacionProvisional(
+            _contexto,
+            new AlcanceSinRestriccion());
+        var resultado = await consulta.ConsultarAsync(
+            _equipoId,
+            DateOnly.FromDateTime(Marca1),
+            DateOnly.FromDateTime(Marca1));
+
+        var exportador = new ExportadorMarcacionesProvisionales();
+        var archivo = exportador.Exportar(
+            resultado.Jornadas,
+            "DET-AL - Detergentes A-L",
+            DateOnly.FromDateTime(Marca1),
+            DateOnly.FromDateTime(Marca1),
+            "coordinador");
+
+        carga.FilasInsertadas.ShouldBe(2);
+        carga.FilasRechazadas.ShouldBe(0);
+        resultado.Jornadas.ShouldHaveSingleItem().IdMarcador.ShouldBe("PMV-404");
+
+        (await _contexto.ImportacionesProvisionales.CountAsync()).ShouldBe(1);
+        (await _contexto.MarcacionesProvisionales.CountAsync()).ShouldBe(2);
+        (await _contexto.ErroresImportacionProvisional.CountAsync()).ShouldBe(0);
+
+        (await _contexto.Importaciones.CountAsync()).ShouldBe(importacionesOficialesAntes);
+        (await _contexto.ErroresImportacion.CountAsync()).ShouldBe(erroresOficialesAntes);
+        (await _contexto.MarcacionesCrudas.CountAsync()).ShouldBe(marcacionesCrudasAntes);
+        (await _contexto.TareosDiarios.CountAsync()).ShouldBe(tareosAntes);
+        (await _contexto.PeriodosLaborales.CountAsync()).ShouldBe(periodosLaboralesAntes);
+
+        using var libro = new XLWorkbook(new MemoryStream(archivo));
+        var hoja = libro.Worksheet("Marcaciones");
+        var encabezados = Enumerable.Range(1, 13)
+            .Select(columna => hoja.Cell(1, columna).GetString())
+            .ToList();
+
+        encabezados.ShouldBe([
+            "Fecha",
+            "ID marcador",
+            "DNI",
+            "Apellido paterno",
+            "Apellido materno",
+            "Nombres",
+            "Hora ingreso",
+            "Hora salida",
+            "Turno",
+            "Unidad",
+            "Área",
+            "Centro de costo",
+            "Observación"
+        ]);
+        hoja.Cell(1, 14).IsEmpty().ShouldBeTrue();
+
+        foreach (var conceptoOficial in new[]
+                 {
+                     "Tardanza", "Salida anticipada", "Horas ordinarias", "HE 25%",
+                     "HE 35%", "HE 100%", "Nocturnidad", "Incidencia", "Feriado",
+                     "Remuneración", "Pago"
+                 })
+        {
+            encabezados.ShouldNotContain(conceptoOficial);
+        }
     }
 
     private int _llamadaHash;

@@ -97,8 +97,8 @@ public sealed class MarcacionesController(
         if (plantaId <= 0 || equipoId <= 0)
         {
             TempData["Error"] =
-                "Indique la planta y el marcador del que se extrajo el archivo. " +
-                "Sin ese dato las marcaciones no se pueden atribuir: en una planta con dos " +
+                "Indique la unidad y el marcador del que se extrajo el archivo. " +
+                "Sin ese dato las marcaciones no se pueden atribuir: en una unidad con dos " +
                 "equipos, el mismo código identifica a dos personas distintas.";
             return RedirectToAction(nameof(Index), new { anio, mes });
         }

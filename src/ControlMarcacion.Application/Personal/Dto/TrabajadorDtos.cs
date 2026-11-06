@@ -149,7 +149,7 @@ public sealed record GuardarTrabajadorRequest
     [Required(ErrorMessage = "Seleccione el tipo de planilla.")]
     public TipoPlanilla TipoPlanilla { get; init; }
 
-    [Required(ErrorMessage = "Seleccione la planta.")]
+    [Required(ErrorMessage = "Seleccione la unidad.")]
     public long PlantaId { get; init; }
 
     /// <summary>

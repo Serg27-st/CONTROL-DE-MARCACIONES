@@ -95,7 +95,7 @@ internal sealed class ServicioFeriados(
             throw new ReglaNegocioException(
                 solicitud.PlantaId is null
                     ? $"Ya hay un feriado nacional cargado el {fecha:dd/MM/yyyy}."
-                    : $"Esa planta ya tiene un feriado cargado el {fecha:dd/MM/yyyy}.");
+                    : $"Esa unidad ya tiene un feriado cargado el {fecha:dd/MM/yyyy}.");
         }
 
         // Un feriado de planta sobre un día que ya es nacional no aporta nada —ese día no
@@ -105,7 +105,7 @@ internal sealed class ServicioFeriados(
         {
             throw new ReglaNegocioException(
                 $"El {fecha:dd/MM/yyyy} ya es feriado nacional, así que aplica a todas las " +
-                "plantas. No hace falta cargarlo otra vez para una en particular.");
+                "unidades. No hace falta cargarlo otra vez para una en particular.");
         }
 
         if (solicitud.Id is not { } id)

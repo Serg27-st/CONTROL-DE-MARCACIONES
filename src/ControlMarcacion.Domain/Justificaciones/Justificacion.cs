@@ -129,9 +129,9 @@ public class Justificacion : EntidadBase
     /// escritura no encuentra a quién actualizar.
     /// </para>
     /// <para>
-    /// Hoy es inerte —una justificación se crea y se retira, nunca se modifica— y se pone
-    /// ahora porque el ciclo de aprobación es justamente lo que introduce la carrera: dos
-    /// personas resolviendo la misma regularización, una aprobándola y otra rechazándola.
+    /// Protege tanto el ciclo de aprobación como la anulación de una solicitud: dos
+    /// decisiones concurrentes no pueden sobrescribir el estado ni la evidencia de quién
+    /// resolvió la justificación.
     /// </para>
     /// </remarks>
     public int Version { get; set; }
@@ -170,13 +170,13 @@ public enum EstadoJustificacion
     Rechazada = 4,
 
     /// <summary>
-    /// Retirada por quien la pidió, antes de que nadie la resolviera.
+    /// Retirada antes de aplicar o anulada después junto con la solicitud que la originó.
     /// </summary>
     /// <remarks>
-    /// Es la salida para el caso corriente: quien registró la regularización se da cuenta de
-    /// que la hora estaba mal antes de que el coordinador la mire. Se conserva la fila —el
-    /// intento también es historia— y el día queda libre para volver a pedirla, porque el
-    /// índice único filtrado no cuenta las canceladas.
+    /// Es la salida para dos casos: quien registró una regularización se retira antes de que
+    /// el coordinador la resuelva, o se anula una solicitud ya aprobada. En ambos se conserva
+    /// la fila —la decisión también es historia— y el día queda libre para volver a usarlo,
+    /// porque el índice único filtrado no cuenta las canceladas.
     /// </remarks>
     Cancelada = 5
 }

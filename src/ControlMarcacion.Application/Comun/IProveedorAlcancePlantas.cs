@@ -6,8 +6,10 @@ namespace ControlMarcacion.Application.Comun;
 /// </summary>
 /// <remarks>
 /// Un <c>ADMINISTRADOR</c> solo ve los trabajadores de las plantas que gestiona
-/// (<c>UsuarioPlanta</c>). COORDINADOR, GERENCIA, TRABAJADOR_SOCIAL y los procesos sin sesión
-/// (siembra, arranque, herramientas de EF) no tienen restricción: ven todo.
+/// (<c>UsuarioPlanta</c>). Un <c>COORDINADOR</c> con filas en <c>UsuarioPlanta</c> también queda
+/// restringido a ellas; sin filas conserva el acceso global autorizado para el rol superior.
+/// GERENCIA, TRABAJADOR_SOCIAL y los procesos sin sesión (siembra, arranque, herramientas de EF)
+/// no usan un alcance operativo restringido.
 ///
 /// El filtro se aplica SIEMPRE en la consulta de <c>Application</c>, nunca ocultando botones
 /// ni enlaces: un rol que puede pedir el listado completo y recibir todo el padrón está roto
@@ -24,9 +26,9 @@ public interface IProveedorAlcancePlantas
     /// Ids de las plantas visibles, o <c>null</c> cuando no hay restricción (ve todo).
     /// </summary>
     /// <remarks>
-    /// Una colección <b>vacía</b> significa «no ve ninguna»: es el ADMINISTRADOR al que
-    /// todavía no se le asignó ninguna planta. Es fail-closed a propósito —no ver nada es la
-    /// lectura segura—; por eso el alta de un ADMINISTRADOR exige al menos una planta.
+    /// Una colección <b>vacía</b> significa «no ve ninguna». Es fail-closed a propósito —no ver
+    /// nada es la lectura segura—. <c>null</c> solo representa acceso global cuando el rol y la
+    /// configuración vigente lo autorizan expresamente.
     /// </remarks>
     Task<IReadOnlyCollection<long>?> PlantasVisiblesAsync(CancellationToken cancelacion = default);
 }

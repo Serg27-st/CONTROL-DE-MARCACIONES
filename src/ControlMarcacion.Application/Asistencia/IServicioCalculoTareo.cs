@@ -39,7 +39,9 @@ public sealed record TareoDiarioDto(
     EstadoTareo Estado,
     string? Observacion,
     TipoIncidencia? TipoIncidencia,
-    bool RequiereValidacion)
+    bool RequiereValidacion,
+    bool TieneDescansoSustitutorio,
+    DateOnly? FechaDescansoSustitutorio)
 {
     public bool EsDiaNoLaborable => TipoDiaNoLaborable != TipoDiaNoLaborable.Ninguno;
 }
@@ -158,6 +160,18 @@ public interface IServicioCalculoTareo
 {
     Task<ResultadoRecalculo> RecalcularPeriodoAsync(
         long periodoId,
+        string usuario,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Recalcula una única jornada después de aprobar una regularización puntual.
+    /// Conserva las mismas ventanas y reglas del cálculo del periodo, pero solo persiste
+    /// el día indicado del trabajador indicado.
+    /// </summary>
+    Task<ResultadoRecalculo> RecalcularJornadaAsync(
+        long periodoId,
+        long trabajadorId,
+        DateOnly fecha,
         string usuario,
         CancellationToken cancelacion = default);
 

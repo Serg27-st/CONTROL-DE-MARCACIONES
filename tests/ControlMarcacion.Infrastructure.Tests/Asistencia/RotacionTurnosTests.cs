@@ -491,6 +491,55 @@ public sealed class RotacionTurnosTests : IDisposable
     }
 
     [Fact]
+    public async Task El_servicio_conserva_como_ordinario_el_domingo_programado_como_trabajo()
+    {
+        var turnoHotel = new Turno
+        {
+            Codigo = "HOTEL",
+            Nombre = "Hotel diurno",
+            HoraInicio = new TimeOnly(7, 0),
+            HoraFin = new TimeOnly(16, 0),
+            MinutosRefrigerio = 60,
+            MinutosTolerancia = 10,
+            MinutosAnticipacionEntrada = 15,
+            MinutosAnticipacionSalida = 5,
+            MinutosJornadaOrdinaria = 480,
+            DiasAplicables = DiasSemana.Todos,
+            Activo = true,
+            CreadoPor = "test"
+        };
+        turnoHotel.Versiones.Add(
+            VersionTurno.De(turnoHotel, VersionTurno.VigenciaOriginal, "test"));
+        await contexto.Turnos.AddAsync(turnoHotel, CancellationToken.None);
+        await contexto.SaveChangesAsync(CancellationToken.None);
+
+        var cuadrilla = await CrearCuadrillaAsync();
+        var domingo = new DateOnly(2026, 7, 5);
+        await Cuadrillas().ProgramarAsync(
+            Ciclo(cuadrilla, domingo, (turnoHotel.Id, 1), (Nocturno, 1)),
+            "test",
+            CancellationToken.None);
+        var trabajador = await CrearEnCuadrillaAsync(cuadrilla);
+
+        await MarcarAsync(
+            trabajador,
+            domingo.ToDateTime(new TimeOnly(7, 8)),
+            domingo.ToDateTime(new TimeOnly(16, 8)));
+
+        await servicio.RecalcularPeriodoAsync(PeriodoJulio2026, "test", CancellationToken.None);
+
+        var tareo = await LeerAsync(trabajador, domingo);
+        tareo.TipoDiaNoLaborable.ShouldBe(TipoDiaNoLaborable.Ninguno);
+        tareo.MinutosTrabajados.ShouldBe(480);
+        tareo.MinutosOrdinarios.ShouldBe(480);
+        tareo.MinutosTardanza.ShouldBe(0);
+        tareo.MinutosExtra25.ShouldBe(0);
+        tareo.MinutosExtra35.ShouldBe(0);
+        tareo.Observacion.ShouldNotBeNull();
+        tareo.Observacion!.ShouldContain("recuperó 8 min");
+    }
+
+    [Fact]
     public async Task Una_cuadrilla_sin_ciclo_deja_el_dia_sin_horario_y_dice_por_que()
     {
         var cuadrilla = await CrearCuadrillaAsync();

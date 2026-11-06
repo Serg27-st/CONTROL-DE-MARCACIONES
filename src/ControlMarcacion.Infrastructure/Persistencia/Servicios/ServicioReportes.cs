@@ -386,7 +386,7 @@ internal sealed class ServicioReportes(
             var nombre = await contexto.Plantas.AsNoTracking()
                 .Where(p => p.Id == plantaId).Select(p => p.Nombre).FirstOrDefaultAsync(cancelacion)
                 .ConfigureAwait(false);
-            partesFiltro.Add($"Planta: {nombre}");
+            partesFiltro.Add($"Unidad: {nombre}");
         }
 
         if (filtro.CentroId is { } centroId)
@@ -699,6 +699,19 @@ internal sealed class ServicioReportes(
             .MaxAsync(f => (DateTime?)(f.ModificadoEn ?? f.CreadoEn), cancelacion)
             .ConfigureAwait(false);
 
+        // Crear o anular un descanso cambia tanto el día sustitutorio como la economía del
+        // feriado origen. Se incluyen anulados: ModificadoEn es el cambio que obliga a
+        // restaurar el cálculo ordinario del día.
+        var ultimoDescansoSustitutorio = await contexto.DescansosSustitutorios
+            .AsNoTracking()
+            .Where(d => idsDelAlcance.Contains(d.TrabajadorId)
+                        && ((d.FechaFeriadoOrigen >= rango.Desde
+                             && d.FechaFeriadoOrigen <= rango.Hasta)
+                            || (d.FechaDescanso >= rango.Desde
+                                && d.FechaDescanso <= rango.Hasta)))
+            .MaxAsync(d => (DateTime?)(d.ModificadoEn ?? d.CreadoEn), cancelacion)
+            .ConfigureAwait(false);
+
         // Un alta laboral dentro del alcance exige generar sus días; no tener aún filas de
         // tareo para esa persona no puede volver invisible el alta.
         var ultimoTrabajadorNuevo = await contexto.PeriodosLaborales
@@ -783,6 +796,7 @@ internal sealed class ServicioReportes(
             (ultimaProgramacion, "un cambio en la programación de una cuadrilla en esas fechas"),
             (ultimoTramoRotacion, "un cambio en el ciclo de una cuadrilla en esas fechas"),
             (ultimoFeriado, "un cambio de feriado que rige en esas fechas"),
+            (ultimoDescansoSustitutorio, "un descanso sustitutorio otorgado o anulado"),
             (ultimoTrabajadorNuevo, "un alta laboral que alcanza esas fechas"),
             (ultimoCambioVinculo, "un cambio de periodo laboral que alcanza esas fechas"),
             (ultimoCambioPlantaLaboral, "un cambio de planta histórica que alcanza esas fechas"),

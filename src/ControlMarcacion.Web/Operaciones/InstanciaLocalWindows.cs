@@ -14,11 +14,21 @@ internal sealed record EstadoInstanciaLocal(int Pid, int Puerto, DateTimeOffset 
 internal sealed class InstanciaLocalWindows : IDisposable
 {
     private readonly Mutex mutex;
+    private readonly ManualResetEventSlim solicitudLiberacion;
+    private readonly Thread hiloPropietario;
+    private readonly object sincronizacion = new();
     private bool propietaria;
+    private bool descartada;
 
-    private InstanciaLocalWindows(Mutex mutex, bool propietaria)
+    private InstanciaLocalWindows(
+        Mutex mutex,
+        ManualResetEventSlim solicitudLiberacion,
+        Thread hiloPropietario,
+        bool propietaria)
     {
         this.mutex = mutex;
+        this.solicitudLiberacion = solicitudLiberacion;
+        this.hiloPropietario = hiloPropietario;
         this.propietaria = propietaria;
     }
 
@@ -28,18 +38,47 @@ internal sealed class InstanciaLocalWindows : IDisposable
     {
         var huella = HuellaUsuario();
         var mutex = new Mutex(false, $"Local\\ControlMarcacion-{huella}");
+        using var adquisicionCompletada = new ManualResetEventSlim(false);
+        var solicitudLiberacion = new ManualResetEventSlim(false);
         var adquirida = false;
 
-        try
+        var hiloPropietario = new Thread(() =>
         {
-            adquirida = mutex.WaitOne(TimeSpan.Zero);
-        }
-        catch (AbandonedMutexException)
-        {
-            adquirida = true;
-        }
+            try
+            {
+                adquirida = mutex.WaitOne(TimeSpan.Zero);
+            }
+            catch (AbandonedMutexException)
+            {
+                adquirida = true;
+            }
+            finally
+            {
+                adquisicionCompletada.Set();
+            }
 
-        return new InstanciaLocalWindows(mutex, adquirida);
+            if (!adquirida)
+            {
+                return;
+            }
+
+            solicitudLiberacion.Wait();
+            // Mutex es afín al hilo: solo el hilo que obtuvo la propiedad puede liberarlo.
+            mutex.ReleaseMutex();
+        })
+        {
+            IsBackground = true,
+            Name = "ControlMarcacion-MutexOwner"
+        };
+
+        hiloPropietario.Start();
+        adquisicionCompletada.Wait();
+
+        return new InstanciaLocalWindows(
+            mutex,
+            solicitudLiberacion,
+            hiloPropietario,
+            adquirida);
     }
 
     public static string ResolverRutaEstado(
@@ -150,24 +189,37 @@ internal sealed class InstanciaLocalWindows : IDisposable
 
     public void LiberarParaRelanzar()
     {
-        if (!propietaria)
+        lock (sincronizacion)
         {
-            return;
+            LiberarPropiedad();
         }
-
-        mutex.ReleaseMutex();
-        propietaria = false;
     }
 
     public void Dispose()
     {
+        lock (sincronizacion)
+        {
+            if (descartada)
+            {
+                return;
+            }
+
+            LiberarPropiedad();
+            solicitudLiberacion.Dispose();
+            mutex.Dispose();
+            descartada = true;
+        }
+    }
+
+    private void LiberarPropiedad()
+    {
         if (propietaria)
         {
-            mutex.ReleaseMutex();
-            propietaria = false;
+            solicitudLiberacion.Set();
         }
 
-        mutex.Dispose();
+        hiloPropietario.Join();
+        propietaria = false;
     }
 
     private static string HuellaUsuario()

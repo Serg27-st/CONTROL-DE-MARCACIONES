@@ -29,7 +29,7 @@
     @if (Model.Cuadrillas.Count == 0)
     {
         <div class="sin-resultados">
-            No hay cuadrillas registradas. Cree una por cada grupo que rota junto en cada planta.
+            No hay cuadrillas registradas. Cree una por cada grupo que rota junto en cada unidad.
         </div>
     }
     else
@@ -40,7 +40,7 @@
                     <tr>
                         <th>Código</th>
                         <th>Nombre</th>
-                        <th>Planta</th>
+                        <th>Unidad</th>
                         <th>Integrantes</th>
                         <th>Ciclo</th>
                         <th>Hoy (@Model.Hoy.ToString("dd/MM"))</th>

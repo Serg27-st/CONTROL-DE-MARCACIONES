@@ -1,0 +1,345 @@
+
+--- PAGINA 1 ---
+
+
+--- PAGINA 2 ---
+GERENCIA
+Y ESTRATEGIA
+
+--- PAGINA 3 ---
+Criterios de evaluación
+
+
+--- PAGINA 4 ---
+
+
+--- PAGINA 5 ---
+Gerencia y Estrategia
+Unidad 3
+Formulación Estratégica
+
+--- PAGINA 6 ---
+Gerencia y Estrategia
+Semana 9 - Sesión 1
+Niveles de estrategia: corporativa,
+competitiva y funcional.
+
+--- PAGINA 7 ---
+Logro de aprendizaje
+Al finalizar esta sesión, el estudiante será capaz de diferenciar, 
+analizar y aplicar los tres niveles jerárquicos de estrategia 
+empresarial (corporativa, competitiva y funcional), 
+comprendiendo la naturaleza distintiva de cada nivel, sus 
+interrelaciones sistémicas y su contribución específica al logro 
+de ventajas competitivas sostenibles.
+
+--- PAGINA 8 ---
+¿Algunas dudas sobre la sesión anterior?
+
+
+--- PAGINA 9 ---
+Conocimientos previos
+¿Consideran que una empresa con múltiples líneas de 
+negocio requiere el mismo tipo de estrategia que una 
+empresa enfocada en un solo producto o servicio, y por qué?
+
+--- PAGINA 10 ---
+Utilidad
+Esta sesión constituye un componente fundamental en la 
+formación estratégica del futuro profesional, proporcionando el 
+marco conceptual necesario para comprender que las 
+organizaciones operan simultáneamente en múltiples niveles 
+estratégicos interdependientes.
+
+--- PAGINA 11 ---
+
+
+--- PAGINA 12 ---
+Jerarquía Estratégica
+
+--- PAGINA 13 ---
+Jerarquía Estratégica
+1. Concepto
+La jerarquía estratégica representa la estructura multinivel en la cual las organizaciones formulan, implementan y
+controlan sus estrategias empresariales. Esta estructura reconoce que diferentes niveles organizacionales requieren
+diferentes tipos de decisiones estratégicas con horizontes temporales, alcances y objetivos distintivos.
+Pirámide Estratégica Organizacional:
+Nivel Superior (Corporativo): Decisiones sobre el portafolio de negocios
+Nivel Intermedio (Competitivo): Decisiones sobre cómo competir en cada negocio
+Nivel Operacional (Funcional): Decisiones sobre cómo ejecutar efectivamente
+Ejemplo: Cuando Alphabet Inc. (matriz de Google) decide invertir en vehículos autónomos mediante Waymo
+(decisión corporativa), luego Waymo debe decidir si competir en taxis autónomos o entregas (decisión competitiva), y
+finalmente el departamento de operaciones de Waymo debe optimizar rutas y mantenimiento de flota (decisión
+funcional). Cada nivel tiene naturaleza estratégica diferente pero deben estar perfectamente alineados.
+
+--- PAGINA 14 ---
+Jerarquía Estratégica
+2. Importancia de la Alineación Vertical
+La alineación vertical entre niveles estratégicos resulta crítica para el éxito organizacional. La falta de coherencia entre
+niveles genera desperdicio de recursos, confusión organizacional y resultados subóptimos.
+Consecuencias de desalineación:
+o Conflicto entre objetivos de diferentes niveles
+o Asignación ineficiente de recursos organizacionales
+o Desmotivación del personal por señales contradictorias
+o Pérdida de oportunidades de sinergia entre unidades
+Caso de desalineación: Sears Holdings en 2010s mantenía estrategia corporativa de diversificación retail mientras sus
+unidades de negocio competían por precio bajo, pero las áreas funcionales invertían en servicios premium,
+generando inconsistencia que contribuyó a la bancarrota en 2018.
+
+--- PAGINA 15 ---
+Estrategia Corporativa
+
+--- PAGINA 16 ---
+Estrategia Corporativa
+1. Definición y Alcance
+La estrategia corporativa se formula al nivel más alto de la organización y se enfoca en decisiones sobre el portafolio 
+de negocios: en qué industrias competir, cómo asignar recursos entre unidades de negocio, cómo gestionar el 
+portafolio corporativo y cómo crear valor más allá de la suma de las partes individuales.
+Preguntas fundamentales de estrategia corporativa:
+o ¿En qué negocios debemos participar?
+o ¿Cómo podemos crear valor entre nuestros negocios?
+o ¿Cómo asignamos recursos entre las unidades?
+o ¿Cuándo entrar o salir de industrias específicas?
+
+--- PAGINA 17 ---
+Estrategia Corporativa
+2. Decisiones Clave de Estrategia Corporativa
+Decisión 1: Alcance del Portafolio
+Determinar la amplitud y diversidad de negocios en los cuales la corporación participará.
+Tipos de alcance corporativo:
+o Integración Vertical: Participación en diferentes etapas de la cadena de valor de la misma industria.
+o Diversificación Relacionada: Expansión hacia negocios con sinergias operativas, tecnológicas o de 
+mercado con el negocio original.
+o Diversificación No Relacionada (Conglomerado): Participación en negocios sin relación operativa, 
+buscando diversificación financiera.
+Decisión 2: Modo de Entrada y Salida
+o Crecimiento Orgánico: Desarrollo interno de nuevos negocios utilizando capacidades existentes.
+o Adquisiciones: Compra de empresas existentes para acceso rápido a mercados, tecnologías o 
+capacidades.
+o Alianzas Estratégicas: Colaboración con otras empresas manteniendo independencia legal.
+o Desinversiones: Venta o cierre de negocios que no crean valor o no se alinean con dirección estratégica.
+
+--- PAGINA 18 ---
+Estrategia Corporativa
+3. Creación de Valor Corporativo
+La estrategia corporativa debe justificar su existencia creando más valor que si las unidades operaran
+independientemente.
+Mecanismos de creación de valor corporativo:
+a. Economías de Alcance: Reducción de costos por compartir recursos entre unidades de negocio.
+ Ejemplo Procter & Gamble: Comparte infraestructura I+D, cadena suministro y canales distribución entre 65
+marcas (Tide, Pampers, Gillette), generando economías que unidades independientes no lograrían.
+b. Transferencia de Capacidades: Movimiento de conocimientos y competencias entre unidades para mejorar
+desempeño.
+ Ejemplo LVMH: Transfiere expertise en luxury branding, retail experience y craftsmanship entre 75 marcas
+(Louis Vuitton, Dior, Moët), elevando posicionamiento y márgenes de adquisiciones recientes.
+c. Gestión de Portafolio: Asignación óptima de recursos financieros entre unidades según potencial retorno.
+ Ejemplo Alphabet: Asigna recursos masivos a Google (core business) generando cash flow, mientras financia
+apuestas estratégicas en Waymo, Verily y DeepMind con pérdidas actuales pero potencial transformacional
+futuro.
+
+--- PAGINA 19 ---
+Estrategia Competitiva
+
+--- PAGINA 20 ---
+Estrategia Competitiva
+1. Definición y Alcance
+La estrategia competitiva, también conocida como estrategia de negocio o estrategia de unidad estratégica de
+negocio (UEN), se enfoca en cómo competir exitosamente dentro de una industria o mercado específico para lograr
+ventaja competitiva sostenible frente a rivales.
+Preguntas fundamentales de estrategia competitiva:
+o ¿Cómo creamos valor superior para nuestros clientes?
+o ¿Cómo nos diferenciamos de competidores?
+o ¿Qué segmentos de mercado son más atractivos?
+o ¿Cómo defendemos nuestra posición competitiva?
+2. Estrategias Genéricas de Porter
+Michael Porter identificó tres estrategias genéricas fundamentales que las empresas pueden adoptar para lograr
+ventaja competitiva sostenible.
+a. Estrategia 1: Liderazgo en Costos
+Lograr los costos de producción y operación más bajos de la industria, permitiendo ofrecer precios competitivos
+mientras mantiene márgenes aceptables.
+
+--- PAGINA 21 ---
+Estrategia Competitiva
+b. Estrategia 2: Diferenciación
+Crear productos o servicios percibidos como únicos en la industria, permitiendo establecer precios
+premium que excedan los costos adicionales de diferenciación.
+Bases de diferenciación:
+o Calidad superior del producto o servicio
+o Innovación y características únicas
+o Marca y reputación
+o Servicio al cliente excepcional
+o Diseño y estética distintiva
+o Tecnología propietaria
+Ejemplo Apple: Estrategia diferenciación basada en: diseño industrial superior (estética premium,
+materiales high-end), ecosistema integrado hardware-software-servicios, experiencia usuario excepcional,
+innovación consistente, marca aspiracional, permitiendo precios premium 30-50% superiores a
+competidores con márgenes brutos 40%+.
+
+--- PAGINA 22 ---
+Estrategia Competitiva
+c. Estrategia 3: Enfoque (Nichos)
+Concentrarse en un segmento específico de mercado (geográfico, grupo clientes, línea productos) y servir ese
+nicho mejor que competidores que operan más ampliamente.
+Tipos de enfoque:
+o Enfoque en costos: Ser líder costos en segmento específico
+o Enfoque en diferenciación: Ofrecer diferenciación única para segmento específico
+Ejemplo Rolls-Royce Motor Cars: Enfoque diferenciación extrema para ultra-ricos (segmento <0.01%
+población), producción limitada (<5,000 unidades/año), personalización extrema (bespoke customization),
+artesanía hand-crafted, precios $300,000-$500,000+, márgenes estimados 25-30%, posición inexpugnable
+en segmento ultra-luxury.
+Ejemplo Southwest Airlines: Enfoque costos para viajeros sensibles precio en rutas cortas punto-a-punto,
+flota única Boeing 737 (reduce costos mantenimiento/entrenamiento), sin servicios complementarios,
+aeropuertos secundarios, turnaround rápido 25 minutos, resultando en costos operación 30% menores que
+legacy carriers con rentabilidad consistente 48 años consecutivos.
+
+--- PAGINA 23 ---
+Estrategia Funcional
+
+--- PAGINA 24 ---
+Estrategia Funcional
+1. Definición y Alcance: Las estrategias funcionales son desarrolladas por las áreas funcionales específicas (marketing,
+finanzas, operaciones, recursos humanos, I+D) para apoyar la estrategia competitiva de la unidad de negocio y la
+estrategia corporativa general.
+Preguntas fundamentales de estrategia funcional:
+o ¿Cómo contribuye nuestra función al logro de ventaja competitiva?
+o ¿Qué capacidades funcionales específicas necesitamos desarrollar?
+o ¿Cómo optimizamos procesos para eficiencia y efectividad?
+o ¿Cómo nos coordinamos con otras funciones?
+2. Estrategias Funcionales Principales
+a. Estrategia de Marketing: Define cómo la organización atraerá, retendrá y desarrollará clientes alineándose con
+el posicionamiento competitivo.
+Componentes estrategia marketing:
+o Segmentación y targeting de mercados
+o Posicionamiento y propuesta de valor
+o Mezcla de marketing (producto, precio, plaza, promoción)
+o Gestión de marca y reputación
+o Customer relationship management
+
+--- PAGINA 25 ---
+Estrategia Funcional
+b. Estrategia de Operaciones
+Define cómo la organización producirá y entregará productos/servicios eficientemente mientras mantiene
+calidad.
+Componentes estrategia operaciones:
+o Diseño de procesos productivos
+o Gestión de capacidad y tecnología
+o Gestión de cadena de suministro
+o Control de calidad y mejora continua
+o Logística y distribución
+c. Estrategia de Recursos Humanos
+Define cómo la organización atraerá, desarrollará y retendrá talento necesario para ejecutar estrategias
+competitivas.
+Componentes estrategia RRHH:
+o Reclutamiento y selección estratégica
+o Desarrollo y capacitación continua
+o Sistemas de compensación y beneficios
+o Cultura organizacional y engagement
+o Gestión de desempeño
+
+--- PAGINA 26 ---
+Estrategia Funcional
+d. Estrategia Financiera:
+Define cómo la organización gestionará recursos financieros, estructura capital y creación valor accionistas.
+Componentes estrategia financiera:
+o Estructura de capital óptima
+o Políticas de dividendos e inversión
+o Gestión de riesgos financieros
+o Presupuestación y control financiero
+o Relaciones con inversionistas
+e. Estrategia de Investigación y Desarrollo
+Define cómo la organización innovará en productos, servicios y procesos para mantener competitividad.
+Componentes estrategia I+D:
+o Portfolio de proyectos innovación
+o Equilibrio investigación básica versus desarrollo aplicado
+o Colaboraciones externas y open innovation
+o Protección propiedad intelectual
+
+--- PAGINA 27 ---
+Integración y alineación de niveles
+
+--- PAGINA 28 ---
+Integración y alineación de niveles
+1. Modelo de Alineación Vertical
+La efectividad estratégica requiere coherencia vertical donde cada nivel refuerza y posibilita los otros niveles.
+Flujo de alineación:
+o Estrategia Corporativa define dirección general y portafolio
+o Estrategia Competitiva traduce dirección en posicionamiento específico por negocio
+o Estrategia Funcional ejecuta acciones operacionales que materializan posicionamiento
+Mecanismos de alineación:
+o Cascada de objetivos desde corporativo hasta funcional
+o Sistemas de medición alineados (KPIs por nivel)
+o Procesos de presupuestación integrados
+o Comunicación estratégica consistente
+o Revisiones estratégicas periódicas multi-nivel
+
+--- PAGINA 29 ---
+Integración y alineación de niveles
+2. Caso Integrado: Unilever
+Nivel Corporativo - Unilever: Estrategia corporativa "Sustainable Living Plan" enfocada en portafolio marcas
+sostenibles categorías hogar, cuidado personal y alimentos.
+Nivel Competitivo - Dove (Unilever): Estrategia competitiva diferenciación basada en "Real Beauty"
+posicionamiento autenticidad y autoestima, targeting mujeres 25-54 años, premium-medio precio.
+Nivel Funcional - Dove Marketing: Campaña "Real Beauty Sketches" con mujeres reales (no modelos), contenido
+viral emocional, redes sociales intensivo, partnerships organizaciones autoestima, resultando en crecimiento
+ventas de $2.5 billones a $4+ billones en década.
+Alineación vertical: Compromiso sostenibilidad corporativo → Diferenciación autenticidad competitivo →
+Ejecución marketing emocional funcional, genera coherencia que multiplica efectividad.
+
+--- PAGINA 30 ---
+
+
+--- PAGINA 31 ---
+Caso: Análisis teórico de niveles estratégicos
+Instrucciones: Analice la siguiente situación empresarial e identifique las decisiones estratégicas correspondientes a cada
+nivel jerárquico.
+Situación: Samsung Electronics es un conglomerado surcoreano que opera en múltiples industrias tecnológicas. A
+continuación se presentan diversas decisiones estratégicas recientes y distinga su clasificación según su nivel estratégico:
+Decisiones de Samsung:
+A. Invertir $205 billones en nueva planta semiconductores en Texaspara expandir capacidad producción chips avanzados
+B. Desarrollar Galaxy Z Fold como smartphone premium plegable para competir en segmento ultra-high-end contra
+Apple iPhone Pro
+C. Posicionar línea Galaxy A como opción calidad-precio para mercados emergentes compitiendo contra Xiaomi y Realme
+D. Establecer Samsung Research centros I+D en Silicon Valley,Cambridge y Bangalore para acceso talento global
+E. Desinvertir negocio impresoras y copiadoras vendiendo división a HP Inc. por $1 billón
+F. Lanzar programa "Samsung Care+" servicio garantía extendida y soporte técnico para aumentar customer lifetime
+value
+
+--- PAGINA 32 ---
+Solución:
+A. Invertir $205 billones en nueva planta semiconductores en Texas para expandir capacidad producción chips
+avanzados (Corporativa)
+B. Desarrollar Galaxy Z Fold como smartphone premium plegable para competir en segmento ultra-high-end contra
+Apple iPhone Pro (Competitiva)
+C. Posicionar línea Galaxy A como opción calidad-precio para mercados emergentes compitiendo contra Xiaomi y
+Realme (Competitiva)
+D. Establecer Samsung Research centros I+D en Silicon Valley, Cambridge y Bangalore para acceso talento global
+(Funcional)
+E. Desinvertir negocio impresoras y copiadoras vendiendo división a HP Inc. por $1 billón (Corporativa)
+F. Lanzar programa "Samsung Care+" servicio garantía extendida y soporte técnico para aumentar customer lifetime
+value (Funcional)
+Caso: Análisis teórico de niveles estratégicos
+
+--- PAGINA 33 ---
+
+
+--- PAGINA 34 ---
+¿ Qué hemos aprendido en la sesión de hoy?
+
+--- PAGINA 35 ---
+Conclusiones
+1. Los tres niveles estratégicos (corporativo, competitivo y funcional) son interdependientes y requieren
+alineación vertical perfecta para que la organización logre sus objetivos y cree ventajas competitivas sostenibles.
+2. La estrategia corporativa define el portafolio de negocios y crea valor sinérgico entre unidades, requiriendo
+decisiones sobre diversificación, adquisiciones y asignación de recursos entre negocios.
+3. La estrategia competitiva determina cómo cada unidad de negocio compite mediante liderazgo en costos,
+diferenciación o enfoque, estableciendo el posicionamiento único en su mercado específico.
+4. Las estrategias funcionales traducen el posicionamiento competitivo en acciones operacionales concretas que
+cada área (marketing, operaciones, RRHH, finanzas, I+D) debe ejecutar para materializar la ventaja competitiva.
+5. La desalineación entre niveles estratégicos constituye la causa principal de fracaso en implementación
+estratégica, requiriendo sistemas de coordinación, comunicación y medición que aseguren coherencia
+organizacional integral.
+
+--- PAGINA 36 ---
+Muchas gracias!
+
+--- PAGINA 37 ---
